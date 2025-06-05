@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('country_code')->default('+962');
             $table->string('phone')->unique();
             $table->string('email')->nullable();
+            $table->string('password');
             $table->string('photo')->nullable();
             $table->text('fcm_token')->nullable();
             $table->double('balance')->default(0);

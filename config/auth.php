@@ -49,9 +49,9 @@ return [
             'provider' => 'users',
             'hash' => false,
         ],
-        'driver-api' => [
+        'provider-api' => [
         'driver' => 'passport', 
-        'provider' => 'drivers',
+        'provider' => 'providers',
         'hash' => false,
         ],
         'user' => [
@@ -86,9 +86,9 @@ return [
             'driver' => 'eloquent',
             'model' => App\Models\Admin::class,
         ],
-        'drivers' => [
+        'providers' => [
         'driver' => 'eloquent',
-        'model' => App\Models\Driver::class,
+        'model' => App\Models\Provider::class,
     ],
     ],
 

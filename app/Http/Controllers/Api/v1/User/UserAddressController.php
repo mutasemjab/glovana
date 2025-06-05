@@ -35,10 +35,10 @@ class UserAddressController extends Controller
         {
             $validator = Validator::make($request->all(), [
                 'user_id' => 'sometimes|exists:users,id',
-                'name' => 'required|string|max:255',
                 'address' => 'nullable',
                 'lat' => 'required|numeric',
                 'lng' => 'required|numeric',
+                'delivery_id' => 'required',
             ]);
 
             if ($validator->fails()) {
@@ -90,10 +90,10 @@ class UserAddressController extends Controller
             }
 
             $validator = Validator::make($request->all(), [
-                'name' => 'sometimes|string|max:255',
                 'address' => 'nullable',
                 'lat' => 'sometimes|numeric',
                 'lng' => 'sometimes|numeric',
+                'delivery_id' => 'required',
             ]);
 
             if ($validator->fails()) {

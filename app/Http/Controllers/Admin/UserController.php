@@ -45,6 +45,7 @@ class UserController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'phone' => 'required|string|unique:users',
+             'password' => 'required',
             'email' => 'nullable|email|unique:users',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'fcm_token' => 'nullable|string',
@@ -71,7 +72,9 @@ class UserController extends Controller
         if ($request->has('photo')) {
                 $the_file_path = uploadImage('assets/admin/uploads', $request->photo);
                  $userData['photo'] = $the_file_path;
-             }
+        }
+
+        $userData['password'] = Hash::make($request->password);
 
         User::create($userData);
 
@@ -119,6 +122,7 @@ class UserController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
+            'password' => 'nullable',
             'phone' => 'sometimes|string|unique:users,phone,' . $id,
             'email' => 'nullable|email|unique:users,email,' . $id,
             'photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
@@ -141,8 +145,12 @@ class UserController extends Controller
           if ($request->has('photo')) {
                 $the_file_path = uploadImage('assets/admin/uploads', $request->photo);
                 $userData['photo'] = $the_file_path;
-             }
-
+        }
+        
+        if ($request->has('password')) {
+              $userData['password'] = Hash::make($request->password);
+        }
+    
         $user->update($userData);
 
         return redirect()

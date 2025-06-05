@@ -20,7 +20,7 @@ class RatingController extends Controller
         $validator = Validator::make($request->all(), [
             'rating' => 'required|numeric|min:1|max:5',
             'review' => 'nullable|string|max:500',
-            'driver_id' => 'required|exists:drivers,id'
+            'provider_id' => 'required|exists:providers,id'
         ]);
 
         if ($validator->fails()) {
@@ -33,7 +33,7 @@ class RatingController extends Controller
         $rating->user_id = auth()->user()->id;
         $rating->rating = $request->rating;
         $rating->review = $request->review;
-        $rating->driver_id = $request->driver_id;
+        $rating->provider_id = $request->provider_id;
     
         if ($rating->save()) {
             return $this->success_response('Rating submitted successfully', $rating);
