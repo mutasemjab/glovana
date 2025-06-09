@@ -13,9 +13,9 @@ class ProviderUnavailability extends Model
 
     protected $dates = ['unavailable_date'];
 
-    public function providerServiceType()
+      public function providerType()
     {
-        return $this->belongsTo(ProviderServiceType::class);
+        return $this->belongsTo(ProviderType::class);
     }
 
     public function getFormattedTimeAttribute()

@@ -13,12 +13,9 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('provider_service_types', function (Blueprint $table) {
+        Schema::create('banners', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('provider_type_id');
-            $table->unsignedBigInteger('service_id');
-            $table->foreign('provider_type_id')->references('id')->on('provider_types')->onDelete('cascade');
-            $table->foreign('service_id')->references('id')->on('services')->onDelete('cascade');
+            $table->string('photo');
             $table->timestamps();
         });
     }
@@ -30,6 +27,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('provider_service_types');
+        Schema::dropIfExists('banners');
     }
 };

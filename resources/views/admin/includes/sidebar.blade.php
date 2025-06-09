@@ -153,6 +153,12 @@
                         <p>{{ __('messages.pages') }}</p>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="{{ route('banners.index') }}" class="nav-link {{ request()->routeIs('banners.index') ? 'active' : '' }}">
+                        <i class="nav-icon fas fa-file-alt"></i>
+                        <p>{{ __('messages.banners') }}</p>
+                    </a>
+                </li>
                 @endcanany
            
                 @canany(['withdrawal-table', 'withdrawal-add', 'withdrawal-edit', 'withdrawal-delete'])

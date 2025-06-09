@@ -6,31 +6,17 @@
         <div class="col-md-10 offset-md-1">
             <div class="card">
                 <div class="card-header">
-                    <h4>{{ __('messages.Add_Service_for_Provider') }}: {{ $provider->name_of_manager }}</h4>
+                    <h4>{{ __('messages.Add_Type_for_Provider') }}: {{ $provider->name_of_manager }}</h4>
                 </div>
                 <div class="card-body">
                     <form action="{{ route('admin.providerDetails.store', $provider->id) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         
                         <div class="row">
-                            <!-- Service Information -->
+                            <!-- Type Information -->
                             <div class="col-md-6">
-                                <h5 class="mb-3">{{ __('messages.Service_Information') }}</h5>
+                                <h5 class="mb-3">{{ __('messages.Type_Information') }}</h5>
                                 
-                                <div class="mb-3">
-                                    <label for="service_id" class="form-label">{{ __('messages.Service') }}</label>
-                                    <select class="form-control @error('service_id') is-invalid @enderror" 
-                                            id="service_id" name="service_id" required>
-                                        <option value="">{{ __('messages.Select_Service') }}</option>
-                                        @foreach($services as $service)
-                                            <option value="{{ $service->id }}" {{ old('service_id') == $service->id ? 'selected' : '' }}>
-                                                {{ app()->getLocale() == 'ar' ? $service->name_ar : $service->name_en }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @error('service_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                                </div>
-
                                 <div class="mb-3">
                                     <label for="type_id" class="form-label">{{ __('messages.Type') }}</label>
                                     <select class="form-control @error('type_id') is-invalid @enderror" 
@@ -46,7 +32,26 @@
                                 </div>
 
                                 <div class="mb-3">
-                                    <label for="name" class="form-label">{{ __('messages.Service_Name') }}</label>
+                                    <label for="service_ids" class="form-label">{{ __('messages.Services') }}</label>
+                                    <div class="border p-3 rounded @error('service_ids') border-danger @enderror" style="max-height: 200px; overflow-y: auto;">
+                                        @foreach($services as $service)
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" 
+                                                       name="service_ids[]" value="{{ $service->id }}" 
+                                                       id="service_{{ $service->id }}" 
+                                                       {{ in_array($service->id, old('service_ids', [])) ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="service_{{ $service->id }}">
+                                                    {{ app()->getLocale() == 'ar' ? $service->name_ar : $service->name_en }}
+                                                </label>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <div class="form-text">{{ __('messages.Select_Multiple_Services') }}</div>
+                                    @error('service_ids')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="name" class="form-label">{{ __('messages.Type_Name') }}</label>
                                     <input type="text" class="form-control @error('name') is-invalid @enderror" 
                                            id="name" name="name" value="{{ old('name') }}" required>
                                     @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
@@ -128,10 +133,10 @@
                         <!-- Images Section -->
                         <div class="row">
                             <div class="col-md-6">
-                                <h5 class="mb-3">{{ __('messages.Service_Images') }}</h5>
+                                <h5 class="mb-3">{{ __('messages.Type_Images') }}</h5>
                                 
                                 <div class="mb-3">
-                                    <label for="images" class="form-label">{{ __('messages.Upload_Service_Images') }}</label>
+                                    <label for="images" class="form-label">{{ __('messages.Upload_Type_Images') }}</label>
                                     <input type="file" class="form-control @error('images.*') is-invalid @enderror" 
                                            id="images" name="images[]" multiple accept="image/*">
                                     <div class="form-text">{{ __('messages.Multiple_Images_Allowed') }}</div>
@@ -162,4 +167,35 @@
         </div>
     </div>
 </div>
+
+<script>
+// Select/Deselect all services
+document.addEventListener('DOMContentLoaded', function() {
+    const serviceChecks = document.querySelectorAll('input[name="service_ids[]"]');
+    
+    // Add a select all/none toggle
+    const servicesContainer = document.querySelector('.border.p-3.rounded');
+    const toggleContainer = document.createElement('div');
+    toggleContainer.className = 'mb-2 border-bottom pb-2';
+    toggleContainer.innerHTML = `
+        <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="selectAllServices()">
+            {{ __('messages.Select_All') }}
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllServices()">
+            {{ __('messages.Deselect_All') }}
+        </button>
+    `;
+    servicesContainer.insertBefore(toggleContainer, servicesContainer.firstChild);
+});
+
+function selectAllServices() {
+    const checkboxes = document.querySelectorAll('input[name="service_ids[]"]');
+    checkboxes.forEach(checkbox => checkbox.checked = true);
+}
+
+function deselectAllServices() {
+    const checkboxes = document.querySelectorAll('input[name="service_ids[]"]');
+    checkboxes.forEach(checkbox => checkbox.checked = false);
+}
+</script>
 @endsection

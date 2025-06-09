@@ -24,6 +24,11 @@ class Provider extends Authenticatable
         'photo_url',
     ];
     
+    public function providerTypes()
+    {
+        return $this->hasMany(ProviderType::class);
+    }
+    
     /**
      * Helper method to generate image URLs
      *

@@ -10,11 +10,11 @@
                         <h4>{{ __('messages.Availability_Schedule') }}</h4>
                         <small class="text-muted">
                             {{ __('messages.Provider') }}: {{ $provider->name_of_manager }} | 
-                            {{ __('messages.Service') }}: {{ $providerServiceType->name }}
+                            {{ __('messages.Type') }}: {{ $providerType->name }}
                         </small>
                     </div>
                     <a href="{{ route('admin.providerDetails.index', $provider->id) }}" class="btn btn-secondary">
-                        {{ __('messages.Back_to_Services') }}
+                        {{ __('messages.Back_to_Types') }}
                     </a>
                 </div>
                 <div class="card-body">
@@ -36,7 +36,7 @@
                             <h5>{{ __('messages.Add_Availability') }}</h5>
                         </div>
                         <div class="card-body">
-                            <form action="{{ route('admin.providerDetails.availabilities.store', [$provider->id, $providerServiceType->id]) }}" method="POST">
+                            <form action="{{ route('admin.providerDetails.availabilities.store', [$provider->id, $providerType->id]) }}" method="POST">
                                 @csrf
                                 <div class="row">
                                     <div class="col-md-4">
@@ -115,7 +115,7 @@
                                             {{ $duration }}h {{ $minutes }}m
                                         </td>
                                         <td>
-                                            <form action="{{ route('admin.providerDetails.availabilities.destroy', [$provider->id, $providerServiceType->id, $availability->id]) }}" 
+                                            <form action="{{ route('admin.providerDetails.availabilities.destroy', [$provider->id, $providerType->id, $availability->id]) }}" 
                                                   method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')

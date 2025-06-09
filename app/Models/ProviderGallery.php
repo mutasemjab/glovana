@@ -13,9 +13,9 @@ class ProviderGallery extends Model
 
     protected $appends = ['photo_url'];
 
-    public function providerServiceType()
+      public function providerType()
     {
-        return $this->belongsTo(ProviderServiceType::class);
+        return $this->belongsTo(ProviderType::class);
     }
 
     public function getPhotoUrlAttribute()

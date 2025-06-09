@@ -15,8 +15,8 @@ return new class extends Migration
     {
         Schema::create('provider_unavailabilities', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('provider_service_type_id');
-            $table->foreign('provider_service_type_id')->references('id')->on('provider_service_types')->onDelete('cascade');
+            $table->unsignedBigInteger('provider_type_id');
+            $table->foreign('provider_type_id')->references('id')->on('provider_types')->onDelete('cascade');
 
             $table->date('unavailable_date');
             $table->time('start_time')->nullable(); // null means full-day

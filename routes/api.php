@@ -2,13 +2,7 @@
 
 namespace App\Http\Controllers\Api\v1\User;
 
-use App\Http\Controllers\Api\v1\Driver\ComplaintDriverController;
-use App\Http\Controllers\Api\v1\Driver\OrderDriverController;
-use App\Http\Controllers\Api\v1\Driver\RatingDriverController;
-use App\Http\Controllers\Api\v1\Driver\ServiceDriverController;
-use App\Http\Controllers\Api\v1\Driver\HomeDriverController;
-use App\Http\Controllers\Api\v1\Driver\WalletDriverController;
-use App\Http\Controllers\Api\v1\Driver\WithdrawalRequestDriverController;
+use App\Http\Controllers\Api\v1\User\ProviderController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\v1\User\AuthController;
@@ -68,6 +62,7 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::delete('/addresses/{id}', [UserAddressController::class, 'destroy']);
 
         Route::get('/wallet/transactions', [WalletController::class, 'getTransactions']);
+        Route::get('/banners', [BannerController::class, 'index']);
 
         //Ecommerce
         Route::get('/categories', [CategoryController::class, 'index']);
@@ -87,6 +82,15 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::get('/coupons', [CouponController::class, 'index']);
         Route::post('/coupons/validate', [CouponController::class, 'validateCoupon']);
         // End Ecommerce
+
+       //Provider Display in user app
+         Route::get('/providers/type/{typeId}', [ProviderController::class, 'getProvidersByType']);
+         Route::get('/providers/{providerId}', [ProviderController::class, 'getProviderDetails']);
+        Route::get('/allProviders', [ProviderController::class, 'getMapLocations']);
+        Route::get('provider/search', [ProviderController::class, 'searchProviders']);
+        Route::get('provider/vip', [ProviderController::class, 'getVipProviders']);
+         // End the Provider Display in user app
+
     });
 });
 

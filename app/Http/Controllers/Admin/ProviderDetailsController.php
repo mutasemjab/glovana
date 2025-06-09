@@ -8,6 +8,7 @@ use App\Models\ProviderServiceType;
 use App\Models\ProviderImage;
 use App\Models\ProviderGallery;
 use App\Models\ProviderAvailability;
+use App\Models\ProviderType;
 use App\Models\ProviderUnavailability;
 use App\Models\Service;
 use App\Models\Type;
@@ -19,11 +20,11 @@ class ProviderDetailsController extends Controller
     public function index($providerId)
     {
         $provider = Provider::findOrFail($providerId);
-        $providerServiceTypes = ProviderServiceType::with(['service', 'type', 'images'])
+        $providerTypes = ProviderType::with(['type', 'images', 'services.service'])
             ->where('provider_id', $providerId)
             ->get();
 
-        return view('admin.providerDetails.index', compact('provider', 'providerServiceTypes'));
+        return view('admin.providerDetails.index', compact('provider', 'providerTypes'));
     }
 
     public function create($providerId)
@@ -38,8 +39,9 @@ class ProviderDetailsController extends Controller
     public function store(Request $request, $providerId)
     {
         $validator = Validator::make($request->all(), [
-            'service_id' => 'required|exists:services,id',
             'type_id' => 'required|exists:types,id',
+            'service_ids' => 'required|array|min:1',
+            'service_ids.*' => 'exists:services,id',
             'name' => 'required|string|max:255',
             'description' => 'required|string',
             'lat' => 'required|numeric',
@@ -57,10 +59,9 @@ class ProviderDetailsController extends Controller
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
-        // Create provider service type
-        $providerServiceType = ProviderServiceType::create([
+        // Create provider type
+        $providerType = ProviderType::create([
             'provider_id' => $providerId,
-            'service_id' => $request->service_id,
             'type_id' => $request->type_id,
             'name' => $request->name,
             'description' => $request->description,
@@ -73,12 +74,20 @@ class ProviderDetailsController extends Controller
             'is_vip' => $request->is_vip,
         ]);
 
+        // Create provider services for selected services
+        foreach ($request->service_ids as $serviceId) {
+            ProviderServiceType::create([
+                'provider_type_id' => $providerType->id,
+                'service_id' => $serviceId,
+            ]);
+        }
+
         // Handle images upload
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
                 $imagePath = uploadImage('assets/admin/uploads', $image);
                 ProviderImage::create([
-                    'provider_service_type_id' => $providerServiceType->id,
+                    'provider_type_id' => $providerType->id,
                     'photo' => $imagePath,
                 ]);
             }
@@ -89,31 +98,33 @@ class ProviderDetailsController extends Controller
             foreach ($request->file('galleries') as $gallery) {
                 $galleryPath = uploadImage('assets/admin/uploads', $gallery);
                 ProviderGallery::create([
-                    'provider_service_type_id' => $providerServiceType->id,
+                    'provider_type_id' => $providerType->id,
                     'photo' => $galleryPath,
                 ]);
             }
         }
 
         return redirect()->route('admin.providerDetails.index', $providerId)
-            ->with('success', __('messages.Provider_Service_Created'));
+            ->with('success', __('messages.Provider_Type_Created'));
     }
 
-    public function edit($providerId, $serviceTypeId)
+    public function edit($providerId, $providerTypeId)
     {
         $provider = Provider::findOrFail($providerId);
-        $providerServiceType = ProviderServiceType::with(['images', 'galleries'])->findOrFail($serviceTypeId);
+        $providerType = ProviderType::with(['images', 'galleries', 'services'])->findOrFail($providerTypeId);
         $services = Service::all();
         $types = Type::all();
+        $selectedServiceIds = $providerType->services->pluck('service_id')->toArray();
 
-        return view('admin.providerDetails.edit', compact('provider', 'providerServiceType', 'services', 'types'));
+        return view('admin.providerDetails.edit', compact('provider', 'providerType', 'services', 'types', 'selectedServiceIds'));
     }
 
-    public function update(Request $request, $providerId, $serviceTypeId)
+    public function update(Request $request, $providerId, $providerTypeId)
     {
         $validator = Validator::make($request->all(), [
-            'service_id' => 'required|exists:services,id',
             'type_id' => 'required|exists:types,id',
+            'service_ids' => 'required|array|min:1',
+            'service_ids.*' => 'exists:services,id',
             'name' => 'required|string|max:255',
             'description' => 'required|string',
             'lat' => 'required|numeric',
@@ -131,11 +142,10 @@ class ProviderDetailsController extends Controller
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
-        $providerServiceType = ProviderServiceType::findOrFail($serviceTypeId);
+        $providerType = ProviderType::findOrFail($providerTypeId);
 
-        // Update provider service type
-        $providerServiceType->update([
-            'service_id' => $request->service_id,
+        // Update provider type
+        $providerType->update([
             'type_id' => $request->type_id,
             'name' => $request->name,
             'description' => $request->description,
@@ -148,12 +158,21 @@ class ProviderDetailsController extends Controller
             'is_vip' => $request->is_vip,
         ]);
 
+        // Update services: Delete old services and create new ones
+        ProviderServiceType::where('provider_type_id', $providerType->id)->delete();
+        foreach ($request->service_ids as $serviceId) {
+            ProviderServiceType::create([
+                'provider_type_id' => $providerType->id,
+                'service_id' => $serviceId,
+            ]);
+        }
+
         // Handle new images upload
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
                 $imagePath = uploadImage('assets/admin/uploads', $image);
                 ProviderImage::create([
-                    'provider_service_type_id' => $providerServiceType->id,
+                    'provider_type_id' => $providerType->id,
                     'photo' => $imagePath,
                 ]);
             }
@@ -164,36 +183,36 @@ class ProviderDetailsController extends Controller
             foreach ($request->file('galleries') as $gallery) {
                 $galleryPath = uploadImage('assets/admin/uploads', $gallery);
                 ProviderGallery::create([
-                    'provider_service_type_id' => $providerServiceType->id,
+                    'provider_type_id' => $providerType->id,
                     'photo' => $galleryPath,
                 ]);
             }
         }
 
         return redirect()->route('admin.providerDetails.index', $providerId)
-            ->with('success', __('messages.Provider_Service_Updated'));
+            ->with('success', __('messages.Provider_Type_Updated'));
     }
 
-    public function destroy($providerId, $serviceTypeId)
+    public function destroy($providerId, $providerTypeId)
     {
-        $providerServiceType = ProviderServiceType::findOrFail($serviceTypeId);
-        $providerServiceType->delete();
+        $providerType = ProviderType::findOrFail($providerTypeId);
+        $providerType->delete();
 
         return redirect()->route('admin.providerDetails.index', $providerId)
-            ->with('success', __('messages.Provider_Service_Deleted'));
+            ->with('success', __('messages.Provider_Type_Deleted'));
     }
 
     // Availability Management
-    public function availabilities($providerId, $serviceTypeId)
+    public function availabilities($providerId, $providerTypeId)
     {
         $provider = Provider::findOrFail($providerId);
-        $providerServiceType = ProviderServiceType::findOrFail($serviceTypeId);
-        $availabilities = ProviderAvailability::where('provider_service_type_id', $serviceTypeId)->get();
+        $providerType = ProviderType::findOrFail($providerTypeId);
+        $availabilities = ProviderAvailability::where('provider_type_id', $providerTypeId)->get();
 
-        return view('admin.providerDetails.availabilities', compact('provider', 'providerServiceType', 'availabilities'));
+        return view('admin.providerDetails.availabilities', compact('provider', 'providerType', 'availabilities'));
     }
 
-    public function storeAvailability(Request $request, $providerId, $serviceTypeId)
+    public function storeAvailability(Request $request, $providerId, $providerTypeId)
     {
         $validator = Validator::make($request->all(), [
             'day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
@@ -206,7 +225,7 @@ class ProviderDetailsController extends Controller
         }
 
         ProviderAvailability::create([
-            'provider_service_type_id' => $serviceTypeId,
+            'provider_type_id' => $providerTypeId,
             'day_of_week' => $request->day_of_week,
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
@@ -215,7 +234,7 @@ class ProviderDetailsController extends Controller
         return redirect()->back()->with('success', __('messages.Availability_Added'));
     }
 
-    public function destroyAvailability($providerId, $serviceTypeId, $availabilityId)
+    public function destroyAvailability($providerId, $providerTypeId, $availabilityId)
     {
         $availability = ProviderAvailability::findOrFail($availabilityId);
         $availability->delete();
@@ -224,16 +243,16 @@ class ProviderDetailsController extends Controller
     }
 
     // Unavailability Management
-    public function unavailabilities($providerId, $serviceTypeId)
+    public function unavailabilities($providerId, $providerTypeId)
     {
         $provider = Provider::findOrFail($providerId);
-        $providerServiceType = ProviderServiceType::findOrFail($serviceTypeId);
-        $unavailabilities = ProviderUnavailability::where('provider_service_type_id', $serviceTypeId)->get();
+        $providerType = ProviderType::findOrFail($providerTypeId);
+        $unavailabilities = ProviderUnavailability::where('provider_type_id', $providerTypeId)->get();
 
-        return view('admin.providerDetails.unavailabilities', compact('provider', 'providerServiceType', 'unavailabilities'));
+        return view('admin.providerDetails.unavailabilities', compact('provider', 'providerType', 'unavailabilities'));
     }
 
-    public function storeUnavailability(Request $request, $providerId, $serviceTypeId)
+    public function storeUnavailability(Request $request, $providerId, $providerTypeId)
     {
         $validator = Validator::make($request->all(), [
             'unavailable_date' => 'required|date',
@@ -246,7 +265,7 @@ class ProviderDetailsController extends Controller
         }
 
         ProviderUnavailability::create([
-            'provider_service_type_id' => $serviceTypeId,
+            'provider_type_id' => $providerTypeId,
             'unavailable_date' => $request->unavailable_date,
             'start_time' => $request->start_time,
             'end_time' => $request->end_time,
@@ -255,7 +274,7 @@ class ProviderDetailsController extends Controller
         return redirect()->back()->with('success', __('messages.Unavailability_Added'));
     }
 
-    public function destroyUnavailability($providerId, $serviceTypeId, $unavailabilityId)
+    public function destroyUnavailability($providerId, $providerTypeId, $unavailabilityId)
     {
         $unavailability = ProviderUnavailability::findOrFail($unavailabilityId);
         $unavailability->delete();

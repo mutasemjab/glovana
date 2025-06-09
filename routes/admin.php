@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CouponController;
 use Illuminate\Support\Facades\Route;
@@ -114,6 +115,7 @@ Route::resource('deliveries', DeliveryController::class);
 Route::resource('coupons', CouponController::class);
 Route::resource('categories', CategoryController::class);
 Route::resource('products', ProductController::class);
+Route::resource('banners', BannerController::class);
 Route::resource('types', TypeController::class);
 
 Route::resource('wallet_transactions', WalletTransactionController::class)->except(['edit', 'update', 'destroy']);

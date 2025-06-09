@@ -11,9 +11,9 @@ class ProviderAvailability extends Model
 
     protected $guarded = [];
 
-    public function providerServiceType()
+      public function providerType()
     {
-        return $this->belongsTo(ProviderServiceType::class);
+        return $this->belongsTo(ProviderType::class);
     }
 
     public function getFormattedTimeAttribute()

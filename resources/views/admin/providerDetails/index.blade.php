@@ -7,12 +7,12 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div>
-                        <h4>{{ __('messages.Provider_Services') }}: {{ $provider->name_of_manager }}</h4>
+                        <h4>{{ __('messages.Provider_Types') }}: {{ $provider->name_of_manager }}</h4>
                         <small class="text-muted">{{ __('messages.Phone') }}: {{ $provider->country_code }}{{ $provider->phone }}</small>
                     </div>
                     <div>
                         <a href="{{ route('admin.providerDetails.create', $provider->id) }}" class="btn btn-primary">
-                            {{ __('messages.Add_Service') }}
+                            {{ __('messages.Add_Type') }}
                         </a>
                         <a href="{{ route('providers.index') }}" class="btn btn-secondary">
                             {{ __('messages.Back_to_Providers') }}
@@ -20,26 +20,14 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    @if(session('success'))
-                        <div class="alert alert-success">
-                            {{ session('success') }}
-                        </div>
-                    @endif
-
-                    @if(session('error'))
-                        <div class="alert alert-danger">
-                            {{ session('error') }}
-                        </div>
-                    @endif
-
                     <div class="table-responsive">
                         <table class="table table-bordered">
                             <thead>
                                 <tr>
                                     <th>{{ __('messages.Image') }}</th>
-                                    <th>{{ __('messages.Service_Name') }}</th>
-                                    <th>{{ __('messages.Service') }}</th>
+                                    <th>{{ __('messages.Type_Name') }}</th>
                                     <th>{{ __('messages.Type') }}</th>
+                                    <th>{{ __('messages.Services') }}</th>
                                     <th>{{ __('messages.Price_Per_Hour') }}</th>
                                     <th>{{ __('messages.Status') }}</th>
                                     <th>{{ __('messages.VIP') }}</th>
@@ -47,12 +35,12 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($providerServiceTypes as $serviceType)
+                                @forelse($providerTypes as $providerType)
                                     <tr>
                                         <td>
-                                            @if($serviceType->images->first())
-                                                <img src="{{ $serviceType->images->first()->photo_url }}" 
-                                                     alt="{{ $serviceType->name }}" 
+                                            @if($providerType->images->first())
+                                                <img src="{{ $providerType->images->first()->photo_url }}" 
+                                                     alt="{{ $providerType->name }}" 
                                                      class="img-thumbnail" 
                                                      style="width: 60px; height: 60px; object-fit: cover;">
                                             @else
@@ -63,50 +51,52 @@
                                             @endif
                                         </td>
                                         <td>
-                                            <strong>{{ $serviceType->name }}</strong>
+                                            <strong>{{ $providerType->name }}</strong>
                                             <br>
-                                            <small class="text-muted">{{ Str::limit($serviceType->description, 50) }}</small>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-info">
-                                                {{ app()->getLocale() == 'ar' ? $serviceType->service->name_ar : $serviceType->service->name_en }}
-                                            </span>
+                                            <small class="text-muted">{{ Str::limit($providerType->description, 50) }}</small>
                                         </td>
                                         <td>
                                             <span class="badge bg-secondary">
-                                                {{ app()->getLocale() == 'ar' ? $serviceType->type->name_ar : $serviceType->type->name_en }}
+                                                {{ app()->getLocale() == 'ar' ? $providerType->type->name_ar : $providerType->type->name_en }}
                                             </span>
                                         </td>
-                                        <td>{{ number_format($serviceType->price_per_hour, 2) }} {{ __('messages.Currency') }}</td>
                                         <td>
-                                            <span class="badge {{ $serviceType->status == 1 ? 'bg-success' : 'bg-danger' }}">
-                                                {{ $serviceType->status_text }}
+                                            @foreach($providerType->services as $service)
+                                                <span class="badge bg-info me-1 mb-1">
+                                                    {{ app()->getLocale() == 'ar' ? $service->service->name_ar : $service->service->name_en }}
+                                                </span>
+                                            @endforeach
+                                        </td>
+                                        <td>{{ number_format($providerType->price_per_hour, 2) }} {{ __('messages.Currency') }}</td>
+                                        <td>
+                                            <span class="badge {{ $providerType->status == 1 ? 'bg-success' : 'bg-danger' }}">
+                                                {{ $providerType->status == 1 ? __('messages.On') : __('messages.Off') }}
                                             </span>
                                             <br>
-                                            <span class="badge {{ $serviceType->activate == 1 ? 'bg-success' : 'bg-warning' }}">
-                                                {{ $serviceType->activate_text }}
+                                            <span class="badge {{ $providerType->activate == 1 ? 'bg-success' : 'bg-warning' }}">
+                                                {{ $providerType->activate == 1 ? __('messages.Active') : __('messages.Inactive') }}
                                             </span>
                                         </td>
                                         <td>
-                                            <span class="badge {{ $serviceType->is_vip == 1 ? 'bg-warning text-dark' : 'bg-secondary' }}">
-                                                {{ $serviceType->is_vip_text }}
+                                            <span class="badge {{ $providerType->is_vip == 1 ? 'bg-warning text-dark' : 'bg-secondary' }}">
+                                                {{ $providerType->is_vip == 1 ? __('messages.VIP') : __('messages.Regular') }}
                                             </span>
                                         </td>
                                         <td>
                                             <div class="btn-group-vertical btn-group-sm">
-                                                <a href="{{ route('admin.providerDetails.edit', [$provider->id, $serviceType->id]) }}" 
+                                                <a href="{{ route('admin.providerDetails.edit', [$provider->id, $providerType->id]) }}" 
                                                    class="btn btn-warning btn-sm mb-1">
                                                     {{ __('messages.Edit') }}
                                                 </a>
-                                                <a href="{{ route('admin.providerDetails.availabilities', [$provider->id, $serviceType->id]) }}" 
+                                                <a href="{{ route('admin.providerDetails.availabilities', [$provider->id, $providerType->id]) }}" 
                                                    class="btn btn-info btn-sm mb-1">
                                                     {{ __('messages.Availability') }}
                                                 </a>
-                                                <a href="{{ route('admin.providerDetails.unavailabilities', [$provider->id, $serviceType->id]) }}" 
+                                                <a href="{{ route('admin.providerDetails.unavailabilities', [$provider->id, $providerType->id]) }}" 
                                                    class="btn btn-secondary btn-sm mb-1">
                                                     {{ __('messages.Unavailability') }}
                                                 </a>
-                                                <form action="{{ route('admin.providerDetails.destroy', [$provider->id, $serviceType->id]) }}" 
+                                                <form action="{{ route('admin.providerDetails.destroy', [$provider->id, $providerType->id]) }}" 
                                                       method="POST" class="d-inline">
                                                     @csrf
                                                     @method('DELETE')
@@ -121,7 +111,7 @@
                                 @empty
                                     <tr>
                                         <td colspan="8" class="text-center">
-                                            {{ __('messages.No_Services_Found') }}
+                                            {{ __('messages.No_Types_Found') }}
                                         </td>
                                     </tr>
                                 @endforelse

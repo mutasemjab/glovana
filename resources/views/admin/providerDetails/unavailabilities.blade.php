@@ -10,33 +10,22 @@
                         <h4>{{ __('messages.Unavailability_Schedule') }}</h4>
                         <small class="text-muted">
                             {{ __('messages.Provider') }}: {{ $provider->name_of_manager }} | 
-                            {{ __('messages.Service') }}: {{ $providerServiceType->name }}
+                            {{ __('messages.Type') }}: {{ $providerType->name }}
                         </small>
                     </div>
                     <a href="{{ route('admin.providerDetails.index', $provider->id) }}" class="btn btn-secondary">
-                        {{ __('messages.Back_to_Services') }}
+                        {{ __('messages.Back_to_Types') }}
                     </a>
                 </div>
                 <div class="card-body">
-                    @if(session('success'))
-                        <div class="alert alert-success">
-                            {{ session('success') }}
-                        </div>
-                    @endif
-
-                    @if(session('error'))
-                        <div class="alert alert-danger">
-                            {{ session('error') }}
-                        </div>
-                    @endif
-
+                 
                     <!-- Add Unavailability Form -->
                     <div class="card mb-4">
                         <div class="card-header">
                             <h5>{{ __('messages.Add_Unavailability') }}</h5>
                         </div>
                         <div class="card-body">
-                            <form action="{{ route('admin.providerDetails.unavailabilities.store', [$provider->id, $providerServiceType->id]) }}" method="POST">
+                            <form action="{{ route('admin.providerDetails.unavailabilities.store', [$provider->id, $providerType->id]) }}" method="POST">
                                 @csrf
                                 <div class="row">
                                     <div class="col-md-4">
@@ -117,8 +106,8 @@
                                             </span>
                                         </td>
                                         <td>
-                                            <span class="badge {{ $unavailability->unavailable_type == 'Full Day' ? 'bg-danger' : 'bg-warning text-dark' }}">
-                                                {{ __('messages.' . str_replace(' ', '_', $unavailability->unavailable_type)) }}
+                                            <span class="badge {{ ($unavailability->start_time && $unavailability->end_time) ? 'bg-warning text-dark' : 'bg-danger' }}">
+                                                {{ ($unavailability->start_time && $unavailability->end_time) ? __('messages.Partial_Day') : __('messages.Full_Day') }}
                                             </span>
                                         </td>
                                         <td>
@@ -143,7 +132,7 @@
                                             @endif
                                         </td>
                                         <td>
-                                            <form action="{{ route('admin.providerDetails.unavailabilities.destroy', [$provider->id, $providerServiceType->id, $unavailability->id]) }}" 
+                                            <form action="{{ route('admin.providerDetails.unavailabilities.destroy', [$provider->id, $providerType->id, $unavailability->id]) }}" 
                                                   method="POST" class="d-inline">
                                                 @csrf
                                                 @method('DELETE')
