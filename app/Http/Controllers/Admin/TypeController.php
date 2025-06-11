@@ -25,7 +25,7 @@ class TypeController extends Controller
         $request->validate([
             'name_en' => 'required|string|max:255',
             'name_ar' => 'required|string|max:255',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif',
+            'photo' => 'nullable',
         ]);
 
          $imageName = null;
@@ -60,7 +60,7 @@ class TypeController extends Controller
         $request->validate([
             'name_en' => 'required|string|max:255',
             'name_ar' => 'required|string|max:255',
-            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif',
+            'photo' => 'nullable',
         ]);
 
         // Get the current record to access existing photo
