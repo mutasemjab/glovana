@@ -340,6 +340,14 @@ class ProviderController extends Controller
                     'name_ar' => $service->service->name_ar,
                 ];
             }),
+            'ratings' => $providerType->ratings->map(function ($rating) {
+                return [
+                    'id' => $rating->id,
+                    'review' => $rating->review,
+                    'rating' => $rating->rating,
+                    'user' => $rating->user,
+                ];
+            }),
         ];
 
         if ($includeFullDetails) {

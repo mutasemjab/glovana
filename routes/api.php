@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\v1\User\UserAddressController;
 use App\Http\Controllers\Api\v1\User\UploadPhotoVoiceController;
 use App\Http\Controllers\Api\v1\User\RatingController;
 use App\Http\Controllers\Api\v1\User\DeliveryController;
+use App\Http\Controllers\Api\v1\User\TypeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -84,8 +85,9 @@ Route::group(['prefix' => 'v1/user'], function () {
         // End Ecommerce
 
        //Provider Display in user app
-         Route::get('/providers/type/{typeId}', [ProviderController::class, 'getProvidersByType']);
-         Route::get('/providers/{providerId}', [ProviderController::class, 'getProviderDetails']);
+        Route::get('/getTypes',[TypeController::class,'index']);
+        Route::get('/providers/type/{typeId}', [ProviderController::class, 'getProvidersByType']);
+        Route::get('/providers/{providerId}', [ProviderController::class, 'getProviderDetails']);
         Route::get('/allProviders', [ProviderController::class, 'getMapLocations']);
         Route::get('provider/search', [ProviderController::class, 'searchProviders']);
         Route::get('provider/vip', [ProviderController::class, 'getVipProviders']);

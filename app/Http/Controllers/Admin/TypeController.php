@@ -25,11 +25,18 @@ class TypeController extends Controller
         $request->validate([
             'name_en' => 'required|string|max:255',
             'name_ar' => 'required|string|max:255',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif',
         ]);
+
+         $imageName = null;
+        if ($request->hasFile('photo')) {
+            $imageName = uploadImage('assets/admin/uploads', $request->photo);
+        }
 
         DB::table('types')->insert([
             'name_en' => $request->name_en,
             'name_ar' => $request->name_ar,
+            'photo' => $imageName,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -48,16 +55,37 @@ class TypeController extends Controller
         return view('admin.types.edit', compact('type'));
     }
 
-    public function update(Request $request, $id)
+     public function update(Request $request, $id)
     {
         $request->validate([
             'name_en' => 'required|string|max:255',
             'name_ar' => 'required|string|max:255',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif',
         ]);
+
+        // Get the current record to access existing photo
+        $currentType = DB::table('types')->where('id', $id)->first();
+        
+        $imageName = $currentType->photo; // Keep existing photo by default
+
+        // Handle new image upload
+        if ($request->hasFile('photo')) {
+            // Delete old image if it exists
+            if ($currentType->photo) {
+                $oldImagePath = base_path('assets/admin/uploads/' . $currentType->photo);
+                if (file_exists($oldImagePath)) {
+                    unlink($oldImagePath);
+                }
+            }
+            
+            // Upload new image
+            $imageName = uploadImage('assets/admin/uploads', $request->photo);
+        }
 
         DB::table('types')->where('id', $id)->update([
             'name_en' => $request->name_en,
             'name_ar' => $request->name_ar,
+            'photo' => $imageName,
             'updated_at' => now(),
         ]);
 

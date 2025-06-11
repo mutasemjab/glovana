@@ -49,7 +49,7 @@ class ProductController extends Controller
             'tax' => 'required|numeric|min:0',
             'discount_percentage' => 'nullable|numeric|min:0|max:100',
             'category_id' => 'nullable|exists:categories,id',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
         ]);
 
         // Calculate price after discount
@@ -79,9 +79,7 @@ class ProductController extends Controller
         // Handle image uploads
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-                $imageName = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
-                $image->storeAs('public/products', $imageName);
-                
+                $imageName = uploadImage('assets/admin/uploads', $image);
                 DB::table('product_images')->insert([
                     'product_id' => $productId,
                     'photo' => $imageName,
@@ -122,7 +120,7 @@ class ProductController extends Controller
             'tax' => 'required|numeric|min:0',
             'discount_percentage' => 'nullable|numeric|min:0|max:100',
             'category_id' => 'nullable|exists:categories,id',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
         ]);
 
         // Calculate price after discount
@@ -151,9 +149,7 @@ class ProductController extends Controller
         // Handle new image uploads
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-                $imageName = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
-                $image->storeAs('public/products', $imageName);
-                
+               $imageName = uploadImage('assets/admin/uploads', $image);
                 DB::table('product_images')->insert([
                     'product_id' => $id,
                     'photo' => $imageName,
@@ -171,8 +167,6 @@ class ProductController extends Controller
         $image = DB::table('product_images')->where('id', $imageId)->first();
         
         if ($image) {
-            // Delete file from storage
-            Storage::delete('public/products/' . $image->photo);
             
             // Delete record from database
             DB::table('product_images')->where('id', $imageId)->delete();
