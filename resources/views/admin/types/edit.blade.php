@@ -9,7 +9,7 @@
                     <h4>{{ __('messages.Edit_Type') }}</h4>
                 </div>
                 <div class="card-body">
-                    <form action="{{ route('types.update', $type->id) }}" method="POST">
+                    <form action="{{ route('types.update', $type->id) }}" method="POST" enctype='multipart/form-data'>
                         @csrf
                         @method('PUT')
                         

@@ -9,7 +9,7 @@
                     <h4>{{ __('messages.Add_Type') }}</h4>
                 </div>
                 <div class="card-body">
-                    <form action="{{ route('types.store') }}" method="POST">
+                    <form action="{{ route('types.store') }}" method="POST" enctype='multipart/form-data'>
                         @csrf
                         
                         <div class="mb-3">
