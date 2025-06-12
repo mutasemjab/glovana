@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\v1\User\UploadPhotoVoiceController;
 use App\Http\Controllers\Api\v1\User\RatingController;
 use App\Http\Controllers\Api\v1\User\DeliveryController;
 use App\Http\Controllers\Api\v1\User\TypeController;
+use App\Http\Controllers\Api\v1\User\FavouriteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -70,7 +71,10 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::get('/categories/{id}', [CategoryController::class, 'getProductsFromCategory']);
 
         Route::get('/products/{id}', [ProductController::class, 'productDetails']);
-        
+
+        Route::get('/productFavourites', [FavouriteController::class,'index']); 
+        Route::post('/productFavourites', [FavouriteController::class,'store']);
+
         Route::get('/cart', [CartController::class, 'index']);
         Route::post('/cart', [CartController::class, 'store']);
         Route::delete('/cart/{id}', [CartController::class, 'delete']);
@@ -91,6 +95,9 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::get('/allProviders', [ProviderController::class, 'getMapLocations']);
         Route::get('provider/search', [ProviderController::class, 'searchProviders']);
         Route::get('provider/vip', [ProviderController::class, 'getVipProviders']);
+
+        Route::get('/providerFavourites', [FavouriteController::class,'index']); 
+        Route::post('/providerFavourites', [FavouriteController::class,'store']);
          // End the Provider Display in user app
 
     });

@@ -32,7 +32,24 @@ class Product extends Model
         return $this->hasMany(ProductRating::class);
     }
 
-     protected $appends = ['name', 'description', 'specification'];
+    protected $appends = ['name', 'description', 'specification','is_favourite'];
+
+
+     // In your Product model
+    public function getIsFavouriteAttribute()
+    {
+        if (!auth()->check()) {
+            return 0;
+        }
+        
+        return $this->favouritedBy()->where('user_id', auth()->id())->exists() ? 1 : 0;
+    }
+
+    // Add the relationship in Product model if not already exists
+    public function favouritedBy()
+    {
+        return $this->belongsToMany(User::class, 'product_favourites', 'product_id', 'user_id');
+    }
 
     public function getNameAttribute()
     {

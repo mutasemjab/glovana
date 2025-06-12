@@ -35,4 +35,15 @@ class User extends Authenticatable
         return null;
     }
     
+
+    public function favourites()
+    {
+        return $this->belongsToMany(Product::class, 'product_favourites', 'user_id', 'product_id');
+    }
+  
+    public function providerFavourites()
+    {
+        return $this->belongsToMany(Product::class, 'provider_favourites', 'user_id', 'provider_type_id');
+    }
+
 }
