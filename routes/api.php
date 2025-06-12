@@ -71,6 +71,7 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::get('/categories/{id}', [CategoryController::class, 'getProductsFromCategory']);
 
         Route::get('/products/{id}', [ProductController::class, 'productDetails']);
+        Route::get('products/search', [ProductController::class, 'searchProduct']);
 
         Route::get('/productFavourites', [FavouriteController::class,'index']); 
         Route::post('/productFavourites', [FavouriteController::class,'store']);
