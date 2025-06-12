@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\DB;
 
 class Product extends Model
 {
@@ -35,14 +36,16 @@ class Product extends Model
     protected $appends = ['name', 'description', 'specification','is_favourite'];
 
 
-     // In your Product model
     public function getIsFavouriteAttribute()
     {
         if (!auth()->check()) {
             return 0;
         }
         
-        return $this->favouritedBy()->where('user_id', auth()->id())->exists() ? 1 : 0;
+        return DB::table('product_favourites')
+            ->where('product_id', $this->id)
+            ->where('user_id', auth()->id())
+            ->exists() ? 1 : 0;
     }
 
     // Add the relationship in Product model if not already exists
