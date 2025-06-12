@@ -79,7 +79,7 @@ class ProductController extends Controller
         // Handle image uploads
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-                $imageName = uploadImage('assets/admin/uploads', $image);
+                $imageName = uploadImage('assets/admin/uploads/', $image);
                 DB::table('product_images')->insert([
                     'product_id' => $productId,
                     'photo' => $imageName,
@@ -149,7 +149,7 @@ class ProductController extends Controller
         // Handle new image uploads
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-               $imageName = uploadImage('assets/admin/uploads', $image);
+               $imageName = uploadImage('assets/admin/uploads/', $image);
                 DB::table('product_images')->insert([
                     'product_id' => $id,
                     'photo' => $imageName,
@@ -164,16 +164,26 @@ class ProductController extends Controller
 
     public function deleteImage($imageId)
     {
-        $image = DB::table('product_images')->where('id', $imageId)->first();
-        
-        if ($image) {
+        try {
+            $image = DB::table('product_images')->where('id', $imageId)->first();
             
-            // Delete record from database
-            DB::table('product_images')->where('id', $imageId)->delete();
+            if ($image) {
+                // Optional: Delete the physical file from storage
+                $imagePath = base_path('assets/admin/uploads/' . $image->photo);
+                if (file_exists($imagePath)) {
+                    unlink($imagePath);
+                }
+                
+                // Delete record from database
+                DB::table('product_images')->where('id', $imageId)->delete();
+                
+                return response()->json(['success' => true, 'message' => 'Image deleted successfully']);
+            }
             
-            return response()->json(['success' => true]);
+            return response()->json(['success' => false, 'message' => 'Image not found']);
+            
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Error deleting image']);
         }
-        
-        return response()->json(['success' => false]);
     }
 }

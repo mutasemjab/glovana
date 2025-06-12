@@ -140,7 +140,7 @@
                                         @foreach($productImages as $image)
                                             <div class="col-md-3 mb-3" id="image-{{ $image->id }}">
                                                 <div class="card">
-                                                    <img src="{{ asset('storage/products/' . $image->photo) }}" 
+                                                    <img src="{{ asset('assets/admin/uploads/' . $image->photo) }}" 
                                                          class="card-img-top" style="height: 150px; object-fit: cover;">
                                                     <div class="card-body p-2">
                                                         <button type="button" class="btn btn-danger btn-sm w-100" 
@@ -182,10 +182,12 @@
     </div>
 </div>
 
+@endsection
+@section('script')
 <script>
-function deleteImage(imageId) {
+    function deleteImage(imageId) {
     if (confirm('{{ __("messages.Confirm_Delete_Image") }}')) {
-        fetch(`/products/images/${imageId}`, {
+        fetch(`{{ route('products.deleteImage', '') }}/${imageId}`, {
             method: 'DELETE',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -197,7 +199,7 @@ function deleteImage(imageId) {
             if (data.success) {
                 document.getElementById(`image-${imageId}`).remove();
             } else {
-                alert('{{ __("messages.Error_Deleting_Image") }}');
+                alert(data.message || '{{ __("messages.Error_Deleting_Image") }}');
             }
         })
         .catch(error => {
@@ -206,5 +208,5 @@ function deleteImage(imageId) {
         });
     }
 }
-</script>
+    </script>
 @endsection
