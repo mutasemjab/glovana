@@ -4,15 +4,10 @@
 namespace App\Http\Controllers\Api\v1\User;
 
 use App\Http\Controllers\Controller;
-use App\Models\Category;
 use App\Models\Product;
-use App\Models\Service;
-use App\Models\Setting;
-use App\Models\UserAddress;
 use App\Traits\Responses;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
+
 
 class ProductController extends Controller
 {
@@ -55,14 +50,14 @@ class ProductController extends Controller
                 }
             }
 
-            $products = $query->get();
+            $products = $query->with('images','ratings')->get();
 
             // Debug: Log results count
             \Log::info('Products found: ' . $products->count());
 
             // If no search term, return all products
             if (!$request->has('search') || empty($request->search)) {
-                $allProducts = Product::all();
+                $allProducts = Product::with('images','ratings')->get();
                 return $this->success_response('All products retrieved successfully', $allProducts);
             }
 
