@@ -96,8 +96,8 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::get('provider/search', [ProviderController::class, 'searchProviders']);
         Route::get('provider/vip', [ProviderController::class, 'getVipProviders']);
 
-        Route::get('/providerFavourites', [FavouriteController::class,'index']); 
-        Route::post('/providerFavourites', [FavouriteController::class,'store']);
+        Route::get('/providerFavourites', [FavouriteController::class,'indexProvider']); 
+        Route::post('/providerFavourites', [FavouriteController::class,'storeProvider']);
          // End the Provider Display in user app
 
     });
