@@ -51,7 +51,7 @@ class UserAddressController extends Controller
             }
 
             $address = UserAddress::create($request->only([
-                'user_id', 'name','address', 'lat', 'lng'
+                'user_id', 'name','address', 'lat', 'lng','delivery_id'
             ]));
 
             return $this->success_response('Address created successfully', $address);
@@ -101,7 +101,7 @@ class UserAddressController extends Controller
             }
 
             $address->update($request->only([
-                'name', 'lat', 'lng','address'
+                 'lat', 'lng','address','delivery_id'
             ]));
 
             return $this->success_response('Address updated successfully', $address);
