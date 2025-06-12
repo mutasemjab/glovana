@@ -13,6 +13,8 @@ use Illuminate\Http\Request;
 
 class FavouriteController extends Controller
 {
+    use Responses;
+    
     public function index()
     {
         $user = auth()->user();
