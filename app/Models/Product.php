@@ -54,6 +54,7 @@ class Product extends Model
         return $this->belongsToMany(User::class, 'product_favourites', 'product_id', 'user_id');
     }
 
+    
     public function getNameAttribute()
     {
         $lang = request()->header('Accept-Language') ?? App::getLocale();
