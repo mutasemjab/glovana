@@ -9,12 +9,13 @@ use App\Models\Favorite;
 use App\Models\Favourite;
 use App\Models\ProductFavourite;
 use App\Models\ProviderFavourite;
+use App\Traits\Responses;
 use Illuminate\Http\Request;
 
 class FavouriteController extends Controller
 {
     use Responses;
-    
+
     public function index()
     {
         $user = auth()->user();
