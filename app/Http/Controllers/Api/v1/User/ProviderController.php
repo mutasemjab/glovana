@@ -328,6 +328,8 @@ class ProviderController extends Controller
             'lat' => $providerType->lat,
             'lng' => $providerType->lng,
             'is_vip' => $providerType->is_vip == 1,
+            'is_favourite' => $providerType->is_favourite, // Add this line
+
             'type' => [
                 'id' => $providerType->type->id,
                 'name_en' => $providerType->type->name_en,

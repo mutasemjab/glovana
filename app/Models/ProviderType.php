@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class ProviderType extends Model
 {
@@ -14,6 +15,25 @@ class ProviderType extends Model
         'lng' => 'float',
         'price_per_hour' => 'float',
     ];
+
+    protected $appends = ['is_favourite'];
+
+     public function getIsFavouriteAttribute()
+    {
+        if (!auth()->check()) {
+            return 0;
+        }
+        
+        return DB::table('provider_favourites')
+            ->where('provider_type_id', $this->id)
+            ->where('user_id', auth()->id())
+            ->exists() ? 1 : 0;
+    }
+
+    public function favouritedBy()
+    {
+        return $this->belongsToMany(User::class, 'provider_favourites', 'provider_type_id', 'user_id');
+    }
 
     // Relationships
     public function provider()
