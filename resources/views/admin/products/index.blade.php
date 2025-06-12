@@ -31,7 +31,7 @@
                                     <tr>
                                         <td>
                                             @if($product->first_image)
-                                                <img src="{{ asset('storage/products/' . $product->first_image) }}" 
+                                                <img src="{{ asset('assets/admin/uploads/' . $product->first_image) }}" 
                                                      alt="{{ $product->name_en }}" 
                                                      class="img-thumbnail" 
                                                      style="width: 60px; height: 60px; object-fit: cover;">

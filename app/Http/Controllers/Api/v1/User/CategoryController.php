@@ -28,7 +28,7 @@ class CategoryController extends Controller
      public function getProductsFromCategory($id)
      {
          
-         $categories = Category::with('products')->where('id',$id)->get();
+         $categories = Category::with('products','products.images','products.ratings')->where('id',$id)->get();
          
          return $this->success_response('Category retrieved successfully', $categories);
      }
