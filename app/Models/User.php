@@ -38,12 +38,12 @@ class User extends Authenticatable
 
     public function favourites()
     {
-        return $this->belongsToMany(Product::class, 'product_favourites', 'user_id', 'product_id');
+        return $this->belongsToMany(Product::class, 'product_favourites', 'user_id', 'product_id')->with('images');
     }
   
     public function providerFavourites()
     {
-        return $this->belongsToMany(Product::class, 'provider_favourites', 'user_id', 'provider_type_id');
+        return $this->belongsToMany(ProviderType::class, 'provider_favourites', 'user_id', 'provider_type_id')->with('images');
     }
 
 }
