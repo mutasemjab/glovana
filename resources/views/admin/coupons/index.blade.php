@@ -30,6 +30,7 @@
                             <th>{{ __('messages.amount') }}</th>
                             <th>{{ __('messages.minimum_total') }}</th>
                             <th>{{ __('messages.expired_at') }}</th>
+                            <th>{{ __('messages.Type') }}</th>
                             <th>{{ __('messages.Actions') }}</th>
                         </tr>
                     </thead>

@@ -5,6 +5,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\ProviderType;
 use App\Models\Coupon;
+use App\Models\Delivery;
+use App\Models\UserAddress;
 use App\Models\UserCoupon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -75,10 +77,8 @@ class AppointmentController extends Controller
         }
     }
 
-    /**
-     * Store a newly created appointment
-     */
-    public function store(Request $request)
+
+  public function store(Request $request)
     {
         try {
             $user = Auth::user();
@@ -88,10 +88,8 @@ class AppointmentController extends Controller
                 'provider_type_id' => 'required|exists:provider_types,id',
                 'address_id' => 'required|exists:user_addresses,id',
                 'date' => 'required|date|after:now',
+                'number_of_hours' => 'required|numeric|min:1',
                 'payment_type' => 'required|string|in:cash,visa,wallet',
-                'delivery_fee' => 'required|numeric|min:0',
-                'total_prices' => 'required|numeric|min:0',
-                'total_discounts' => 'nullable|numeric|min:0',
                 'coupon_code' => 'nullable|string|exists:coupons,code',
                 'note' => 'nullable|string|max:500'
             ]);
@@ -116,6 +114,32 @@ class AppointmentController extends Controller
                 );
             }
 
+            // Get user address to find delivery area
+            $userAddress = UserAddress::find($request->address_id);
+
+            if (!$userAddress) {
+                return $this->error_response(
+                    'Address not found',
+                    []
+                );
+            }
+
+            // Get the delivery fee from deliveries table
+            $delivery = Delivery::find($userAddress->delivery_id);
+
+            if (!$delivery) {
+                return $this->error_response(
+                    'Delivery not found',
+                    []
+                );
+            }
+
+            $deliveryFee = $delivery ? $delivery->price : 0;
+
+            // Calculate prices
+            $servicePrice = $providerType->price_per_hour * $request->number_of_hours;
+            $totalPrices = $servicePrice + $deliveryFee;
+
             // Check if user has conflicting appointments at the same time
             $conflictingAppointment = Appointment::where('user_id', $user->id)
                 ->where('date', $request->date)
@@ -131,6 +155,7 @@ class AppointmentController extends Controller
 
             $couponDiscount = 0;
             $couponId = null;
+            $totalDiscounts = 0;
 
             // Handle coupon if provided
             if ($request->has('coupon_code') && $request->coupon_code) {
@@ -159,7 +184,7 @@ class AppointmentController extends Controller
                 }
 
                 // Check minimum total requirement
-                if ($request->total_prices < $coupon->minimum_total) {
+                if ($totalPrices < $coupon->minimum_total) {
                     return $this->error_response(
                         "Minimum total of {$coupon->minimum_total} required to use this coupon",
                         []
@@ -167,8 +192,12 @@ class AppointmentController extends Controller
                 }
 
                 $couponDiscount = $coupon->amount;
+                $totalDiscounts = $couponDiscount;
                 $couponId = $coupon->id;
             }
+
+            // Final total after discounts
+            $finalTotal = $totalPrices - $totalDiscounts;
 
             // Generate appointment number
             $appointmentNumber = $this->generateAppointmentNumber();
@@ -177,9 +206,9 @@ class AppointmentController extends Controller
             $appointment = Appointment::create([
                 'number' => $appointmentNumber,
                 'appointment_status' => 1, // Pending
-                'delivery_fee' => $request->delivery_fee,
-                'total_prices' => $request->total_prices,
-                'total_discounts' => $request->total_discounts ?? 0,
+                'delivery_fee' => $deliveryFee,
+                'total_prices' => $finalTotal,
+                'total_discounts' => $totalDiscounts,
                 'coupon_discount' => $couponDiscount,
                 'payment_type' => $request->payment_type,
                 'payment_status' => 2, // Unpaid
@@ -207,10 +236,22 @@ class AppointmentController extends Controller
                 'providerType.type:id,name,description'
             ]);
 
-            // Add status labels
+            // Add status labels and calculation details
             $appointment->appointment_status_label = $this->getAppointmentStatusLabel($appointment->appointment_status);
             $appointment->payment_status_label = $this->getPaymentStatusLabel($appointment->payment_status);
             $appointment->is_vip_label = $appointment->providerType->is_vip == 1 ? 'VIP' : 'Regular';
+            
+            // Add calculation breakdown for response
+            $appointment->price_breakdown = [
+                'service_price' => $servicePrice,
+                'price_per_hour' => $providerType->price_per_hour,
+                'number_of_hours' => $request->number_of_hours,
+                'delivery_fee' => $deliveryFee,
+                'subtotal' => $totalPrices,
+                'coupon_discount' => $couponDiscount,
+                'total_discounts' => $totalDiscounts,
+                'final_total' => $finalTotal
+            ];
 
             return $this->success_response(
                 'Appointment created successfully',

@@ -17,8 +17,7 @@ class Coupon extends Model
      * @var array
      */
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
+        'expired_at' => 'date',
     ];
 
     /**
