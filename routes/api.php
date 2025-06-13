@@ -99,7 +99,19 @@ Route::group(['prefix' => 'v1/user'], function () {
 
         Route::get('/providerFavourites', [FavouriteController::class,'indexProvider']); 
         Route::post('/providerFavourites', [FavouriteController::class,'storeProvider']);
-         // End the Provider Display in user app
+
+         Route::prefix('appointments')->group(function () {
+            Route::get('/', [AppointmentController::class, 'index']); // GET /api/appointments
+            Route::post('/', [AppointmentController::class, 'store']); // POST /api/appointments
+        });
+
+        Route::prefix('points')->group(function () {
+        // Get points transactions history
+        Route::get('/', [PointsController::class, 'index']); 
+        // Convert points to money
+        Route::post('/convert', [PointsController::class, 'convertPointsToMoney']);
+        });
+        // End the Provider Display in user app
 
     });
 });

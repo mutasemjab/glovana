@@ -51,5 +51,9 @@ class Provider extends Authenticatable
         return $this->getImageUrl($this->photo_of_manager);
     }
     
+    public function pointsTransactions()
+    {
+        return $this->hasMany(PointTransaction::class);
+    }
 
 }

@@ -29,6 +29,11 @@ class Coupon extends Model
         return $this->belongsTo(Service::class);
     }
 
+    public function userCoupons()
+    {
+        return $this->hasMany(UserCoupon::class);
+    }
+
     /**
      * Get the discount type text.
      *

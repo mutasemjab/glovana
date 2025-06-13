@@ -76,6 +76,11 @@ class ProviderType extends Model
         return $this->hasMany(ProviderUnavailability::class);
     }
 
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class);
+    }
+
         // Accessors
     public function getStatusTextAttribute()
     {

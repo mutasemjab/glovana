@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('photo')->nullable();
             $table->text('fcm_token')->nullable();
             $table->double('balance')->default(0);
+            $table->integer('total_points')->default(0);
             $table->text('referral_code')->nullable();
             $table->tinyInteger('activate')->default(1); // 1 yes //2 no
             $table->unsignedBigInteger('user_id')->nullable(); 

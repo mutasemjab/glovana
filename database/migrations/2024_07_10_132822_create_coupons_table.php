@@ -19,6 +19,7 @@ return new class extends Migration
             $table->double('amount');
             $table->double('minimum_total');
             $table->date('expired_at');
+            $table->tinyInteger('type')->default(1); // 1 coupon for products // 2 coupon for provider type
             $table->timestamps();
         });
     }

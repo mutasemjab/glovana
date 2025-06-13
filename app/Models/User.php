@@ -46,4 +46,10 @@ class User extends Authenticatable
         return $this->belongsToMany(ProviderType::class, 'provider_favourites', 'user_id', 'provider_type_id')->with('images');
     }
 
+    public function pointsTransactions()
+    {
+        return $this->hasMany(PointTransaction::class);
+    }
+
+
 }

@@ -20,7 +20,7 @@ class UserAddressController extends Controller
         {
             $user_id = $request->user_id ?? Auth::id();
             
-            $addresses = UserAddress::where('user_id', $user_id)->get();
+            $addresses = UserAddress::with('delivery')->where('user_id', $user_id)->get();
             
             return $this->success_response('Addresses retrieved successfully', $addresses);
         }

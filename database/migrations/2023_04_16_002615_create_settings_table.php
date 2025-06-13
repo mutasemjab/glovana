@@ -20,7 +20,8 @@ return new class extends Migration
             $table->timestamps();
         });
         DB::table('settings')->insert([
-            ['key' => "pray", 'value' => 1],
+            ['key' => "number_of_points_to_convert_to_money", 'value' => 1],
+            ['key' => "one_point_equal_money", 'value' => 1],
         ]);
 
     }
