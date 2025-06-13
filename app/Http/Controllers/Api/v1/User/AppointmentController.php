@@ -25,7 +25,7 @@ class AppointmentController extends Controller
             
             $appointments = Appointment::with([
                 'user:id,name,email,phone',
-                'address:id,address,lat,lng,city,state',
+                'address',
                 'providerType:id,name,description,address,lat,lng,price_per_hour,status,is_vip',
                 'providerType.provider:id,name,email,phone',
                 'providerType.type:id,name,description'
@@ -201,7 +201,7 @@ class AppointmentController extends Controller
             // Load relationships for response
             $appointment->load([
                 'user:id,name,email,phone',
-                'address:id,address,lat,lng,city,state',
+                'address',
                 'providerType:id,name,description,address,lat,lng,price_per_hour,status,is_vip',
                 'providerType.provider:id,name,email,phone',
                 'providerType.type:id,name,description'
