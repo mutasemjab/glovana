@@ -43,6 +43,7 @@
                             <td>{{ $coupon->amount }}</td>
                             <td>{{ $coupon->minimum_total }}</td>
                             <td>{{ $coupon->expired_at }}</td>
+                            <td>{{ $coupon->type == 1 ? 'Product' : 'Provider' }}</td>
                            
                             <td>
                                 <div class="btn-group">

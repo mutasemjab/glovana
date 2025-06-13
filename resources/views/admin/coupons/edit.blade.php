@@ -17,15 +17,7 @@
             <h6 class="m-0 font-weight-bold text-primary">{{ __('messages.Coupon_Details') }}</h6>
         </div>
         <div class="card-body">
-            @if ($errors->any())
-            <div class="alert alert-danger">
-                <ul class="mb-0">
-                    @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-            @endif
+           
 
             <form action="{{ route('coupons.update', $coupon->id) }}" method="POST">
                 @csrf
@@ -64,6 +56,19 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                           <div class="form-group">
+                            <label for="activate">{{ __('messages.Type') }}</label>
+                            <select class="form-control" id="type" name="type">
+                                <option value="1" {{ old('type', $user->type) == 1 ? 'selected' : '' }}>{{ __('messages.Product') }}</option>
+                                <option value="2" {{ old('type', $user->type) == 2 ? 'selected' : '' }}>{{ __('messages.Provider') }}</option>
+                            </select>
+                        </div>
+                        </div>
+                        </div>
+                        
                     </div>
                 </div>
 

@@ -55,6 +55,19 @@
                                 </div>
                             </div>
                         </div>
+                         
+                        <div class="row">
+                         <div class="col-md-6">
+                         <div class="form-group">
+                            <label for="activate">{{ __('messages.Type') }}</label>
+                            <select class="form-control" id="type" name="type">
+                                <option value="1" {{ old('type', 1) == 1 ? 'selected' : '' }}>{{ __('messages.Product') }}</option>
+                                <option value="2" {{ old('type') == 2 ? 'selected' : '' }}>{{ __('messages.Provider') }}</option>
+                            </select>
+                        </div>
+                        </div>
+                        </div>
+
                     </div>
                 </div>
 
