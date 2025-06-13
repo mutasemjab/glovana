@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AppointmentController;
 use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CouponController;
@@ -117,18 +118,13 @@ Route::resource('categories', CategoryController::class);
 Route::resource('products', ProductController::class);
 Route::resource('banners', BannerController::class);
 Route::resource('types', TypeController::class);
+Route::resource('orders', OrderController::class);
+Route::resource('appointments', AppointmentController::class);
 
 Route::resource('wallet_transactions', WalletTransactionController::class)->except(['edit', 'update', 'destroy']);
 Route::get('wallet_transactions/filter', [WalletTransactionController::class, 'filter'])->name('wallet_transactions.filter');
 Route::get('users/{id}/transactions', [WalletTransactionController::class, 'userTransactions'])->name('wallet_transactions.userTransactions');
-Route::get('drivers/{id}/transactions', [WalletTransactionController::class, 'driverTransactions'])->name('wallet_transactions.driverTransactions');
 
-Route::resource('orders', OrderController::class);
-Route::get('orders/filter', [OrderController::class, 'filter'])->name('orders.filter');
-Route::post('orders/update-status/{id}', [OrderController::class, 'updateStatus'])->name('orders.updateStatus');
-Route::post('orders/update-payment-status/{id}', [OrderController::class, 'updatePaymentStatus'])->name('orders.updatePaymentStatus');
-Route::get('users/{id}/orders', [OrderController::class, 'userOrders'])->name('orders.userOrders');
-Route::get('drivers/{id}/orders', [OrderController::class, 'driverOrders'])->name('orders.driverOrders');
 
 Route::get('/withdrawals', [WithdrawalRequestController::class, 'index'])->name('withdrawals.index');
 Route::get('/history/{id}', [WithdrawalRequestController::class, 'history'])->name('admin.withdrawals.history');

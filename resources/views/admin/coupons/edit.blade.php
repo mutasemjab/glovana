@@ -62,8 +62,8 @@
                            <div class="form-group">
                             <label for="activate">{{ __('messages.Type') }}</label>
                             <select class="form-control" id="type" name="type">
-                                <option value="1" {{ old('type', $user->type) == 1 ? 'selected' : '' }}>{{ __('messages.Product') }}</option>
-                                <option value="2" {{ old('type', $user->type) == 2 ? 'selected' : '' }}>{{ __('messages.Provider') }}</option>
+                                <option value="1" {{ old('type', $coupon->type) == 1 ? 'selected' : '' }}>{{ __('messages.Product') }}</option>
+                                <option value="2" {{ old('type', $coupon->type) == 2 ? 'selected' : '' }}>{{ __('messages.Provider') }}</option>
                             </select>
                         </div>
                         </div>

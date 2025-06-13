@@ -8,343 +8,268 @@ use App\Models\Order;
 use App\Models\User;
 use App\Models\Driver;
 use App\Models\Service;
+use App\Models\WalletTransaction;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
     /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
+     * Display a listing of orders
      */
-    public function index()
+    public function index(Request $request)
     {
-        $orders = Order::with(['user', 'driver', 'service'])->orderBy('created_at', 'desc')->get();
-        return view('admin.orders.index', compact('orders'));
-    }
+        try {
+            $query = Order::with([
+                'user:id,name,phone,email',
+                'address',
+                'orderProducts.product:id,name,image'
+            ])->orderBy('created_at', 'desc');
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        $users = User::all();
-        $drivers = Driver::all();
-        $services = Service::all();
-        return view('admin.orders.create', compact('users', 'drivers', 'services'));
-    }
+            // Filter by order status
+            if ($request->filled('order_status')) {
+                $query->where('order_status', $request->order_status);
+            }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'user_id' => 'required|exists:users,id',
-            'driver_id' => 'nullable|exists:drivers,id',
-            'service_id' => 'required|exists:services,id',
-            'pick_name' => 'required|string|max:255',
-            'pick_lat' => 'required|numeric',
-            'pick_lng' => 'required|numeric',
-            'drop_name' => 'required|string|max:255',
-            'drop_lat' => 'required|numeric',
-            'drop_lng' => 'required|numeric',
-            'total_price_before_discount' => 'required|numeric|min:0',
-            'discount_value' => 'nullable|numeric|min:0',
-            'total_price_after_discount' => 'required|numeric|min:0',
-            'net_price_for_driver' => 'required|numeric|min:0',
-            'commision_of_admin' => 'required|numeric|min:0',
-            'status' => 'required|in:1,2,3,4,5,6,7',
-            'reason_for_cancel' => 'nullable|required_if:status,6,7|string',
-            'payment_method' => 'required|in:1,2,3',
-            'status_payment' => 'required|in:1,2',
-        ]);
+            // Filter by payment status
+            if ($request->filled('payment_status')) {
+                $query->where('payment_status', $request->payment_status);
+            }
 
-        if ($validator->fails()) {
-            return redirect()
-                ->route('orders.create')
-                ->withErrors($validator)
-                ->withInput();
+            // Filter by payment type
+            if ($request->filled('payment_type')) {
+                $query->where('payment_type', $request->payment_type);
+            }
+
+            // Filter by date range
+            if ($request->filled('from_date')) {
+                $query->whereDate('date', '>=', $request->from_date);
+            }
+
+            if ($request->filled('to_date')) {
+                $query->whereDate('date', '<=', $request->to_date);
+            }
+
+            // Search by order number or user name
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('number', 'like', "%{$search}%")
+                      ->orWhereHas('user', function($userQuery) use ($search) {
+                          $userQuery->where('name', 'like', "%{$search}%")
+                                   ->orWhere('phone', 'like', "%{$search}%");
+                      });
+                });
+            }
+
+            $orders = $query->paginate(15);
+
+            // Add status labels and statistics
+            $orders->getCollection()->transform(function ($order) {
+                $order->order_status_label = $this->getOrderStatusLabel($order->order_status);
+                $order->payment_status_label = $this->getPaymentStatusLabel($order->payment_status);
+                $order->items_count = $order->orderProducts->sum('quantity');
+                return $order;
+            });
+
+            // Get statistics
+            $statistics = $this->getOrderStatistics();
+
+            return view('admin.orders.index', compact('orders', 'statistics'));
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to load orders: ' . $e->getMessage());
         }
-
-        // Create order
-        Order::create($request->all());
-
-        return redirect()
-            ->route('orders.index')
-            ->with('success', __('messages.Order_Created_Successfully'));
     }
 
     /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * Display the specified order
      */
     public function show($id)
     {
-        $order = Order::with(['user', 'driver', 'service'])->findOrFail($id);
-        return view('admin.orders.show', compact('order'));
+        try {
+            $order = Order::with([
+                'user:id,name,phone,email,country_code',
+                'address',
+                'orderProducts.product:id,name,image,description'
+            ])->findOrFail($id);
+
+            $order->order_status_label = $this->getOrderStatusLabel($order->order_status);
+            $order->payment_status_label = $this->getPaymentStatusLabel($order->payment_status);
+
+            return view('admin.orders.show', compact('order'));
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Order not found: ' . $e->getMessage());
+        }
     }
 
     /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * Show the form for editing the specified order
      */
     public function edit($id)
     {
-        $order = Order::findOrFail($id);
-        $users = User::all();
-        $drivers = Driver::all();
-        $services = Service::all();
-        return view('admin.orders.edit', compact('order', 'users', 'drivers', 'services'));
+        try {
+            $order = Order::with([
+                'user:id,name,phone,email',
+                'address',
+                'orderProducts.product'
+            ])->findOrFail($id);
+
+            $users = User::where('activate', 1)->get(['id', 'name', 'phone', 'email']);
+            
+            return view('admin.orders.edit', compact('order', 'users'));
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Order not found: ' . $e->getMessage());
+        }
     }
 
     /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * Update the specified order
      */
     public function update(Request $request, $id)
     {
-        $order = Order::findOrFail($id);
+        try {
+            $request->validate([
+                'order_status' => 'required|integer|in:1,2,3,4,5,6',
+                'payment_status' => 'required|integer|in:1,2',
+                'note' => 'nullable|string|max:500'
+            ]);
 
-        $validator = Validator::make($request->all(), [
-            'user_id' => 'required|exists:users,id',
-            'driver_id' => 'nullable|exists:drivers,id',
-            'service_id' => 'required|exists:services,id',
-            'pick_name' => 'required|string|max:255',
-            'pick_lat' => 'required|numeric',
-            'pick_lng' => 'required|numeric',
-            'drop_name' => 'required|string|max:255',
-            'drop_lat' => 'required|numeric',
-            'drop_lng' => 'required|numeric',
-            'total_price_before_discount' => 'required|numeric|min:0',
-            'discount_value' => 'nullable|numeric|min:0',
-            'total_price_after_discount' => 'required|numeric|min:0',
-            'net_price_for_driver' => 'required|numeric|min:0',
-            'commision_of_admin' => 'required|numeric|min:0',
-            'status' => 'required|in:1,2,3,4,5,6,7',
-            'reason_for_cancel' => 'nullable|required_if:status,6,7|string',
-            'payment_method' => 'required|in:1,2,3',
-            'status_payment' => 'required|in:1,2',
-        ]);
+            $order = Order::findOrFail($id);
+            $oldStatus = $order->order_status;
+            $oldPaymentStatus = $order->payment_status;
 
-        if ($validator->fails()) {
-            return redirect()
-                ->route('orders.edit', $id)
-                ->withErrors($validator)
-                ->withInput();
+            DB::beginTransaction();
+
+            try {
+                // Update order
+                $order->update([
+                    'order_status' => $request->order_status,
+                    'payment_status' => $request->payment_status,
+                    'note' => $request->note
+                ]);
+
+                // Handle payment status change
+                if ($oldPaymentStatus != $request->payment_status) {
+                    $this->handlePaymentStatusChange($order, $request->payment_status);
+                }
+
+                // Handle refund if status changed to refund
+                if ($request->order_status == 6 && $oldStatus != 6) {
+                    $this->processRefund($order);
+                }
+
+                DB::commit();
+
+                return redirect()->route('admin.orders.show', $order->id)
+                    ->with('success', 'Order updated successfully');
+
+            } catch (\Exception $e) {
+                DB::rollback();
+                throw $e;
+            }
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to update order: ' . $e->getMessage());
         }
-
-        // Update order
-        $order->update($request->all());
-
-        return redirect()
-            ->route('orders.index')
-            ->with('success', __('messages.Order_Updated_Successfully'));
     }
 
     /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * Get order statistics
      */
-    public function destroy($id)
+    private function getOrderStatistics()
     {
-        $order = Order::findOrFail($id);
-        $order->delete();
-
-        return redirect()
-            ->route('orders.index')
-            ->with('success', __('messages.Order_Deleted_Successfully'));
+        return [
+            'total_orders' => Order::count(),
+            'pending_orders' => Order::where('order_status', 1)->count(),
+            'delivered_orders' => Order::where('order_status', 4)->count(),
+            'canceled_orders' => Order::where('order_status', 5)->count(),
+            'total_revenue' => Order::where('order_status', 4)->sum('total_prices'),
+            'unpaid_orders' => Order::where('payment_status', 2)->count(),
+            'today_orders' => Order::whereDate('created_at', today())->count(),
+            'this_month_orders' => Order::whereMonth('created_at', now()->month)
+                                       ->whereYear('created_at', now()->year)
+                                       ->count()
+        ];
     }
 
     /**
-     * Filter orders by various criteria.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     * Handle payment status change
      */
-    public function filter(Request $request)
+    private function handlePaymentStatusChange($order, $newPaymentStatus)
     {
-        $validator = Validator::make($request->all(), [
-            'user_id' => 'nullable|exists:users,id',
-            'driver_id' => 'nullable|exists:drivers,id',
-            'service_id' => 'nullable|exists:services,id',
-            'status' => 'nullable|in:all,1,2,3,4,5,6,7',
-            'payment_method' => 'nullable|in:all,1,2,3',
-            'status_payment' => 'nullable|in:all,1,2',
-            'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date|after_or_equal:date_from',
-        ]);
-
-        if ($validator->fails()) {
-            return redirect()
-                ->route('orders.index')
-                ->withErrors($validator);
+        if ($newPaymentStatus == 1 && $order->payment_type == 'wallet') {
+            // Deduct from user wallet if payment is marked as paid
+            $user = $order->user;
+            if ($user->balance >= $order->total_prices) {
+                $user->decrement('balance', $order->total_prices);
+                
+                // Create wallet transaction
+                WalletTransaction::create([
+                    'user_id' => $user->id,
+                    'amount' => $order->total_prices,
+                    'type_of_transaction' => 2, // withdrawal
+                    'note' => "Payment for order #{$order->number}"
+                ]);
+            }
         }
-
-        $query = Order::with(['user', 'driver', 'service']);
-
-        // Filter by user
-        if ($request->user_id) {
-            $query->where('user_id', $request->user_id);
-        }
-
-        // Filter by driver
-        if ($request->driver_id) {
-            $query->where('driver_id', $request->driver_id);
-        }
-
-        // Filter by service
-        if ($request->service_id) {
-            $query->where('service_id', $request->service_id);
-        }
-
-        // Filter by status
-        if ($request->status && $request->status != 'all') {
-            $query->where('status', $request->status);
-        }
-
-        // Filter by payment method
-        if ($request->payment_method && $request->payment_method != 'all') {
-            $query->where('payment_method', $request->payment_method);
-        }
-
-        // Filter by payment status
-        if ($request->status_payment && $request->status_payment != 'all') {
-            $query->where('status_payment', $request->status_payment);
-        }
-
-        // Filter by date range
-        if ($request->date_from) {
-            $query->whereDate('created_at', '>=', $request->date_from);
-        }
-        if ($request->date_to) {
-            $query->whereDate('created_at', '<=', $request->date_to);
-        }
-
-        // Get the filtered orders
-        $orders = $query->orderBy('created_at', 'desc')->get();
-        
-        // Get users, drivers and services for the filter dropdowns
-        $users = User::all();
-        $drivers = Driver::all();
-        $services = Service::all();
-
-        return view('admin.orders.index', compact('orders', 'users', 'drivers', 'services'));
     }
 
     /**
-     * Update the order status.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * Process refund
      */
-    public function updateStatus(Request $request, $id)
+    private function processRefund($order)
     {
-        $order = Order::findOrFail($id);
-
-        $validator = Validator::make($request->all(), [
-            'status' => 'required|in:1,2,3,4,5,6,7',
-            'reason_for_cancel' => 'nullable|required_if:status,6,7|string',
-        ]);
-
-        if ($validator->fails()) {
-            return redirect()
-                ->route('orders.show', $id)
-                ->withErrors($validator);
+        if ($order->payment_status == 1) { // Only refund if paid
+            $user = $order->user;
+            
+            // Add refund to user wallet
+            $user->increment('balance', $order->total_prices);
+            
+            // Create wallet transaction for refund
+            WalletTransaction::create([
+                'user_id' => $user->id,
+                'amount' => $order->total_prices,
+                'type_of_transaction' => 1, // add
+                'note' => "Refund for order #{$order->number}"
+            ]);
         }
+    }
 
-        $updateData = [
-            'status' => $request->status
+    /**
+     * Get order status label
+     */
+    private function getOrderStatusLabel($status)
+    {
+        $labels = [
+            1 => 'Pending',
+            2 => 'Accepted', 
+            3 => 'On The Way',
+            4 => 'Delivered',
+            5 => 'Canceled',
+            6 => 'Refund'
         ];
 
-        if (in_array($request->status, [6, 7]) && $request->has('reason_for_cancel')) {
-            $updateData['reason_for_cancel'] = $request->reason_for_cancel;
-        }
-
-        $order->update($updateData);
-
-        return redirect()
-            ->route('orders.show', $id)
-            ->with('success', __('messages.Order_Status_Updated'));
+        return $labels[$status] ?? 'Unknown';
     }
 
     /**
-     * Update the payment status.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
+     * Get payment status label
      */
-    public function updatePaymentStatus(Request $request, $id)
+    private function getPaymentStatusLabel($status)
     {
-        $order = Order::findOrFail($id);
+        $labels = [
+            1 => 'Paid',
+            2 => 'Unpaid'
+        ];
 
-        $validator = Validator::make($request->all(), [
-            'status_payment' => 'required|in:1,2',
-        ]);
-
-        if ($validator->fails()) {
-            return redirect()
-                ->route('orders.show', $id)
-                ->withErrors($validator);
-        }
-
-        $order->update([
-            'status_payment' => $request->status_payment
-        ]);
-
-        return redirect()
-            ->route('orders.show', $id)
-            ->with('success', __('messages.Payment_Status_Updated'));
+        return $labels[$status] ?? 'Unknown';
     }
 
-    /**
-     * Show user orders.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function userOrders($id)
-    {
-        $user = User::findOrFail($id);
-        $orders = Order::with(['driver', 'service'])
-            ->where('user_id', $id)
-            ->orderBy('created_at', 'desc')
-            ->get();
-        
-        return view('admin.orders.user_orders', compact('orders', 'user'));
-    }
+  
 
-    /**
-     * Show driver orders.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function driverOrders($id)
-    {
-        $driver = Driver::findOrFail($id);
-        $orders = Order::with(['user', 'service'])
-            ->where('driver_id', $id)
-            ->orderBy('created_at', 'desc')
-            ->get();
-        
-        return view('admin.orders.driver_orders', compact('orders', 'driver'));
-    }
+   
 }

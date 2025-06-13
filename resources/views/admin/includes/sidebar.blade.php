@@ -104,36 +104,46 @@
                 </li>
                 
                 <!-- Services & Coupons -->
-                @canany(['service-table', 'service-add', 'service-edit', 'service-delete', 'coupon-table', 'coupon-add', 'coupon-edit', 'coupon-delete'])
-                <li class="nav-item {{ request()->is('admin/services*') || request()->is('admin/coupons*') ? 'menu-open' : '' }}">
+                @canany(['order-table', 'order-add', 'order-edit', 'order-delete', 'coupon-table', 'coupon-add', 'coupon-edit', 'coupon-delete'])
+                <li class="nav-item {{ request()->is('admin/orders*') || request()->is('admin/coupons*') ? 'menu-open' : '' }}">
                     <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-concierge-bell"></i>
                         <p>
-                            {{ __('messages.service_management') }}
+                            {{ __('messages.order_management') }}
                             <i class="right fas fa-angle-left"></i>
                         </p>
                     </a>
                     <ul class="nav nav-treeview">
-                        @canany(['service-table', 'service-add', 'service-edit', 'service-delete'])
+                        @canany(['order-table', 'order-add', 'order-edit', 'order-delete'])
                         <li class="nav-item">
-                            <a href="{{ route('services.index') }}" class="nav-link {{ request()->routeIs('services.index') ? 'active' : '' }}">
+                            <a href="{{ route('orders.index') }}" class="nav-link {{ request()->routeIs('orders.index') ? 'active' : '' }}">
                                 <i class="fas fa-handshake nav-icon"></i>
-                                <p>{{ __('messages.services') }}</p>
+                                <p>{{ __('messages.orders') }}</p>
                             </a>
                         </li>
                         @endcanany
-                        
-                        @canany(['coupon-table', 'coupon-add', 'coupon-edit', 'coupon-delete'])
+
+                         @canany(['appointment-table', 'appointment-add', 'appointment-edit', 'appointment-delete'])
+                        <li class="nav-item">
+                            <a href="{{ route('appointments.index') }}" class="nav-link {{ request()->routeIs('appointments.index') ? 'active' : '' }}">
+                                <i class="fas fa-handshake nav-icon"></i>
+                                <p>{{ __('messages.appointments') }}</p>
+                            </a>
+                        </li>
+                        @endcanany 
+                       
+                    </ul>
+                </li>
+                @endcanany
+
+                 @canany(['coupon-table', 'coupon-add', 'coupon-edit', 'coupon-delete'])
                         <li class="nav-item">
                             <a href="{{ route('coupons.index') }}" class="nav-link {{ request()->routeIs('coupons.index') ? 'active' : '' }}">
                                 <i class="fas fa-ticket-alt nav-icon"></i>
                                 <p>{{ __('messages.coupons') }}</p>
                             </a>
                         </li>
-                        @endcanany
-                    </ul>
-                </li>
-                @endcanany
+                 @endcanany
 
                 <!-- Notifications -->
                 @canany(['notification-table', 'notification-add', 'notification-edit', 'notification-delete'])
