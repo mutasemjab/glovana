@@ -57,6 +57,7 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::post('/notifications', [AuthController::class, 'sendToUser']);
 
         Route::post('/ratings', [RatingController::class, 'store']);
+        Route::post('/product/ratings', [RatingController::class, 'storeRatingProduct']);
 
         Route::get('/addresses', [UserAddressController::class, 'index']);
         Route::post('/addresses', [UserAddressController::class, 'store']);

@@ -147,7 +147,7 @@ class OrderController extends Controller
 
     public function details($id)
     {
-        $order = Order::with('orderProducts')->find($id);
+        $order = Order::with('orderProducts','orderProducts.product','orderProducts.product.images')->find($id);
 
         if (!$order) {
             return $this->error_response('Order not found', []);
