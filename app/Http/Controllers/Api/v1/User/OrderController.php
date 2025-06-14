@@ -22,7 +22,7 @@ class OrderController extends Controller
 
       public function index(Request $request)
     {
-        $orders = Order::with('orderProducts')->where('user_id', $request->user()->id)->get();
+        $orders = Order::with('orderProducts','orderProducts.product','orderProducts.product.images')->where('user_id', $request->user()->id)->get();
         return $this->success_response('Orders retrieved successfully', $orders);
     }
 

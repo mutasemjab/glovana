@@ -26,11 +26,11 @@ class AppointmentController extends Controller
             $user = Auth::user();
             
             $appointments = Appointment::with([
-                'user:id,name,email,phone',
+                'user',
                 'address',
-                'providerType:id,name,description,address,lat,lng,price_per_hour,status,is_vip',
-                'providerType.provider:id,name,email,phone',
-                'providerType.type:id,name,description'
+                'providerType',
+                'providerType.provider',
+                'providerType.type'
             ])
             ->where('user_id', $user->id)
             ->orderBy('created_at', 'desc');
@@ -231,9 +231,8 @@ class AppointmentController extends Controller
             $appointment->load([
                 'user:id,name,email,phone',
                 'address',
-                'providerType:id,name,description,address,lat,lng,price_per_hour,status,is_vip',
-                'providerType.provider:id,name,email,phone',
-                'providerType.type:id,name,description'
+                'providerType',
+                'providerType.provider',
             ]);
 
             // Add status labels and calculation details
