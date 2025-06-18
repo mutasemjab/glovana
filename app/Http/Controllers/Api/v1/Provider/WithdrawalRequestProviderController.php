@@ -1,7 +1,7 @@
 <?php
 
 
-namespace App\Http\Controllers\Api\v1\Driver;
+namespace App\Http\Controllers\Api\v1\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Models\Complaint;
@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
-class WithdrawalRequestDriverController extends Controller
+class WithdrawalRequestProviderController extends Controller
 {
     use Responses;
 
@@ -22,15 +22,15 @@ class WithdrawalRequestDriverController extends Controller
             'amount' => 'required|numeric|min:1',
         ]);
         
-           $driver = auth('driver-api')->user();
+           $provider = auth('provider-api')->user();
         
-            // Check if driver has enough balance
-            if ($driver->balance < $request->amount) {
+            // Check if provider has enough balance
+            if ($provider->balance < $request->amount) {
                 return $this->error_response('Insufficient balance',[]);
             }
             // Create withdrawal request
             WithdrawalRequest::create([
-                'driver_id' => $driver->id,
+                'provider_id' => $provider->id,
                 'amount' => $request->amount,
             ]);
           return $this->success_response('Withdrawal request submitted successfully',[]);

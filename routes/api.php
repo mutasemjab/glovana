@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\v1\User;
 
+use App\Http\Controllers\Api\v1\Provider\AppointmentProviderController;
 use App\Http\Controllers\Api\v1\User\ProviderController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -12,6 +13,10 @@ use App\Http\Controllers\Api\v1\User\RatingController;
 use App\Http\Controllers\Api\v1\User\DeliveryController;
 use App\Http\Controllers\Api\v1\User\TypeController;
 use App\Http\Controllers\Api\v1\User\FavouriteController;
+use App\Http\Controllers\Api\v1\Provider\AuthProviderController;
+use App\Http\Controllers\Api\v1\Provider\WithdrawalRequestProviderController;
+use App\Http\Controllers\Api\v1\Provider\RatingProviderController;
+use App\Http\Controllers\Api\v1\Provider\WalletProviderController;
 
 /*
 |--------------------------------------------------------------------------
@@ -121,42 +126,46 @@ Route::group(['prefix' => 'v1/user'], function () {
 
 // provider
 
-// Route::group(['prefix' => 'v1/provider'], function () {
+ Route::group(['prefix' => 'v1/provider'], function () {
 
 
-//     // Auth Route
-//     Route::group(['middleware' => ['auth:provider-api']], function () {
+     // Auth Route
+     Route::group(['middleware' => ['auth:provider-api']], function () {
 
-//         Route::get('/active', [AuthController::class, 'active']);
-//         Route::post('/updateStatus', [AuthController::class, 'updateStatusOnOff']);
-//         Route::post('/homeDriver', HomeDriverController::class);
-//         Route::post('/withdrawal/request',  [WithdrawalRequestDriverController::class, 'requestWithdrawal']);
+         Route::get('/active', [AuthProviderController::class, 'active']);
+         Route::post('/updateStatus', [AuthProviderController::class, 'updateStatusOnOff']);
+         Route::post('/withdrawal/request',  [WithdrawalRequestProviderController::class, 'requestWithdrawal']);
 
 //         // image for chat
-//         Route::get('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'index']);
-//         Route::post('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'store']);
-//         Route::post('/logout', [AuthController::class, 'logout']);
-//         Route::post('/update_profile', [AuthController::class, 'updateProfile']);
-//         Route::post('/delete_account', [AuthController::class, 'deleteAccount']);
-//         Route::get('/driverProfile', [AuthController::class, 'driverProfile']);
-//         //Notification
-//         Route::get('/notifications', [AuthController::class, 'notifications']);
-//         Route::post('/notifications', [AuthController::class, 'sendToUser']);
+         Route::get('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'index']);
+         Route::post('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'store']);
+         Route::post('/update_profile', [AuthProviderController::class, 'updateProviderProfile']);
+         Route::post('/delete_account', [AuthProviderController::class, 'deleteAccount']);
+         Route::get('/providerProfile', [AuthProviderController::class, 'getProviderProfile']);
+         Route::post('/complete-profile', [AuthProviderController::class, 'completeProviderProfile']);
+         Route::put('/types/{providerTypeId}', [AuthProviderController::class, 'updateProviderType']);
 
-//         Route::get('/ratings', [RatingDriverController::class, 'index']);
-//         Route::get('/getServices', [ServiceDriverController::class, 'index']);
-//         Route::post('/storeOrUpdateStatus', [ServiceDriverController::class, 'storeOrUpdateStatus']);
-//         Route::get('/wallet/transactions', [WalletDriverController::class, 'getTransactions']);
+         //Notification
+         Route::get('/notifications', [AuthProviderController::class, 'notifications']);
 
-//         Route::get('/complaints', [ComplaintDriverController::class, 'getTransactions']);
+         Route::get('/ratings', [RatingProviderController::class, 'index']);
+         Route::get('/wallet/transactions', [WalletProviderController::class, 'getTransactions']);
 
-//         Route::get('/orders', [OrderDriverController::class, 'index']);
-//         Route::get('/orders/active', [OrderDriverController::class, 'activeOrders']);
-//         Route::get('/orders/completed', [OrderDriverController::class, 'completedOrders']);
-//         Route::get('/orders/cancelled', [OrderDriverController::class, 'cancelledOrders']);
-//         Route::post('/orders', [OrderDriverController::class, 'store']);
-//         Route::get('/orders/{id}', [OrderDriverController::class, 'show']);
-//         Route::post('/orders/{id}/cancel', [OrderDriverController::class, 'cancelOrder']);
-//         Route::post('/orders/{id}/status', [OrderDriverController::class, 'updateStatus']);
-//     });
-// });
+   
+         // Additional utility routes
+         Route::delete('/images/{imageId}', [AuthProviderController::class, 'deleteProviderImage']);
+         Route::delete('/gallery/{galleryId}', [AuthProviderController::class, 'deleteProviderGallery']);
+
+
+         Route::prefix('appointments')->group(function () {
+            // Get all appointments with filtering
+            Route::get('/', [AppointmentProviderController::class, 'getProviderAppointments']);
+            // Get appointment details
+            Route::get('/{appointmentId}', [AppointmentProviderController::class, 'getAppointmentDetails']);
+            // Update appointment status
+            Route::put('/{appointmentId}/status', [AppointmentProviderController::class, 'updateAppointmentStatus']);
+        
+        });
+
+     });
+});

@@ -20,22 +20,6 @@ class AuthController extends Controller
 {
     use Responses;
 
-
-    public function updateStatusOnOff()
-    {
-        $provider = auth('provider-api')->user();
-
-        // Check if driver exists and has a valid status
-        if (!in_array($provider->status, [1, 2])) {
-            return response()->json(['message' => 'Invalid status value.'], 400);
-        }
-
-        // Toggle status
-        $provider->status = $provider->status == 1 ? 2 : 1;
-        $provider->save();
-        return $this->success_response('Status updated successfully.', $provider->status);
-    }
-
     public function active()
     {
         $user = auth()->user();
@@ -51,7 +35,6 @@ class AuthController extends Controller
         try {
             // Check both authentication guards
             $userApi = auth('user-api')->user();
-            $providerApi = auth('provider-api')->user();
 
             if ($userApi) {
                 // Regular user account deactivation
@@ -61,14 +44,6 @@ class AuthController extends Controller
                 $userApi->tokens()->delete();
 
                 return $this->success_response('User account deleted successfully', null);
-            } elseif ($providerApi) {
-                // provider account deactivation
-                $providerApi->update(['activate' => 2]);
-
-                // Revoke all tokens for the provider
-                $providerApi->tokens()->delete();
-
-                return $this->success_response('provider account deleted successfully', null);
             } else {
                 return $this->error_response('Unauthenticated', [], 401);
             }
@@ -77,32 +52,7 @@ class AuthController extends Controller
             return $this->error_response('Failed to delete account', ['error' => $e->getMessage()]);
         }
     }
-    public function logout()
-    {
-        try {
-            // Check if the request is authenticated with user-api guard
-            $userApi = auth('user-api')->user();
 
-            // Check if the request is authenticated with provider-api guard
-            $providerApi = auth('provider-api')->user();
-
-            if ($userApi) {
-                // Revoke all tokens for user
-                $userApi->tokens()->delete();
-                return $this->success_response('User logout successful', []);
-            } elseif ($providerApi) {
-                // Revoke all tokens for provider
-                $providerApi->tokens()->delete();
-                return $this->success_response('provider logout successful', []);
-            } else {
-                return $this->error_response('Unauthenticated', [], 401);
-            }
-        } catch (\Throwable $th) {
-            // Log the error for debugging
-            \Log::error('Logout error: ' . $th->getMessage());
-            return $this->error_response('Failed to logout', []);
-        }
-    }
 
 
 
@@ -345,41 +295,21 @@ class AuthController extends Controller
         }
     }
 
-   public function notifications()
-    {
-        $user = null;
-        $guard = null;
+       public function notifications()
+        {
+            $user = auth()->user();
 
-        if (auth('user-api')->check()) {
-            $user = auth('user-api')->user();
-            $guard = 'user';
-        } elseif (auth('provider-api')->check()) {
-            $user = auth('provider-api')->user();
-            $guard = 'provider';
-        }
-
-        if (!$user) {
-            return $this->error_response('Unauthorized',[]);
-        }
-
-        // Now fetch notifications based on guard
-        $notifications = Notification::query()
-            ->where(function ($query) use ($user, $guard) {
-                $query->where('type', 0);
-
-                if ($guard === 'user') {
-                    $query->orWhere('type', 1)
+            $notifications = Notification::query()
+                ->where(function ($query) use ($user) {
+                    $query->where('type', 0)
+                        ->orWhere('type', 1)
                         ->orWhere('user_id', $user->id);
-                } elseif ($guard === 'provider') {
-                    $query->orWhere('type', 2)
-                        ->orWhere('provider_id', $user->id);
-                }
-            })
-            ->orderBy('id', 'DESC')
-            ->get();
+                })
+                ->orderBy('id', 'DESC')
+                ->get();
 
-        return $this->success_response('Notifications retrieved successfully', $notifications);
-    }
+            return $this->success_response('Notifications retrieved successfully', $notifications);
+        }
 
 
 

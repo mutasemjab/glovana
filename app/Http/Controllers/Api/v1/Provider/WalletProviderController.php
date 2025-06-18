@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\v1\Driver;
+namespace App\Http\Controllers\Api\v1\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Models\WalletTransaction;
@@ -11,13 +11,13 @@ use Illuminate\Support\Facades\Validator;
 
 
 
-class WalletDriverController extends Controller
+class WalletProviderController extends Controller
 {
     use Responses;
   
     public function getTransactions(Request $request)
     {
-        $driver = Auth::guard('driver-api')->user();
+        $provider = Auth::guard('provider-api')->user();
         
         $validator = Validator::make($request->all(), [
             'type' => 'sometimes|in:1,2', // 1 for add, 2 for withdrawal
@@ -30,7 +30,7 @@ class WalletDriverController extends Controller
             return $this->error_response('Validation error', $validator->errors());
         }
         
-        $query = WalletTransaction::where('driver_id', $driver->id);
+        $query = WalletTransaction::where('provider_id', $provider->id);
         
         // Filter by transaction type if provided
         if ($request->has('type')) {
@@ -52,7 +52,7 @@ class WalletDriverController extends Controller
         $transactions = $query->paginate($perPage);
         
         $responseData = [
-            'balance' => $driver->balance,
+            'balance' => $provider->balance,
             'transactions' => $transactions,
             'meta' => [
                 'current_page' => $transactions->currentPage(),
@@ -62,6 +62,6 @@ class WalletDriverController extends Controller
             ]
         ];
         
-        return $this->success_response('Driver wallet transactions retrieved successfully', $responseData);
+        return $this->success_response('Provider wallet transactions retrieved successfully', $responseData);
     }
 }
