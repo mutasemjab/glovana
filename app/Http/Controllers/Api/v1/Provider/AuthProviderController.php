@@ -134,10 +134,10 @@ class AuthProviderController extends Controller
             'provider_types.*.images.*' => 'image|mimes:jpeg,png,jpg|max:4048',
             'provider_types.*.galleries' => 'nullable|array',
             'provider_types.*.galleries.*' => 'image|mimes:jpeg,png,jpg|max:4048',
-            'provider_types.*.availability' => 'required|array|min:1',
-            'provider_types.*.availability.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
-            'provider_types.*.availability.*.start_time' => 'required|date_format:H:i',
-            'provider_types.*.availability.*.end_time' => 'required|date_format:H:i|after:provider_types.*.availability.*.start_time',
+            'provider_types.*.availabilities' => 'required|array|min:1',
+            'provider_types.*.availabilities.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
+            'provider_types.*.availabilities.*.start_time' => 'required|date_format:H:i',
+            'provider_types.*.availabilities.*.end_time' => 'required|date_format:H:i|after:provider_types.*.availabilities.*.start_time',
         ]);
 
         if ($validator->fails()) {
@@ -198,7 +198,7 @@ class AuthProviderController extends Controller
                 }
 
                 // Add availability
-                foreach ($providerTypeData['availability'] as $availability) {
+                foreach ($providerTypeData['availabilities'] as $availability) {
                     \App\Models\ProviderAvailability::create([
                         'provider_type_id' => $providerType->id,
                         'day_of_week' => $availability['day_of_week'],
@@ -218,7 +218,7 @@ class AuthProviderController extends Controller
                     'providerTypes.services',
                     'providerTypes.images',
                     'providerTypes.galleries',
-                    'providerTypes.availability'
+                    'providerTypes.availabilities'
                 ])
             ]);
 
@@ -242,7 +242,7 @@ class AuthProviderController extends Controller
             'providerTypes.services',
             'providerTypes.images',
             'providerTypes.galleries',
-            'providerTypes.availability'
+            'providerTypes.availabilities'
         ]);
 
         return $this->success_response('Provider profile retrieved successfully', [
@@ -282,10 +282,10 @@ class AuthProviderController extends Controller
             'images.*' => 'image|mimes:jpeg,png,jpg|max:4048',
             'galleries' => 'nullable|array',
             'galleries.*' => 'image|mimes:jpeg,png,jpg|max:4048',
-            'availability' => 'sometimes|array|min:1',
-            'availability.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
-            'availability.*.start_time' => 'required|date_format:H:i',
-            'availability.*.end_time' => 'required|date_format:H:i|after:availability.*.start_time',
+            'availabilities' => 'sometimes|array|min:1',
+            'availabilities.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
+            'availabilities.*.start_time' => 'required|date_format:H:i',
+            'availabilities.*.end_time' => 'required|date_format:H:i|after:availabilities.*.start_time',
         ]);
 
         if ($validator->fails()) {
@@ -339,13 +339,13 @@ class AuthProviderController extends Controller
                 }
             }
 
-            // Update availability if provided
-            if ($request->has('availability')) {
+            // Update availabilities if provided
+            if ($request->has('availabilities')) {
                 // Delete existing availability
                 \App\Models\ProviderAvailability::where('provider_type_id', $providerType->id)->delete();
                 
                 // Add new availability
-                foreach ($request->availability as $availability) {
+                foreach ($request->availabilities as $availability) {
                     \App\Models\ProviderAvailability::create([
                         'provider_type_id' => $providerType->id,
                         'day_of_week' => $availability['day_of_week'],
@@ -362,7 +362,7 @@ class AuthProviderController extends Controller
                 'services',
                 'images',
                 'galleries',
-                'availability'
+                'availabilities'
             ]);
 
             return $this->success_response('Provider type updated successfully', [
