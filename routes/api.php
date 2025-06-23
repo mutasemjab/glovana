@@ -43,6 +43,7 @@ Route::group(['prefix' => 'v1/user'], function () {
     Route::get('/settings', [SettingController::class, 'index']);
     Route::get('/deliveries', [DeliveryController::class, 'index']);
     Route::get('/pages/{type}', [PageController::class, 'index']);
+    Route::get('/getServices',  [ServiceController::class, 'index']);
 
     // Auth Route
     Route::group(['middleware' => ['auth:user-api']], function () {
@@ -136,7 +137,8 @@ Route::group(['prefix' => 'v1/user'], function () {
          Route::post('/updateStatus', [AuthProviderController::class, 'updateStatusOnOff']);
          Route::post('/withdrawal/request',  [WithdrawalRequestProviderController::class, 'requestWithdrawal']);
 
-//         // image for chat
+
+         // image for chat
          Route::get('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'index']);
          Route::post('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'store']);
          Route::post('/update_profile', [AuthProviderController::class, 'updateProviderProfile']);

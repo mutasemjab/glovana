@@ -127,7 +127,7 @@ class AuthController extends Controller
 
         // Prepare data for user creation
         $userData = [
-            'name' => $request->name,
+           // 'name' => $request->name,
             'phone' => $request->phone,
             'password' => $request->password,
             'email' => $request->email,
@@ -155,6 +155,7 @@ class AuthController extends Controller
             // Create provider
             $user = \App\Models\Provider::create($userData);
         } else {
+            $userData['name'] = $request->name;
             $userData['referral_code'] = $this->generateReferralCode();
             $user = User::create($userData);
         }
