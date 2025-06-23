@@ -132,8 +132,8 @@ class AuthProviderController extends Controller
             'provider_types.*.service_ids.*' => 'exists:services,id',
             'provider_types.*.images' => 'nullable|array',
             'provider_types.*.images.*' => 'image|mimes:jpeg,png,jpg|max:4048',
-            'provider_types.*.gallery' => 'nullable|array',
-            'provider_types.*.gallery.*' => 'image|mimes:jpeg,png,jpg|max:4048',
+            'provider_types.*.galleries' => 'nullable|array',
+            'provider_types.*.galleries.*' => 'image|mimes:jpeg,png,jpg|max:4048',
             'provider_types.*.availability' => 'required|array|min:1',
             'provider_types.*.availability.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
             'provider_types.*.availability.*.start_time' => 'required|date_format:H:i',
@@ -185,8 +185,8 @@ class AuthProviderController extends Controller
                 }
 
                 // Upload and save gallery images
-                if (isset($providerTypeData['gallery']) && is_array($providerTypeData['gallery'])) {
-                    foreach ($providerTypeData['gallery'] as $galleryImage) {
+                if (isset($providerTypeData['galleries']) && is_array($providerTypeData['galleries'])) {
+                    foreach ($providerTypeData['galleries'] as $galleryImage) {
                         if ($galleryImage instanceof \Illuminate\Http\UploadedFile) {
                             $galleryPath = uploadImage('assets/admin/uploads', $galleryImage);
                             \App\Models\ProviderGallery::create([
@@ -217,7 +217,7 @@ class AuthProviderController extends Controller
                 'provider' => $provider->fresh()->load([
                     'providerTypes.services',
                     'providerTypes.images',
-                    'providerTypes.gallery',
+                    'providerTypes.galleries',
                     'providerTypes.availability'
                 ])
             ]);
@@ -241,7 +241,7 @@ class AuthProviderController extends Controller
             'providerTypes.type',
             'providerTypes.services',
             'providerTypes.images',
-            'providerTypes.gallery',
+            'providerTypes.galleries',
             'providerTypes.availability'
         ]);
 
@@ -280,8 +280,8 @@ class AuthProviderController extends Controller
             'service_ids.*' => 'exists:services,id',
             'images' => 'nullable|array',
             'images.*' => 'image|mimes:jpeg,png,jpg|max:4048',
-            'gallery' => 'nullable|array',
-            'gallery.*' => 'image|mimes:jpeg,png,jpg|max:4048',
+            'galleries' => 'nullable|array',
+            'galleries.*' => 'image|mimes:jpeg,png,jpg|max:4048',
             'availability' => 'sometimes|array|min:1',
             'availability.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
             'availability.*.start_time' => 'required|date_format:H:i',
@@ -327,8 +327,8 @@ class AuthProviderController extends Controller
             }
 
             // Add new gallery images if provided
-            if ($request->has('gallery') && is_array($request->gallery)) {
-                foreach ($request->gallery as $galleryImage) {
+            if ($request->has('galleries') && is_array($request->galleries)) {
+                foreach ($request->galleries as $galleryImage) {
                     if ($galleryImage instanceof \Illuminate\Http\UploadedFile) {
                         $galleryPath = uploadImage('assets/admin/uploads', $galleryImage);
                         \App\Models\ProviderGallery::create([
@@ -361,7 +361,7 @@ class AuthProviderController extends Controller
                 'type',
                 'services',
                 'images',
-                'gallery',
+                'galleries',
                 'availability'
             ]);
 
