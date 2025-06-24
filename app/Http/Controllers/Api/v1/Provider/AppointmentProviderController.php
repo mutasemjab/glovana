@@ -77,7 +77,6 @@ class AppointmentProviderController extends Controller
 
         return $this->success_response('Appointments retrieved successfully', [
             'appointments' => $appointments,
-            'summary' => $this->getAppointmentsSummary($provider)
         ]);
     }
 
