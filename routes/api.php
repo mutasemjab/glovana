@@ -145,7 +145,7 @@ Route::group(['prefix' => 'v1/user'], function () {
          Route::post('/delete_account', [AuthProviderController::class, 'deleteAccount']);
          Route::get('/providerProfile', [AuthProviderController::class, 'getProviderProfile']);
          Route::post('/complete-profile', [AuthProviderController::class, 'completeProviderProfile']);
-         Route::put('/types/{providerTypeId}', [AuthProviderController::class, 'updateProviderType']);
+         Route::post('/types/{providerTypeId}', [AuthProviderController::class, 'updateProviderType']);
 
          //Notification
          Route::get('/notifications', [AuthProviderController::class, 'notifications']);
@@ -155,8 +155,8 @@ Route::group(['prefix' => 'v1/user'], function () {
 
    
          // Additional utility routes
-         Route::delete('/images/{imageId}', [AuthProviderController::class, 'deleteProviderImage']);
-         Route::delete('/gallery/{galleryId}', [AuthProviderController::class, 'deleteProviderGallery']);
+         Route::delete('/images', [AuthProviderController::class, 'deleteProviderImages']);
+         Route::delete('/gallery', [AuthProviderController::class, 'deleteProviderGalleries']);
 
 
          Route::prefix('appointments')->group(function () {

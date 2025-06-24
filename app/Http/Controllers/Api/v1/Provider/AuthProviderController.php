@@ -284,8 +284,8 @@ class AuthProviderController extends Controller
             'galleries.*' => 'image|mimes:jpeg,png,jpg|max:4048',
             'availabilities' => 'sometimes|array|min:1',
             'availabilities.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
-            'availabilities.*.start_time' => 'required|date_format:H:i',
-            'availabilities.*.end_time' => 'required|date_format:H:i|after:availabilities.*.start_time',
+            'availabilities.*.start_time' => 'required',
+            'availabilities.*.end_time' => 'required|after:availabilities.*.start_time',
         ]);
 
         if ($validator->fails()) {
@@ -389,6 +389,131 @@ class AuthProviderController extends Controller
                 ->get();
 
             return $this->success_response('Notifications retrieved successfully', $notifications);
+        }
+
+
+        public function deleteProviderImages(Request $request)
+        {
+            $provider = auth()->user();
+            
+            // Check if user is a provider
+            if (!$provider instanceof \App\Models\Provider) {
+                return $this->error_response('Unauthorized', 'Only providers can delete images');
+            }
+
+            $validator = Validator::make($request->all(), [
+                'image_ids' => 'required|array|min:1',
+                'image_ids.*' => 'required|integer|exists:provider_images,id',
+            ]);
+
+            if ($validator->fails()) {
+                return $this->error_response('Validation error', $validator->errors());
+            }
+
+            try {
+                DB::beginTransaction();
+
+                $deletedCount = 0;
+                $notFoundIds = [];
+
+                foreach ($request->image_ids as $imageId) {
+                    // Find the image and verify it belongs to the provider
+                    $image = \App\Models\ProviderImage::whereHas('providerType', function ($query) use ($provider) {
+                        $query->where('provider_id', $provider->id);
+                    })->find($imageId);
+
+                    if ($image) {
+                        // Delete the physical file if it exists
+                        if ($image->photo && file_exists(base_path($image->photo))) {
+                            unlink(base_path($image->photo));
+                        }
+                        
+                        // Delete the database record
+                        $image->delete();
+                        $deletedCount++;
+                    } else {
+                        $notFoundIds[] = $imageId;
+                    }
+                }
+
+                DB::commit();
+
+                $message = "Successfully deleted {$deletedCount} image(s)";
+                if (!empty($notFoundIds)) {
+                    $message .= ". Images with IDs [" . implode(', ', $notFoundIds) . "] were not found or don't belong to you";
+                }
+
+                return $this->success_response($message, [
+                    'deleted_count' => $deletedCount,
+                    'not_found_ids' => $notFoundIds
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollback();
+                return $this->error_response('Error deleting images', $e->getMessage());
+            }
+        }
+
+        public function deleteProviderGalleries(Request $request)
+        {
+            $provider = auth()->user();
+            
+            // Check if user is a provider
+            if (!$provider instanceof \App\Models\Provider) {
+                return $this->error_response('Unauthorized', 'Only providers can delete gallery images');
+            }
+
+            $validator = Validator::make($request->all(), [
+                'gallery_ids' => 'required|array|min:1',
+                'gallery_ids.*' => 'required|integer|exists:provider_galleries,id',
+            ]);
+
+            if ($validator->fails()) {
+                return $this->error_response('Validation error', $validator->errors());
+            }
+
+            try {
+                DB::beginTransaction();
+
+                $deletedCount = 0;
+                $notFoundIds = [];
+
+                foreach ($request->gallery_ids as $galleryId) {
+                    // Find the gallery image and verify it belongs to the provider
+                    $gallery = \App\Models\ProviderGallery::whereHas('providerType', function ($query) use ($provider) {
+                        $query->where('provider_id', $provider->id);
+                    })->find($galleryId);
+
+                    if ($gallery) {
+                        // Delete the physical file if it exists
+                        if ($gallery->photo && file_exists(base_path($gallery->photo))) {
+                            unlink(base_path($gallery->photo));
+                        }
+                        
+                        // Delete the database record
+                        $gallery->delete();
+                        $deletedCount++;
+                    } else {
+                        $notFoundIds[] = $galleryId;
+                    }
+                }
+
+                DB::commit();
+
+                $message = "Successfully deleted {$deletedCount} gallery image(s)";
+                if (!empty($notFoundIds)) {
+                    $message .= ". Gallery images with IDs [" . implode(', ', $notFoundIds) . "] were not found or don't belong to you";
+                }
+
+                return $this->success_response($message, [
+                    'deleted_count' => $deletedCount,
+                    'not_found_ids' => $notFoundIds
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollback();
+                return $this->error_response('Error deleting gallery images', $e->getMessage());
+            }
         }
 
 }
