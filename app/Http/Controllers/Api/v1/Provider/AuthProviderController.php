@@ -84,7 +84,7 @@ class AuthProviderController extends Controller
             'phone' => 'sometimes|string|unique:providers,phone,' . $provider->id,
             'email' => 'nullable|email|unique:providers,email,' . $provider->id,
             'fcm_token' => 'nullable|string',
-            'photo_of_manager' => 'nullable|image|mimes:jpeg,png,jpg|max:4048',
+            'photo_of_manager' => 'nullable|image|mimes:jpeg,png,jpg',
         ]);
 
         if ($validator->fails()) {
@@ -131,9 +131,9 @@ class AuthProviderController extends Controller
             'provider_types.*.service_ids' => 'required|array|min:1',
             'provider_types.*.service_ids.*' => 'exists:services,id',
             'provider_types.*.images' => 'nullable|array',
-            'provider_types.*.images.*' => 'image|mimes:jpeg,png,jpg|max:4048',
+            'provider_types.*.images.*' => 'image|mimes:jpeg,png,jpg',
             'provider_types.*.galleries' => 'nullable|array',
-            'provider_types.*.galleries.*' => 'image|mimes:jpeg,png,jpg|max:4048',
+            'provider_types.*.galleries.*' => 'image|mimes:jpeg,png,jpg',
             'provider_types.*.availabilities' => 'required|array|min:1',
             'provider_types.*.availabilities.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
             'provider_types.*.availabilities.*.start_time' => 'required|date_format:H:i',
@@ -279,9 +279,9 @@ class AuthProviderController extends Controller
             'service_ids' => 'sometimes|array|min:1',
             'service_ids.*' => 'exists:services,id',
             'images' => 'nullable|array',
-            'images.*' => 'image|mimes:jpeg,png,jpg|max:4048',
+            'images.*' => 'image|mimes:jpeg,png,jpg',
             'galleries' => 'nullable|array',
-            'galleries.*' => 'image|mimes:jpeg,png,jpg|max:4048',
+            'galleries.*' => 'image|mimes:jpeg,png,jpg',
             'availabilities' => 'sometimes|array|min:1',
             'availabilities.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
             'availabilities.*.start_time' => 'required',

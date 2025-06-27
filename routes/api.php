@@ -60,7 +60,7 @@ Route::group(['prefix' => 'v1/user'], function () {
 
         //Notification
         Route::get('/notifications', [AuthController::class, 'notifications']);
-        Route::post('/notifications', [AuthController::class, 'sendToUser']);
+        Route::post('/notifications', [AuthController::class, 'sendMessage']);
 
         Route::post('/ratings', [RatingController::class, 'store']);
         Route::post('/product/ratings', [RatingController::class, 'storeRatingProduct']);
@@ -149,6 +149,7 @@ Route::group(['prefix' => 'v1/user'], function () {
 
          //Notification
          Route::get('/notifications', [AuthProviderController::class, 'notifications']);
+         Route::post('/notifications', [AuthProviderController::class, 'sendMessage']);
 
          Route::get('/ratings', [RatingProviderController::class, 'index']);
          Route::get('/wallet/transactions', [WalletProviderController::class, 'getTransactions']);

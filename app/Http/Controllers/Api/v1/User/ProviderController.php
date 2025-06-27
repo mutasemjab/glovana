@@ -174,9 +174,7 @@ class ProviderController extends Controller
                           ->with([
                               'type',
                               'services.service',
-                              'images' => function ($query) {
-                                  $query->limit(1);
-                              }
+                              'images'
                           ]);
                 }
             ])
@@ -422,9 +420,7 @@ class ProviderController extends Controller
                           ->with([
                               'type',
                               'services.service',
-                              'images' => function ($query) {
-                                  $query->limit(1); // Get only first image for listing
-                              }
+                              'images',
                           ]);
                 }
             ])

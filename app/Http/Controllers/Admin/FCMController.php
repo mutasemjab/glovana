@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Helpers\AppSetting;
 use App\Models\User;
+use App\Models\Provider;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
@@ -22,7 +23,7 @@ class FCMController extends BaseController
             return false;
         }
 
-        $credentialsFilePath = base_path('json/noor-9754e-4241cd69821b.json');
+        $credentialsFilePath = base_path('json/glovana-firebase-adminsdk-fbsvc-0ff9d27f99.json');
 
         try {
             $client = new GoogleClient();
@@ -60,7 +61,7 @@ class FCMController extends BaseController
             $payload = json_encode($data);
 
             $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, 'https://fcm.googleapis.com/v1/projects/noor-9754e/messages:send');
+            curl_setopt($ch, CURLOPT_URL, 'https://fcm.googleapis.com/v1/projects/glovana/messages:send');
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -99,16 +100,6 @@ class FCMController extends BaseController
     {
         $query = User::query();
     
-        // Filter based on type
-        if ($type == 1) { // Regular Users
-            $query->where('user_type', 1);
-        } elseif ($type == 2) { // Parents
-            $query->where('user_type', 3);
-        } elseif ($type == 3) { // Teachers
-            $query->where('user_type', 2);
-        } elseif ($type == 4 && $userId) { // Specific User
-            $query->where('id', $userId);
-        }
     
         // Get the users based on the conditions
         $users = $query->whereNotNull('fcm_token')->get();
@@ -152,6 +143,28 @@ class FCMController extends BaseController
             \Log::error("FCM notification failed for user ID " . $user->id);
         }
     
+        return $sent;
+    }
+    
+    public static function sendMessageToProvider($title, $body, $provider_id): bool
+    {
+        // Find the provider by the provided provider_id
+        $provider = Provider::find($provider_id); // Adjust model name if different
+        
+        // Check if provider exists and has an FCM token
+        if (!$provider || is_null($provider->fcm_token)) {
+            \Log::error("Provider not found or has no FCM token for provider ID " . $provider_id);
+            return false;
+        }
+        
+        // Send the message using the FCM token
+        $sent = self::sendMessage($title, $body, $provider->fcm_token, $provider->id);
+        
+        // Log an error if sending fails
+        if (!$sent) {
+            \Log::error("FCM notification failed for provider ID " . $provider->id);
+        }
+        
         return $sent;
     }
 

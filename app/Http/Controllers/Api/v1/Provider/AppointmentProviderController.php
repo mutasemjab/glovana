@@ -45,8 +45,8 @@ class AppointmentProviderController extends Controller
         })->with([
             'user:id,name,phone,email,photo',
             'address',
-            'providerType:id,name,type_id,provider_id',
-            'providerType.type:id,name'
+            'providerType',
+            'providerType.type'
         ]);
 
         // Filter by status if provided
@@ -93,8 +93,8 @@ class AppointmentProviderController extends Controller
         })->with([
             'user:id,name,phone,email,photo',
             'address',
-            'providerType:id,name,description,type_id,provider_id,price_per_hour',
-            'providerType.type:id,name',
+            'providerType',
+            'providerType.type',
             'providerType.provider:id,name_of_manager,phone'
         ])->find($appointmentId);
 
