@@ -226,6 +226,7 @@ class AppointmentController extends Controller
                     'coupon_id' => $couponId
                 ]);
             }
+           $this->sendNewAppointmentNotificationToProvider($appointment, $providerType->provider);
 
             // Load relationships for response
             $appointment->load([

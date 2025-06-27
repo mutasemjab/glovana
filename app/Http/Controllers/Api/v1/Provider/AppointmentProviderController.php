@@ -153,8 +153,8 @@ class AppointmentProviderController extends Controller
 
         $appointment->save();
 
-        // Send notification to user (implement your notification logic here)
-        //$this->sendAppointmentStatusNotification($appointment);
+         $this->sendAppointmentStatusNotificationToUser($appointment, $currentStatus, $newStatus);
+
 
         return $this->success_response('Appointment status updated successfully', [
             'appointment' => $appointment->load('user', 'providerType'),
@@ -162,6 +162,48 @@ class AppointmentProviderController extends Controller
         ]);
     }
 
+
+    private function sendNewAppointmentNotificationToProvider($appointment, $provider)
+{
+    try {
+        $user = $appointment->user;
+        $appointmentDate = \Carbon\Carbon::parse($appointment->date)->format('M d, Y H:i');
+        
+        $title = "New Appointment Request";
+        $body = "New appointment from {$user->name} scheduled for {$appointmentDate}. Appointment #{$appointment->number}";
+        
+        // Send FCM notification to provider
+         FCMController::sendMessageToProvider($title, $body, $provider->id);
+        
+        \Log::info("New appointment notification sent to provider ID: {$provider->id} for appointment ID: {$appointment->id}");
+    } catch (\Exception $e) {
+        \Log::error("Failed to send new appointment notification to provider: " . $e->getMessage());
+    }
+}
+
+// Helper method to send notification to user when appointment status is updated
+private function sendAppointmentStatusNotificationToUser($appointment, $oldStatus, $newStatus)
+{
+    try {
+        $statusMessages = [
+            2 => 'Your appointment has been accepted by the provider',
+            3 => 'Your provider is on the way',
+            4 => 'Your appointment has been completed',
+            5 => 'Your appointment has been cancelled'
+        ];
+        
+        $title = "Appointment Status Update";
+        $body = $statusMessages[$newStatus] ?? "Your appointment status has been updated";
+        $body .= " - Appointment #{$appointment->number}";
+        
+        // Send FCM notification to user
+        FCMController::sendMessageToUser($title, $body, $appointment->user_id);
+        
+        \Log::info("Appointment status notification sent to user ID: {$appointment->user_id} for appointment ID: {$appointment->id}");
+    } catch (\Exception $e) {
+        \Log::error("Failed to send appointment status notification to user: " . $e->getMessage());
+    }
+}
 
     // Helper Methods
     private function getAppointmentStatusText($status)
