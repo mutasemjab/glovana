@@ -166,7 +166,7 @@ Route::group(['prefix' => 'v1/user'], function () {
             // Get appointment details
             Route::get('/{appointmentId}', [AppointmentProviderController::class, 'getAppointmentDetails']);
             // Update appointment status
-            Route::put('/{appointmentId}/status', [AppointmentProviderController::class, 'updateAppointmentStatus']);
+            Route::post('/{appointmentId}/status', [AppointmentProviderController::class, 'updateAppointmentStatus']);
         
         });
 

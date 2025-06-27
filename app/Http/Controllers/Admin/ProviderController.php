@@ -45,6 +45,7 @@ class ProviderController extends Controller
             'email' => 'nullable|email|unique:providers',
             'photo_of_manager' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'fcm_token' => 'nullable|string',
+            'password' => 'required',
             'balance' => 'nullable|numeric',
             'activate' => 'nullable|in:1,2',
         ]);
@@ -64,6 +65,8 @@ class ProviderController extends Controller
                 $the_file_path = uploadImage('assets/admin/uploads', $request->photo_of_manager);
                  $userData['photo_of_manager'] = $the_file_path;
              }
+                
+        $providerData['password'] = Hash::make($request->password);
 
         Provider::create($userData);
 
@@ -115,6 +118,7 @@ class ProviderController extends Controller
             'email' => 'nullable|email|unique:providers,email,' . $id,
             'photo_of_manager' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'fcm_token' => 'nullable|string',
+            'password' => 'nullable',
             'balance' => 'nullable|numeric',
             'activate' => 'nullable|in:1,2',
         ]);
@@ -126,12 +130,15 @@ class ProviderController extends Controller
                 ->withInput();
         }
 
-        $providerData = $request->except('photo_of_manager');
+        $providerData = $request->except('photo_of_manager','password');
 
         // Handle photo_of_manager upload
           if ($request->has('photo_of_manager')) {
                 $the_file_path = uploadImage('assets/admin/uploads', $request->photo_of_manager);
                 $providerData['photo_of_manager'] = $the_file_path;
+             }
+          if ($request->has('password')) {
+                $providerData['password'] = Hash::make($request->password);
              }
 
         $provider->update($providerData);

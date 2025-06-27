@@ -129,7 +129,6 @@ class AuthController extends Controller
         $userData = [
            // 'name' => $request->name,
             'phone' => $request->phone,
-            'password' => $request->password,
             'email' => $request->email,
             'fcm_token' => $request->fcm_token,
             'balance' => 0,  // Default balance
