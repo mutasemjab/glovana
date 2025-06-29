@@ -51,8 +51,8 @@ class ProviderDetailsController extends Controller
             'activate' => 'required|in:1,2',
             'status' => 'required|in:1,2',
             'is_vip' => 'required|in:1,2',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'galleries.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
+            'galleries.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
         ]);
 
         if ($validator->fails()) {
@@ -134,8 +134,8 @@ class ProviderDetailsController extends Controller
             'activate' => 'required|in:1,2',
             'status' => 'required|in:1,2',
             'is_vip' => 'required|in:1,2',
-            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'galleries.*' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
+            'galleries.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
         ]);
 
         if ($validator->fails()) {
