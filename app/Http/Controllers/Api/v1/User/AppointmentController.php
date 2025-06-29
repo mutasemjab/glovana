@@ -1,6 +1,8 @@
 <?php
 
 namespace App\Http\Controllers\Api\v1\User;
+
+use App\Http\Controllers\Admin\FCMController;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\ProviderType;
@@ -263,6 +265,24 @@ class AppointmentController extends Controller
                 'Failed to create appointment',
                 ['error' => $e->getMessage()]
             );
+        }
+    }
+
+    private function sendNewAppointmentNotificationToProvider($appointment, $provider)
+    {
+        try {
+            $user = $appointment->user;
+            $appointmentDate = \Carbon\Carbon::parse($appointment->date)->format('M d, Y H:i');
+            
+            $title = "New Appointment Request";
+            $body = "New appointment from {$user->name} scheduled for {$appointmentDate}. Appointment #{$appointment->number}";
+            
+            // Send FCM notification to provider
+           FCMController::sendMessageToProvider($title, $body, $provider->id);
+            
+            \Log::info("New appointment notification sent to provider ID: {$provider->id} for appointment ID: {$appointment->id}");
+        } catch (\Exception $e) {
+            \Log::error("Failed to send new appointment notification to provider: " . $e->getMessage());
         }
     }
 

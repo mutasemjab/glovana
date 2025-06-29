@@ -92,10 +92,10 @@
                                                    class="btn btn-info btn-sm mb-1">
                                                     {{ __('messages.Availability') }}
                                                 </a>
-                                                <a href="{{ route('admin.providerDetails.unavailabilities', [$provider->id, $providerType->id]) }}" 
+                                                {{-- <a href="{{ route('admin.providerDetails.unavailabilities', [$provider->id, $providerType->id]) }}" 
                                                    class="btn btn-secondary btn-sm mb-1">
                                                     {{ __('messages.Unavailability') }}
-                                                </a>
+                                                </a> --}}
                                                 <form action="{{ route('admin.providerDetails.destroy', [$provider->id, $providerType->id]) }}" 
                                                       method="POST" class="d-inline">
                                                     @csrf
