@@ -59,15 +59,44 @@
                                             <span class="badge bg-secondary">
                                                 {{ app()->getLocale() == 'ar' ? $providerType->type->name_ar : $providerType->type->name_en }}
                                             </span>
+                                            <br>
+                                            <small class="text-muted">
+                                                @if(isset($providerType->type->booking_type))
+                                                    ({{ $providerType->type->booking_type == 'hourly' ? __('messages.Hourly') : __('messages.Service_Based') }})
+                                                @else
+                                                    ({{ __('messages.Hourly') }})
+                                                @endif
+                                            </small>
                                         </td>
                                         <td>
-                                            @foreach($providerType->services as $service)
-                                                <span class="badge bg-info me-1 mb-1">
-                                                    {{ app()->getLocale() == 'ar' ? $service->service->name_ar : $service->service->name_en }}
+                                            @if(isset($providerType->type->booking_type) && $providerType->type->booking_type == 'service')
+                                                @php
+                                                    $serviceCount = DB::table('provider_services')
+                                                        ->where('provider_type_id', $providerType->id)
+                                                        ->count();
+                                                @endphp
+                                                <span class="badge bg-success">
+                                                    {{ $serviceCount }} {{ __('messages.Services') }}
                                                 </span>
-                                            @endforeach
+                                                @if($serviceCount > 0)
+                                                    <br>
+                                                    <small class="text-muted">{{ __('messages.Service_Based_Pricing') }}</small>
+                                                @endif
+                                            @else
+                                                @foreach($providerType->services as $service)
+                                                    <span class="badge bg-info me-1 mb-1">
+                                                        {{ app()->getLocale() == 'ar' ? $service->service->name_ar : $service->service->name_en }}
+                                                    </span>
+                                                @endforeach
+                                            @endif
                                         </td>
-                                        <td>{{ number_format($providerType->price_per_hour, 2) }} {{ __('messages.Currency') }}</td>
+                                        <td>
+                                            @if(!isset($providerType->type->booking_type) || $providerType->type->booking_type == 'hourly')
+                                                {{ number_format($providerType->price_per_hour, 2) }} {{ __('messages.Currency') }}
+                                            @else
+                                                <span class="text-muted">{{ __('messages.Service_Based_Pricing') }}</span>
+                                            @endif
+                                        </td>
                                         <td>
                                             <span class="badge {{ $providerType->status == 1 ? 'bg-success' : 'bg-danger' }}">
                                                 {{ $providerType->status == 1 ? __('messages.On') : __('messages.Off') }}
@@ -88,14 +117,12 @@
                                                    class="btn btn-warning btn-sm mb-1">
                                                     {{ __('messages.Edit') }}
                                                 </a>
+                                                
                                                 <a href="{{ route('admin.providerDetails.availabilities', [$provider->id, $providerType->id]) }}" 
                                                    class="btn btn-info btn-sm mb-1">
                                                     {{ __('messages.Availability') }}
                                                 </a>
-                                                {{-- <a href="{{ route('admin.providerDetails.unavailabilities', [$provider->id, $providerType->id]) }}" 
-                                                   class="btn btn-secondary btn-sm mb-1">
-                                                    {{ __('messages.Unavailability') }}
-                                                </a> --}}
+                                                
                                                 <form action="{{ route('admin.providerDetails.destroy', [$provider->id, $providerType->id]) }}" 
                                                       method="POST" class="d-inline">
                                                     @csrf

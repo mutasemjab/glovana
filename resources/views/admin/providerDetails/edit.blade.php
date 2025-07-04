@@ -22,19 +22,24 @@
                                 <div class="mb-3">
                                     <label for="type_id" class="form-label">{{ __('messages.Type') }}</label>
                                     <select class="form-control @error('type_id') is-invalid @enderror" 
-                                            id="type_id" name="type_id" required>
+                                            id="type_id" name="type_id" required onchange="handleTypeChange()">
                                         <option value="">{{ __('messages.Select_Type') }}</option>
                                         @foreach($types as $type)
                                             <option value="{{ $type->id }}" 
+                                                    data-booking-type="{{ $type->booking_type ?? 'hourly' }}"
                                                     {{ old('type_id', $providerType->type_id) == $type->id ? 'selected' : '' }}>
                                                 {{ app()->getLocale() == 'ar' ? $type->name_ar : $type->name_en }}
+                                                @if(isset($type->booking_type))
+                                                    ({{ $type->booking_type == 'hourly' ? __('messages.Hourly') : __('messages.Service_Based') }})
+                                                @endif
                                             </option>
                                         @endforeach
                                     </select>
                                     @error('type_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
 
-                                <div class="mb-3">
+                                <!-- Hourly Services (checkbox style) -->
+                                <div class="mb-3" id="hourly-services" style="display: none;">
                                     <label for="service_ids" class="form-label">{{ __('messages.Services') }}</label>
                                     <div class="border p-3 rounded @error('service_ids') border-danger @enderror" style="max-height: 200px; overflow-y: auto;">
                                         <div class="mb-2 border-bottom pb-2">
@@ -47,7 +52,7 @@
                                         </div>
                                         @foreach($services as $service)
                                             <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" 
+                                                <input class="form-check-input hourly-service-checkbox" type="checkbox" 
                                                        name="service_ids[]" value="{{ $service->id }}" 
                                                        id="service_{{ $service->id }}" 
                                                        {{ in_array($service->id, old('service_ids', $selectedServiceIds)) ? 'checked' : '' }}>
@@ -59,6 +64,39 @@
                                     </div>
                                     <div class="form-text">{{ __('messages.Select_Multiple_Services') }}</div>
                                     @error('service_ids')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                                </div>
+
+                                <!-- Service-based Services (with pricing) -->
+                                <div class="mb-3" id="service-based-services" style="display: none;">
+                                    <label class="form-label">{{ __('messages.Services_with_Pricing') }}</label>
+                                    <div class="border p-3 rounded @error('service_prices') border-danger @enderror" style="max-height: 300px; overflow-y: auto;">
+                                        <div class="mb-2 text-info">
+                                            <small><i class="fas fa-info-circle"></i> {{ __('messages.Enter_Price_For_Each_Service') }}</small>
+                                        </div>
+                                        @foreach($services as $service)
+                                            <div class="row mb-2 align-items-center border-bottom pb-2">
+                                                <div class="col-md-6">
+                                                    <label class="form-label mb-0 fw-bold">
+                                                        {{ app()->getLocale() == 'ar' ? $service->name_ar : $service->name_en }}
+                                                    </label>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" 
+                                                               class="form-control service-price-input" 
+                                                               name="service_prices[{{ $service->id }}]" 
+                                                               placeholder="{{ __('messages.Price') }}"
+                                                               value="{{ old('service_prices.'.$service->id, isset($providerServices) ? ($providerServices[$service->id] ?? '') : '') }}"
+                                                               step="0.01" 
+                                                               min="0">
+                                                        <span class="input-group-text">{{ __('messages.Currency') }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <div class="form-text">{{ __('messages.Leave_Empty_To_Exclude_Service') }}</div>
+                                    @error('service_prices')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                                 </div>
 
                                 <div class="mb-3">
@@ -75,11 +113,14 @@
                                     @error('description')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
 
-                                <div class="mb-3">
+                                <div class="mb-3" id="hourly-price-field" style="display: none;">
                                     <label for="price_per_hour" class="form-label">{{ __('messages.Price_Per_Hour') }}</label>
-                                    <input type="number" class="form-control @error('price_per_hour') is-invalid @enderror" 
-                                           id="price_per_hour" name="price_per_hour" value="{{ old('price_per_hour', $providerType->price_per_hour) }}" 
-                                           step="0.01" min="0" required>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control @error('price_per_hour') is-invalid @enderror" 
+                                               id="price_per_hour" name="price_per_hour" value="{{ old('price_per_hour', $providerType->price_per_hour) }}" 
+                                               step="0.01" min="0">
+                                        <span class="input-group-text">{{ __('messages.Currency') }}</span>
+                                    </div>
                                     @error('price_per_hour')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
                             </div>
@@ -230,6 +271,64 @@
 </div>
 
 <script>
+function handleTypeChange() {
+    const typeSelect = document.getElementById('type_id');
+    const selectedOption = typeSelect.options[typeSelect.selectedIndex];
+    const bookingType = selectedOption.dataset.bookingType || 'hourly';
+    
+    const hourlyServices = document.getElementById('hourly-services');
+    const serviceBasedServices = document.getElementById('service-based-services');
+    const hourlyPriceField = document.getElementById('hourly-price-field');
+    
+    if (bookingType === 'hourly') {
+        // Show hourly booking elements
+        hourlyServices.style.display = 'block';
+        hourlyPriceField.style.display = 'block';
+        serviceBasedServices.style.display = 'none';
+        
+        // Make hourly price required
+        document.getElementById('price_per_hour').required = true;
+        
+        // Clear service-based inputs
+        document.querySelectorAll('.service-price-input').forEach(input => {
+            input.value = '';
+            input.required = false;
+        });
+        
+    } else if (bookingType === 'service') {
+        // Show service-based booking elements
+        serviceBasedServices.style.display = 'block';
+        hourlyServices.style.display = 'none';
+        hourlyPriceField.style.display = 'none';
+        
+        // Make hourly price not required
+        document.getElementById('price_per_hour').required = false;
+        document.getElementById('price_per_hour').value = '';
+        
+        // Clear hourly service checkboxes
+        document.querySelectorAll('.hourly-service-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        
+    } else {
+        // Hide all service-related elements
+        hourlyServices.style.display = 'none';
+        serviceBasedServices.style.display = 'none';
+        hourlyPriceField.style.display = 'none';
+        
+        // Clear all inputs
+        document.getElementById('price_per_hour').required = false;
+        document.getElementById('price_per_hour').value = '';
+        document.querySelectorAll('.service-price-input').forEach(input => {
+            input.value = '';
+            input.required = false;
+        });
+        document.querySelectorAll('.hourly-service-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+    }
+}
+
 function selectAllServices() {
     const checkboxes = document.querySelectorAll('input[name="service_ids[]"]');
     checkboxes.forEach(checkbox => checkbox.checked = true);
@@ -242,7 +341,7 @@ function deselectAllServices() {
 
 function deleteImage(imageId) {
     if (confirm('{{ __("messages.Confirm_Delete_Image") }}')) {
-        fetch(`/admin/provider-details/images/${imageId}`, {
+        fetch('{{ route("admin.providerDetails.deleteImage", ":imageId") }}'.replace(':imageId', imageId), {
             method: 'DELETE',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -266,7 +365,7 @@ function deleteImage(imageId) {
 
 function deleteGallery(galleryId) {
     if (confirm('{{ __("messages.Confirm_Delete_Image") }}')) {
-        fetch(`/admin/provider-details/galleries/${galleryId}`, {
+        fetch('{{ route("admin.providerDetails.deleteGallery", ":galleryId") }}'.replace(':galleryId', galleryId), {
             method: 'DELETE',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -287,5 +386,10 @@ function deleteGallery(galleryId) {
         });
     }
 }
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    handleTypeChange();
+});
 </script>
 @endsection

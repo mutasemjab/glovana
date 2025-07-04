@@ -7,7 +7,7 @@ edit Setting
 
 
 @section('contentheaderlink')
-<a href="{{ route('admin.setting.index') }}"> Setting </a>
+<a href="{{ route('settings.index') }}"> Setting </a>
 @endsection
 
 @section('contentheaderactive')
@@ -25,7 +25,7 @@ edit Setting
     <div class="card-body">
 
 
-        <form action="{{ route('admin.setting.update',$data['id']) }}" method="post" enctype='multipart/form-data'>
+        <form action="{{ route('settings.update',$data['id']) }}" method="post" enctype='multipart/form-data'>
             <div class="row">
                 @csrf
 
@@ -59,7 +59,7 @@ edit Setting
                 <div class="col-md-12">
                     <div class="form-group text-center">
                         <button id="do_add_item_cardd" type="submit" class="btn btn-primary btn-sm"> update</button>
-                        <a href="{{ route('admin.setting.index') }}" class="btn btn-sm btn-danger">cancel</a>
+                        <a href="{{ route('settings.index') }}" class="btn btn-sm btn-danger">cancel</a>
 
                     </div>
                 </div>

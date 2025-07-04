@@ -13,7 +13,9 @@ use App\Models\ProviderUnavailability;
 use App\Models\Service;
 use App\Models\Type;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+
 
 class ProviderDetailsController extends Controller
 {
@@ -38,22 +40,35 @@ class ProviderDetailsController extends Controller
 
     public function store(Request $request, $providerId)
     {
-        $validator = Validator::make($request->all(), [
+        // Get the selected type to check booking type
+        $selectedType = Type::findOrFail($request->type_id);
+        
+        $validationRules = [
             'type_id' => 'required|exists:types,id',
-            'service_ids' => 'required|array|min:1',
-            'service_ids.*' => 'exists:services,id',
             'name' => 'required|string|max:255',
             'description' => 'required|string',
             'lat' => 'required|numeric',
             'lng' => 'required|numeric',
             'address' => 'nullable|string',
-            'price_per_hour' => 'required|numeric|min:0',
             'activate' => 'required|in:1,2',
             'status' => 'required|in:1,2',
             'is_vip' => 'required|in:1,2',
             'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
             'galleries.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
-        ]);
+        ];
+
+        // Add validation rules based on booking type
+        if ($selectedType->booking_type == 'hourly') {
+            $validationRules['service_ids'] = 'required|array|min:1';
+            $validationRules['service_ids.*'] = 'exists:services,id';
+            $validationRules['price_per_hour'] = 'required|numeric|min:0';
+        } else {
+            $validationRules['service_prices'] = 'required|array|min:1';
+            $validationRules['service_prices.*'] = 'numeric|min:0';
+            $validationRules['price_per_hour'] = 'nullable|numeric|min:0';
+        }
+
+        $validator = Validator::make($request->all(), $validationRules);
 
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
@@ -68,18 +83,35 @@ class ProviderDetailsController extends Controller
             'lat' => $request->lat,
             'lng' => $request->lng,
             'address' => $request->address,
-            'price_per_hour' => $request->price_per_hour,
+            'price_per_hour' => $request->price_per_hour ?? 0,
             'activate' => $request->activate,
             'status' => $request->status,
             'is_vip' => $request->is_vip,
         ]);
 
-        // Create provider services for selected services
-        foreach ($request->service_ids as $serviceId) {
-            ProviderServiceType::create([
-                'provider_type_id' => $providerType->id,
-                'service_id' => $serviceId,
-            ]);
+        // Handle services based on booking type
+        if ($selectedType->booking_type == 'hourly') {
+            // Create provider services for hourly booking (old way)
+            foreach ($request->service_ids as $serviceId) {
+                ProviderServiceType::create([
+                    'provider_type_id' => $providerType->id,
+                    'service_id' => $serviceId,
+                ]);
+            }
+        } else {
+            // Create provider services with individual pricing (new way)
+            foreach ($request->service_prices as $serviceId => $price) {
+                if ($price > 0) {
+                    DB::table('provider_services')->insert([
+                        'provider_type_id' => $providerType->id,
+                        'service_id' => $serviceId,
+                        'price' => $price,
+                        'is_active' => 1,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
         }
 
         // Handle images upload
@@ -111,38 +143,57 @@ class ProviderDetailsController extends Controller
     public function edit($providerId, $providerTypeId)
     {
         $provider = Provider::findOrFail($providerId);
-        $providerType = ProviderType::with(['images', 'galleries', 'services'])->findOrFail($providerTypeId);
+        $providerType = ProviderType::with(['type', 'images', 'galleries', 'services'])->findOrFail($providerTypeId);
         $services = Service::all();
         $types = Type::all();
         $selectedServiceIds = $providerType->services->pluck('service_id')->toArray();
+        
+        // Get provider services with pricing for service-based types
+        $providerServices = [];
+        if ($providerType->type->booking_type == 'service') {
+            $providerServices = DB::table('provider_services')
+                ->where('provider_type_id', $providerTypeId)
+                ->pluck('price', 'service_id')
+                ->toArray();
+        }
 
-        return view('admin.providerDetails.edit', compact('provider', 'providerType', 'services', 'types', 'selectedServiceIds'));
+        return view('admin.providerDetails.edit', compact('provider', 'providerType', 'services', 'types', 'selectedServiceIds', 'providerServices'));
     }
 
     public function update(Request $request, $providerId, $providerTypeId)
     {
-        $validator = Validator::make($request->all(), [
+        $providerType = ProviderType::with('type')->findOrFail($providerTypeId);
+        
+        $validationRules = [
             'type_id' => 'required|exists:types,id',
-            'service_ids' => 'required|array|min:1',
-            'service_ids.*' => 'exists:services,id',
             'name' => 'required|string|max:255',
             'description' => 'required|string',
             'lat' => 'required|numeric',
             'lng' => 'required|numeric',
             'address' => 'nullable|string',
-            'price_per_hour' => 'required|numeric|min:0',
             'activate' => 'required|in:1,2',
             'status' => 'required|in:1,2',
             'is_vip' => 'required|in:1,2',
             'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
             'galleries.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
-        ]);
+        ];
+
+        // Add validation rules based on booking type
+        if ($providerType->type->booking_type == 'hourly') {
+            $validationRules['service_ids'] = 'required|array|min:1';
+            $validationRules['service_ids.*'] = 'exists:services,id';
+            $validationRules['price_per_hour'] = 'required|numeric|min:0';
+        } else {
+            $validationRules['service_prices'] = 'required|array|min:1';
+            $validationRules['service_prices.*'] = 'numeric|min:0';
+            $validationRules['price_per_hour'] = 'nullable|numeric|min:0';
+        }
+
+        $validator = Validator::make($request->all(), $validationRules);
 
         if ($validator->fails()) {
             return redirect()->back()->withErrors($validator)->withInput();
         }
-
-        $providerType = ProviderType::findOrFail($providerTypeId);
 
         // Update provider type
         $providerType->update([
@@ -152,19 +203,37 @@ class ProviderDetailsController extends Controller
             'lat' => $request->lat,
             'lng' => $request->lng,
             'address' => $request->address,
-            'price_per_hour' => $request->price_per_hour,
+            'price_per_hour' => $request->price_per_hour ?? 0,
             'activate' => $request->activate,
             'status' => $request->status,
             'is_vip' => $request->is_vip,
         ]);
 
-        // Update services: Delete old services and create new ones
-        ProviderServiceType::where('provider_type_id', $providerType->id)->delete();
-        foreach ($request->service_ids as $serviceId) {
-            ProviderServiceType::create([
-                'provider_type_id' => $providerType->id,
-                'service_id' => $serviceId,
-            ]);
+        // Update services based on booking type
+        if ($providerType->type->booking_type == 'hourly') {
+            // Update services for hourly booking (old way)
+            ProviderServiceType::where('provider_type_id', $providerType->id)->delete();
+            foreach ($request->service_ids as $serviceId) {
+                ProviderServiceType::create([
+                    'provider_type_id' => $providerType->id,
+                    'service_id' => $serviceId,
+                ]);
+            }
+        } else {
+            // Update services with individual pricing (new way)
+            DB::table('provider_services')->where('provider_type_id', $providerType->id)->delete();
+            foreach ($request->service_prices as $serviceId => $price) {
+                if ($price > 0) {
+                    DB::table('provider_services')->insert([
+                        'provider_type_id' => $providerType->id,
+                        'service_id' => $serviceId,
+                        'price' => $price,
+                        'is_active' => 1,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
         }
 
         // Handle new images upload
@@ -202,7 +271,93 @@ class ProviderDetailsController extends Controller
             ->with('success', __('messages.Provider_Type_Deleted'));
     }
 
-    // Availability Management
+    // Provider Services Management
+    public function manageServices($providerId, $providerTypeId)
+    {
+        $provider = Provider::findOrFail($providerId);
+        $providerType = ProviderType::with('type')->findOrFail($providerTypeId);
+        
+        if (!isset($providerType->type->booking_type) || $providerType->type->booking_type !== 'service') {
+            return redirect()->back()->with('error', __('messages.Not_Service_Based_Type'));
+        }
+
+        $providerServices = DB::table('provider_services')
+            ->join('services', 'provider_services.service_id', '=', 'services.id')
+            ->where('provider_services.provider_type_id', $providerTypeId)
+            ->select('provider_services.*', 'services.name_en', 'services.name_ar')
+            ->get();
+
+        $availableServices = DB::table('services')
+            ->whereNotIn('id', function($query) use ($providerTypeId) {
+                $query->select('service_id')
+                    ->from('provider_services')
+                    ->where('provider_type_id', $providerTypeId);
+            })
+            ->get();
+
+        return view('admin.providerDetails.services', compact('provider', 'providerType', 'providerServices', 'availableServices'));
+    }
+
+    public function storeService(Request $request, $providerId, $providerTypeId)
+    {
+        $request->validate([
+            'service_id' => 'required|exists:services,id',
+            'price' => 'required|numeric|min:0',
+            'is_active' => 'required|in:1,0',
+        ]);
+
+        // Check if service already exists for this provider type
+        $exists = DB::table('provider_services')
+            ->where('provider_type_id', $providerTypeId)
+            ->where('service_id', $request->service_id)
+            ->exists();
+
+        if ($exists) {
+            return redirect()->back()->with('error', __('messages.Service_Already_Added'));
+        }
+
+        DB::table('provider_services')->insert([
+            'provider_type_id' => $providerTypeId,
+            'service_id' => $request->service_id,
+            'price' => $request->price,
+            'is_active' => $request->is_active,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->back()->with('success', __('messages.Service_Added_Successfully'));
+    }
+
+    public function updateService(Request $request, $providerId, $providerTypeId, $serviceId)
+    {
+        $request->validate([
+            'price' => 'required|numeric|min:0',
+            'is_active' => 'required|in:1,0',
+        ]);
+
+        DB::table('provider_services')
+            ->where('provider_type_id', $providerTypeId)
+            ->where('service_id', $serviceId)
+            ->update([
+                'price' => $request->price,
+                'is_active' => $request->is_active,
+                'updated_at' => now(),
+            ]);
+
+        return redirect()->back()->with('success', __('messages.Service_Updated_Successfully'));
+    }
+
+    public function destroyService($providerId, $providerTypeId, $serviceId)
+    {
+        DB::table('provider_services')
+            ->where('provider_type_id', $providerTypeId)
+            ->where('service_id', $serviceId)
+            ->delete();
+
+        return redirect()->back()->with('success', __('messages.Service_Removed_Successfully'));
+    }
+
+    // Availability Management (existing methods remain the same)
     public function availabilities($providerId, $providerTypeId)
     {
         $provider = Provider::findOrFail($providerId);
@@ -242,60 +397,41 @@ class ProviderDetailsController extends Controller
         return redirect()->back()->with('success', __('messages.Availability_Deleted'));
     }
 
-    // Unavailability Management
-    public function unavailabilities($providerId, $providerTypeId)
-    {
-        $provider = Provider::findOrFail($providerId);
-        $providerType = ProviderType::findOrFail($providerTypeId);
-        $unavailabilities = ProviderUnavailability::where('provider_type_id', $providerTypeId)->get();
-
-        return view('admin.providerDetails.unavailabilities', compact('provider', 'providerType', 'unavailabilities'));
-    }
-
-    public function storeUnavailability(Request $request, $providerId, $providerTypeId)
-    {
-        $validator = Validator::make($request->all(), [
-            'unavailable_date' => 'required|date',
-            'start_time' => 'nullable|date_format:H:i',
-            'end_time' => 'nullable|date_format:H:i|after:start_time',
-        ]);
-
-        if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->withInput();
-        }
-
-        ProviderUnavailability::create([
-            'provider_type_id' => $providerTypeId,
-            'unavailable_date' => $request->unavailable_date,
-            'start_time' => $request->start_time,
-            'end_time' => $request->end_time,
-        ]);
-
-        return redirect()->back()->with('success', __('messages.Unavailability_Added'));
-    }
-
-    public function destroyUnavailability($providerId, $providerTypeId, $unavailabilityId)
-    {
-        $unavailability = ProviderUnavailability::findOrFail($unavailabilityId);
-        $unavailability->delete();
-
-        return redirect()->back()->with('success', __('messages.Unavailability_Deleted'));
-    }
-
-    // Image Management
     public function deleteImage($imageId)
     {
-        $image = ProviderImage::findOrFail($imageId);
-        $image->delete();
-
-        return response()->json(['success' => true]);
+        try {
+            $image = ProviderImage::findOrFail($imageId);
+            
+            // Delete the physical file if it exists
+            if ($image->photo && file_exists(base_path('assets/admin/uploads/' . $image->photo))) {
+                unlink(base_path('assets/admin/uploads/' . $image->photo));
+            }
+            
+            // Delete the database record
+            $image->delete();
+            
+            return response()->json(['success' => true, 'message' => 'Image deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Error deleting image'], 500);
+        }
     }
 
     public function deleteGallery($galleryId)
     {
-        $gallery = ProviderGallery::findOrFail($galleryId);
-        $gallery->delete();
-
-        return response()->json(['success' => true]);
+        try {
+            $gallery = ProviderGallery::findOrFail($galleryId);
+            
+            // Delete the physical file if it exists
+            if ($gallery->photo && file_exists(base_path('assets/admin/uploads/' . $gallery->photo))) {
+                unlink(base_path('assets/admin/uploads/' . $gallery->photo));
+            }
+            
+            // Delete the database record
+            $gallery->delete();
+            
+            return response()->json(['success' => true, 'message' => 'Gallery image deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Error deleting gallery image'], 500);
+        }
     }
 }

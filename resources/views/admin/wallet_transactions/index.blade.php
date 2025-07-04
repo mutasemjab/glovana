@@ -44,7 +44,7 @@
                             <select class="form-control" id="entity_type" name="entity_type">
                                 <option value="all" {{ request('entity_type') == 'all' ? 'selected' : '' }}>{{ __('messages.All') }}</option>
                                 <option value="user" {{ request('entity_type') == 'user' ? 'selected' : '' }}>{{ __('messages.Users') }}</option>
-                                <option value="driver" {{ request('entity_type') == 'driver' ? 'selected' : '' }}>{{ __('messages.Drivers') }}</option>
+                                <option value="provider" {{ request('entity_type') == 'provider' ? 'selected' : '' }}>{{ __('messages.providers') }}</option>
                             </select>
                         </div>
                     </div>

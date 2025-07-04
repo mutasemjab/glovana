@@ -4,7 +4,7 @@
     <a href="{{ route('admin.dashboard') }}" class="brand-link">
         <img src="{{ asset('assets/admin/dist/img/AdminLTELogo.png') }}" alt="App Logo"
             class="brand-image img-circle elevation-3" style="opacity: .8">
-        <span class="brand-text font-weight-light">Taksi</span>
+        <span class="brand-text font-weight-light">Glovana</span>
     </a>
 
     <!-- Sidebar -->
@@ -171,6 +171,15 @@
                 </li>
                 @endcanany
            
+                 @canany(['wallet-table', 'wallet-add', 'wallet-edit', 'wallet-delete'])
+                        <li class="nav-item">
+                            <a href="{{ route('wallet_transactions.index') }}" class="nav-link {{ request()->routeIs('wallet_transactions.index') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-file-alt"></i>
+                                <p>{{ __('messages.wallets') }}</p>
+                            </a>
+                        </li>
+                  @endcanany
+
                 @canany(['withdrawal-table', 'withdrawal-add', 'withdrawal-edit', 'withdrawal-delete'])
                 <li class="nav-item">
                     <a href="{{ route('withdrawals.index') }}" class="nav-link {{ request()->routeIs('withdrawals.index') ? 'active' : '' }}">

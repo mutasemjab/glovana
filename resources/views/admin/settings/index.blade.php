@@ -46,7 +46,7 @@ show
 
                             <td>
                                 @can('setting-edit')
-                                <a href="{{ route('admin.setting.edit',$info->id) }}"
+                                <a href="{{ route('settings.edit',$info->id) }}"
                                     class="btn btn-sm  btn-primary">edit</a>
                                 @endcan
                             </td>

@@ -22,6 +22,7 @@ return new class extends Migration
         DB::table('settings')->insert([
             ['key' => "number_of_points_to_convert_to_money", 'value' => 1],
             ['key' => "one_point_equal_money", 'value' => 1],
+            ['key' => "commission_of_admin", 'value' => 1.5],
         ]);
 
     }

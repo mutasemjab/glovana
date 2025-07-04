@@ -18,6 +18,11 @@ class Appointment extends Model
         'coupon_discount' => 'double',
     ];
 
+    public function appointmentServices()
+    {
+        return $this->hasMany(AppointmentService::class);
+    }
+
     // Relationships
     public function user()
     {

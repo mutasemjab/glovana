@@ -66,13 +66,13 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
-                            <span class="text-muted mb-3 lh-1 d-block text-truncate">{{ __('messages.completed_appointments') }}</span>
-                            <h4 class="mb-3">{{ number_format($statistics['completed_appointments']) }}</h4>
+                            <span class="text-muted mb-3 lh-1 d-block text-truncate">{{ __('messages.hourly_appointments') }}</span>
+                            <h4 class="mb-3">{{ number_format($statistics['hourly_appointments']) }}</h4>
                         </div>
                         <div class="flex-shrink-0">
-                            <div class="avatar-sm rounded-circle bg-success">
-                                <span class="avatar-title bg-success rounded-circle">
-                                    <i class="ri-check-line font-size-24"></i>
+                            <div class="avatar-sm rounded-circle bg-info">
+                                <span class="avatar-title bg-info rounded-circle">
+                                    <i class="ri-time-line font-size-24"></i>
                                 </span>
                             </div>
                         </div>
@@ -86,13 +86,13 @@
                 <div class="card-body">
                     <div class="d-flex align-items-center">
                         <div class="flex-grow-1">
-                            <span class="text-muted mb-3 lh-1 d-block text-truncate">{{ __('messages.vip_appointments') }}</span>
-                            <h4 class="mb-3">{{ number_format($statistics['vip_appointments']) }}</h4>
+                            <span class="text-muted mb-3 lh-1 d-block text-truncate">{{ __('messages.service_appointments') }}</span>
+                            <h4 class="mb-3">{{ number_format($statistics['service_based_appointments']) }}</h4>
                         </div>
                         <div class="flex-shrink-0">
-                            <div class="avatar-sm rounded-circle bg-info">
-                                <span class="avatar-title bg-info rounded-circle">
-                                    <i class="ri-vip-crown-line font-size-24"></i>
+                            <div class="avatar-sm rounded-circle bg-success">
+                                <span class="avatar-title bg-success rounded-circle">
+                                    <i class="ri-service-line font-size-24"></i>
                                 </span>
                             </div>
                         </div>
@@ -132,6 +132,14 @@
                                 </select>
                             </div>
                             <div class="col-md-3">
+                                <label class="form-label">{{ __('messages.booking_type') }}</label>
+                                <select name="booking_type" class="form-control">
+                                    <option value="">{{ __('messages.all_types') }}</option>
+                                    <option value="hourly" {{ request('booking_type') == 'hourly' ? 'selected' : '' }}>{{ __('messages.hourly') }}</option>
+                                    <option value="service" {{ request('booking_type') == 'service' ? 'selected' : '' }}>{{ __('messages.service_based') }}</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
                                 <label class="form-label">{{ __('messages.provider_type') }}</label>
                                 <select name="provider_type_id" class="form-control">
                                     <option value="">{{ __('messages.all_providers') }}</option>
@@ -158,7 +166,7 @@
                                 <label class="form-label">{{ __('messages.to_date') }}</label>
                                 <input type="date" name="to_date" class="form-control" value="{{ request('to_date') }}">
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-3">
                                 <label class="form-label">{{ __('messages.search') }}</label>
                                 <input type="text" name="search" class="form-control" placeholder="{{ __('messages.search_appointments') }}" value="{{ request('search') }}">
                             </div>
@@ -171,7 +179,6 @@
                                 <a href="{{ route('appointments.index') }}" class="btn btn-secondary">
                                     <i class="ri-refresh-line"></i> {{ __('messages.reset') }}
                                 </a>
-                              
                             </div>
                         </div>
                     </form>
@@ -196,7 +203,8 @@
                                         <th>{{ __('messages.appointment_number') }}</th>
                                         <th>{{ __('messages.customer') }}</th>
                                         <th>{{ __('messages.provider') }}</th>
-                                        <th>{{ __('messages.service_type') }}</th>
+                                        <th>{{ __('messages.booking_type') }}</th>
+                                        <th>{{ __('messages.services_details') }}</th>
                                         <th>{{ __('messages.total_amount') }}</th>
                                         <th>{{ __('messages.appointment_status') }}</th>
                                         <th>{{ __('messages.payment_status') }}</th>
@@ -217,7 +225,34 @@
                                                 <div>{{ $appointment->providerType->provider->name_of_manager ?? __('messages.no_provider') }}</div>
                                                 <small class="text-muted">{{ $appointment->providerType->name ?? '' }}</small>
                                             </td>
-                                            <td>{{ $appointment->providerType->type->name ?? __('messages.no_type') }}</td>
+                                            <td>
+                                                <span class="badge {{ $appointment->booking_type == 'service' ? 'bg-primary' : 'bg-secondary' }}">
+                                                    {{ $appointment->booking_type == 'service' ? __('messages.service_based') : __('messages.hourly') }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                @if($appointment->booking_type == 'service')
+                                                    <div class="small">
+                                                        <strong>{{ __('messages.services') }}:</strong> {{ $appointment->services_summary['total_services'] }}<br>
+                                                        <strong>{{ __('messages.customers') }}:</strong> {{ $appointment->services_summary['total_customers'] }}<br>
+                                                        @if($appointment->services_summary['services']->count() > 0)
+                                                            <div class="mt-1">
+                                                                @foreach($appointment->services_summary['services']->take(2) as $service)
+                                                                    <span class="badge bg-light text-dark me-1">{{ $service['name'] }} ({{ $service['customer_count'] }})</span>
+                                                                @endforeach
+                                                                @if($appointment->services_summary['services']->count() > 2)
+                                                                    <span class="text-muted">+{{ $appointment->services_summary['services']->count() - 2 }} {{ __('messages.more') }}</span>
+                                                                @endif
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                @else
+                                                    <div class="small text-muted">
+                                                        {{ __('messages.hourly_booking') }}<br>
+                                                        <strong>{{ __('messages.rate') }}:</strong> {{ number_format($appointment->providerType->price_per_hour, 2) }} {{ __('messages.jd') }}/{{ __('messages.hour') }}
+                                                    </div>
+                                                @endif
+                                            </td>
                                             <td>{{ number_format($appointment->total_prices, 2) }} {{ __('messages.jd') }}</td>
                                             <td>
                                                 <span class="badge bg-{{ 

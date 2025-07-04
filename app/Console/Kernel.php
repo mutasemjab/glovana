@@ -15,7 +15,10 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+         $schedule->command('appointments:send-reminders')
+                 ->everyThirtyMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/appointment-reminders.log'));
     }
 
     /**

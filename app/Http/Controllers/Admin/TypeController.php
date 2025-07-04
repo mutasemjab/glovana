@@ -15,7 +15,7 @@ class TypeController extends Controller
         return view('admin.types.index', compact('types'));
     }
 
-    public function create()
+   public function create()
     {
         return view('admin.types.create');
     }
@@ -25,10 +25,13 @@ class TypeController extends Controller
         $request->validate([
             'name_en' => 'required|string|max:255',
             'name_ar' => 'required|string|max:255',
+            'have_delivery' => 'required',
+            'minimum_order' => 'required',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif',
+            'booking_type' => 'required|in:hourly,service',
         ]);
 
-         $imageName = null;
+        $imageName = null;
         if ($request->hasFile('photo')) {
             $imageName = uploadImage('assets/admin/uploads', $request->photo);
         }
@@ -36,7 +39,10 @@ class TypeController extends Controller
         DB::table('types')->insert([
             'name_en' => $request->name_en,
             'name_ar' => $request->name_ar,
+            'minimum_order' => $request->minimum_order,
+            'have_delivery' => $request->have_delivery,
             'photo' => $imageName,
+            'booking_type' => $request->booking_type,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -55,12 +61,15 @@ class TypeController extends Controller
         return view('admin.types.edit', compact('type'));
     }
 
-     public function update(Request $request, $id)
+    public function update(Request $request, $id)
     {
         $request->validate([
             'name_en' => 'required|string|max:255',
             'name_ar' => 'required|string|max:255',
+            'have_delivery' => 'required',
+            'minimum_order' => 'required',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif',
+            'booking_type' => 'required|in:hourly,service',
         ]);
 
         // Get the current record to access existing photo
@@ -85,7 +94,10 @@ class TypeController extends Controller
         DB::table('types')->where('id', $id)->update([
             'name_en' => $request->name_en,
             'name_ar' => $request->name_ar,
+            'minimum_order' => $request->minimum_order,
+            'have_delivery' => $request->have_delivery,
             'photo' => $imageName,
+            'booking_type' => $request->booking_type,
             'updated_at' => now(),
         ]);
 

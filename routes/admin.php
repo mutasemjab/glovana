@@ -84,27 +84,33 @@ Route::prefix('pages')->group(function () {
 });
 
 Route::prefix('provider-details')->name('admin.providerDetails.')->group(function () {
-    // Main CRUD routes
-    Route::get('/{providerId}', [ProviderDetailsController::class, 'index'])->name('index');
-    Route::get('/{providerId}/create', [ProviderDetailsController::class, 'create'])->name('create');
-    Route::post('/{providerId}', [ProviderDetailsController::class, 'store'])->name('store');
-    Route::get('/{providerId}/{serviceTypeId}/edit', [ProviderDetailsController::class, 'edit'])->name('edit');
-    Route::put('/{providerId}/{serviceTypeId}', [ProviderDetailsController::class, 'update'])->name('update');
-    Route::delete('/{providerId}/{serviceTypeId}', [ProviderDetailsController::class, 'destroy'])->name('destroy');
+    // Image management routes - MUST COME FIRST (most specific)
+    Route::delete('images/{imageId}', [ProviderDetailsController::class, 'deleteImage'])->name('deleteImage');
+    Route::delete('galleries/{galleryId}', [ProviderDetailsController::class, 'deleteGallery'])->name('deleteGallery');
+    
+    // Provider Services Management Routes - SECOND (also specific)
+    Route::get('{providerId}/types/{providerTypeId}/services', [ProviderDetailsController::class, 'manageServices'])->name('manageServices');
+    Route::post('{providerId}/types/{providerTypeId}/services', [ProviderDetailsController::class, 'storeService'])->name('storeService');
+    Route::put('{providerId}/types/{providerTypeId}/services/{serviceId}', [ProviderDetailsController::class, 'updateService'])->name('updateService');
+    Route::delete('{providerId}/types/{providerTypeId}/services/{serviceId}', [ProviderDetailsController::class, 'destroyService'])->name('destroyService');
+    
+    // Availability routes - THIRD
+    Route::get('{providerId}/{serviceTypeId}/availabilities', [ProviderDetailsController::class, 'availabilities'])->name('availabilities');
+    Route::post('{providerId}/{serviceTypeId}/availabilities', [ProviderDetailsController::class, 'storeAvailability'])->name('availabilities.store');
+    Route::delete('{providerId}/{serviceTypeId}/availabilities/{availabilityId}', [ProviderDetailsController::class, 'destroyAvailability'])->name('availabilities.destroy');
 
-    // Availability routes
-    Route::get('/{providerId}/{serviceTypeId}/availabilities', [ProviderDetailsController::class, 'availabilities'])->name('availabilities');
-    Route::post('/{providerId}/{serviceTypeId}/availabilities', [ProviderDetailsController::class, 'storeAvailability'])->name('availabilities.store');
-    Route::delete('/{providerId}/{serviceTypeId}/availabilities/{availabilityId}', [ProviderDetailsController::class, 'destroyAvailability'])->name('availabilities.destroy');
+    // Unavailability routes - FOURTH
+    Route::get('{providerId}/{serviceTypeId}/unavailabilities', [ProviderDetailsController::class, 'unavailabilities'])->name('unavailabilities');
+    Route::post('{providerId}/{serviceTypeId}/unavailabilities', [ProviderDetailsController::class, 'storeUnavailability'])->name('unavailabilities.store');
+    Route::delete('{providerId}/{serviceTypeId}/unavailabilities/{availabilityId}', [ProviderDetailsController::class, 'destroyUnavailability'])->name('unavailabilities.destroy');
 
-    // Unavailability routes
-    Route::get('/{providerId}/{serviceTypeId}/unavailabilities', [ProviderDetailsController::class, 'unavailabilities'])->name('unavailabilities');
-    Route::post('/{providerId}/{serviceTypeId}/unavailabilities', [ProviderDetailsController::class, 'storeUnavailability'])->name('unavailabilities.store');
-    Route::delete('/{providerId}/{serviceTypeId}/unavailabilities/{unavailabilityId}', [ProviderDetailsController::class, 'destroyUnavailability'])->name('unavailabilities.destroy');
-
-    // Image management routes
-    Route::delete('/images/{imageId}', [ProviderDetailsController::class, 'deleteImage'])->name('deleteImage');
-    Route::delete('/galleries/{galleryId}', [ProviderDetailsController::class, 'deleteGallery'])->name('deleteGallery');
+    // Main CRUD routes - LAST (most general)
+    Route::get('{providerId}', [ProviderDetailsController::class, 'index'])->name('index');
+    Route::get('{providerId}/create', [ProviderDetailsController::class, 'create'])->name('create');
+    Route::post('{providerId}', [ProviderDetailsController::class, 'store'])->name('store');
+    Route::get('{providerId}/{serviceTypeId}/edit', [ProviderDetailsController::class, 'edit'])->name('edit');
+    Route::put('{providerId}/{serviceTypeId}', [ProviderDetailsController::class, 'update'])->name('update');
+    Route::delete('{providerId}/{serviceTypeId}', [ProviderDetailsController::class, 'destroy'])->name('destroy');
 });
 
 // Resource Route

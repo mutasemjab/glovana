@@ -20,7 +20,7 @@ class WalletTransactionController extends Controller
      */
     public function index()
     {
-        $transactions = WalletTransaction::with(['user', 'driver', 'admin'])->orderBy('created_at', 'desc')->get();
+        $transactions = WalletTransaction::with(['user', 'provider', 'admin'])->orderBy('created_at', 'desc')->get();
         return view('admin.wallet_transactions.index', compact('transactions'));
     }
 

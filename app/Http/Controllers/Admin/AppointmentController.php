@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 
 use App\Models\Appointment;
 use App\Models\User;
-use App\Models\Driver;
+use App\Models\Setting;
 use App\Models\ProviderType;
 use App\Models\Service;
 use App\Models\WalletTransaction;
@@ -16,15 +16,16 @@ use Illuminate\Support\Facades\Validator;
 
 class AppointmentController extends Controller
 {
-     public function index(Request $request)
+    public function index(Request $request)
     {
         try {
             $query = Appointment::with([
                 'user:id,name,phone,email',
                 'address',
-                'providerType:id,name,description,price_per_hour,is_vip',
-                'providerType.provider:id,name_of_manager,phone',
-                'providerType.type:id,name'
+                'providerType',
+                'providerType.provider',
+                'providerType.type',
+                'appointmentServices.service'
             ])->orderBy('created_at', 'desc');
 
             // Filter by appointment status
@@ -54,6 +55,13 @@ class AppointmentController extends Controller
                 });
             }
 
+            // Filter by booking type (hourly or service)
+            if ($request->filled('booking_type')) {
+                $query->whereHas('providerType.type', function($q) use ($request) {
+                    $q->where('booking_type', $request->booking_type);
+                });
+            }
+
             // Filter by date range
             if ($request->filled('from_date')) {
                 $query->whereDate('date', '>=', $request->from_date);
@@ -74,17 +82,24 @@ class AppointmentController extends Controller
                       })
                       ->orWhereHas('providerType', function($providerQuery) use ($search) {
                           $providerQuery->where('name', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('appointmentServices.service', function($serviceQuery) use ($search) {
+                          $serviceQuery->where('name_en', 'like', "%{$search}%")
+                                      ->orWhere('name_ar', 'like', "%{$search}%");
                       });
                 });
             }
 
             $appointments = $query->paginate(15);
 
-            // Add status labels
+            // Add status labels and booking type info
             $appointments->getCollection()->transform(function ($appointment) {
                 $appointment->appointment_status_label = $this->getAppointmentStatusLabel($appointment->appointment_status);
                 $appointment->payment_status_label = $this->getPaymentStatusLabel($appointment->payment_status);
                 $appointment->is_vip_label = $appointment->providerType->is_vip == 1 ? 'VIP' : 'Regular';
+                $appointment->booking_type = $appointment->providerType->type->booking_type ?? 'hourly';
+                $appointment->total_customers = $this->getTotalCustomers($appointment);
+                $appointment->services_summary = $this->getServicesSummary($appointment);
                 return $appointment;
             });
 
@@ -108,38 +123,21 @@ class AppointmentController extends Controller
             $appointment = Appointment::with([
                 'user:id,name,phone,email,country_code',
                 'address',
-                'providerType:id,name,description,address,lat,lng,price_per_hour,status,is_vip',
-                'providerType.provider:id,name_of_manager,phone,email',
-                'providerType.type:id,name,description'
+                'providerType',
+                'providerType.provider',
+                'providerType.type',
+                'appointmentServices.service'
             ])->findOrFail($id);
 
             $appointment->appointment_status_label = $this->getAppointmentStatusLabel($appointment->appointment_status);
             $appointment->payment_status_label = $this->getPaymentStatusLabel($appointment->payment_status);
             $appointment->is_vip_label = $appointment->providerType->is_vip == 1 ? 'VIP' : 'Regular';
+            $appointment->booking_type = $appointment->providerType->type->booking_type ?? 'hourly';
+            $appointment->total_customers = $this->getTotalCustomers($appointment);
+            $appointment->commission_details = $this->getCommissionDetails($appointment);
+            $appointment->services_summary = $this->getServicesSummary($appointment);
 
             return view('admin.appointments.show', compact('appointment'));
-
-        } catch (\Exception $e) {
-            return back()->with('error', 'Appointment not found: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Show the form for editing the specified appointment
-     */
-    public function edit($id)
-    {
-        try {
-            $appointment = Appointment::with([
-                'user:id,name,phone,email',
-                'address',
-                'providerType'
-            ])->findOrFail($id);
-
-            $users = User::where('activate', 1)->get(['id', 'name', 'phone', 'email']);
-            $providerTypes = ProviderType::where('activate', 1)->where('status', 1)->get(['id', 'name', 'price_per_hour']);
-            
-            return view('admin.appointments.edit', compact('appointment', 'users', 'providerTypes'));
 
         } catch (\Exception $e) {
             return back()->with('error', 'Appointment not found: ' . $e->getMessage());
@@ -159,7 +157,7 @@ class AppointmentController extends Controller
                 'note' => 'nullable|string|max:500'
             ]);
 
-            $appointment = Appointment::findOrFail($id);
+            $appointment = Appointment::with(['user', 'providerType.provider'])->findOrFail($id);
             $oldStatus = $appointment->appointment_status;
             $oldPaymentStatus = $appointment->payment_status;
 
@@ -174,14 +172,19 @@ class AppointmentController extends Controller
                     'note' => $request->note
                 ]);
 
-                // Handle payment status change
-                if ($oldPaymentStatus != $request->payment_status) {
-                    $this->handlePaymentStatusChange($appointment, $request->payment_status);
+                // Handle payment status change to paid
+                if ($oldPaymentStatus == 2 && $request->payment_status == 1) {
+                    $this->processPayment($appointment);
+                }
+
+                // Handle completion (status = 4) - transfer pending amounts
+                if ($request->appointment_status == 4 && $oldStatus != 4) {
+                    $this->processCompletionPayments($appointment);
                 }
 
                 // Handle cancellation refund
-                if ($request->appointment_status == 5 && $oldStatus != 5 && $appointment->payment_status == 1) {
-                    $this->processCancellationRefund($appointment);
+                if ($request->appointment_status == 5 && $oldStatus != 5) {
+                    $this->processCancellation($appointment);
                 }
 
                 DB::commit();
@@ -197,6 +200,267 @@ class AppointmentController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to update appointment: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Process payment based on payment type
+     */
+    private function processPayment($appointment)
+    {
+        $commission = $this->getAdminCommission();
+        $commissionAmount = ($appointment->total_prices * $commission) / 100;
+        $providerAmount = $appointment->total_prices - $commissionAmount;
+        $provider = $appointment->providerType->provider;
+
+        switch ($appointment->payment_type) {
+            case 'cash':
+                $this->processCashPayment($appointment, $provider, $commissionAmount);
+                break;
+                
+            case 'visa':
+                $this->processVisaPayment($appointment, $provider, $commissionAmount, $providerAmount);
+                break;
+                
+            case 'wallet':
+                $this->processWalletPayment($appointment, $provider, $commissionAmount, $providerAmount);
+                break;
+        }
+    }
+
+    /**
+     * Process cash payment
+     */
+    private function processCashPayment($appointment, $provider, $commissionAmount)
+    {
+        // Deduct commission from provider wallet
+        $provider->decrement('balance', $commissionAmount);
+        
+        // Create provider transaction (withdrawal)
+        WalletTransaction::create([
+            'provider_id' => $provider->id,
+            'amount' => $commissionAmount,
+            'type_of_transaction' => 2, // withdrawal
+            'note' => "Commission deduction for cash appointment #{$appointment->number}"
+        ]);
+
+        // Add commission to admin wallet (pending)
+        WalletTransaction::create([
+            'admin_id' => 1, // Assuming admin ID is 1, adjust as needed
+            'amount' => $commissionAmount,
+            'type_of_transaction' => 1, // add
+            'note' => "Commission from cash appointment #{$appointment->number} (Pending)"
+        ]);
+    }
+
+    /**
+     * Process visa payment
+     */
+    private function processVisaPayment($appointment, $provider, $commissionAmount, $providerAmount)
+    {
+        // Add provider amount to provider wallet (pending)
+        $provider->increment('balance', $providerAmount);
+        
+        WalletTransaction::create([
+            'provider_id' => $provider->id,
+            'amount' => $providerAmount,
+            'type_of_transaction' => 1, // add
+            'note' => "Payment from visa appointment #{$appointment->number} (Pending)"
+        ]);
+
+        // Add commission to admin wallet (pending)
+        WalletTransaction::create([
+            'admin_id' => 1, // Assuming admin ID is 1
+            'amount' => $commissionAmount,
+            'type_of_transaction' => 1, // add
+            'note' => "Commission from visa appointment #{$appointment->number} (Pending)"
+        ]);
+    }
+
+    /**
+     * Process wallet payment
+     */
+    private function processWalletPayment($appointment, $provider, $commissionAmount, $providerAmount)
+    {
+        $user = $appointment->user;
+        
+        // Deduct total from user wallet
+        $user->decrement('balance', $appointment->total_prices);
+        
+        WalletTransaction::create([
+            'user_id' => $user->id,
+            'amount' => $appointment->total_prices,
+            'type_of_transaction' => 2, // withdrawal
+            'note' => "Payment for appointment #{$appointment->number}"
+        ]);
+
+        // Add provider amount to provider wallet
+        $provider->increment('balance', $providerAmount);
+        
+        WalletTransaction::create([
+            'provider_id' => $provider->id,
+            'amount' => $providerAmount,
+            'type_of_transaction' => 1, // add
+            'note' => "Payment from wallet appointment #{$appointment->number}"
+        ]);
+
+        // Add commission to admin wallet
+        WalletTransaction::create([
+            'admin_id' => 1, // Assuming admin ID is 1
+            'amount' => $commissionAmount,
+            'type_of_transaction' => 1, // add
+            'note' => "Commission from wallet appointment #{$appointment->number}"
+        ]);
+    }
+
+    /**
+     * Process completion payments (transfer pending amounts)
+     */
+    private function processCompletionPayments($appointment)
+    {
+        // Mark pending transactions as completed (you might want to add a status column to wallet_transactions)
+        // For now, we'll just add a completion note
+        
+        WalletTransaction::create([
+            'admin_id' => 1,
+            'amount' => 0, // Just a note, no amount change
+            'type_of_transaction' => 1,
+            'note' => "Appointment #{$appointment->number} completed - pending amounts transferred"
+        ]);
+    }
+
+    /**
+     * Process cancellation
+     */
+    private function processCancellation($appointment)
+    {
+        if ($appointment->payment_status == 1) { // Only if already paid
+            $user = $appointment->user;
+            
+            // Refund to user wallet
+            $user->increment('balance', $appointment->total_prices);
+            
+            WalletTransaction::create([
+                'user_id' => $user->id,
+                'amount' => $appointment->total_prices,
+                'type_of_transaction' => 1, // add
+                'note' => "Refund for canceled appointment #{$appointment->number}"
+            ]);
+
+            // Reverse commission transactions if needed
+            $this->reverseCommissionTransactions($appointment);
+        }
+    }
+
+    /**
+     * Reverse commission transactions for cancellations
+     */
+    private function reverseCommissionTransactions($appointment)
+    {
+        $commission = $this->getAdminCommission();
+        $commissionAmount = ($appointment->total_prices * $commission) / 100;
+        $provider = $appointment->providerType->provider;
+
+        switch ($appointment->payment_type) {
+            case 'cash':
+                // Add commission back to provider wallet
+                $provider->increment('balance', $commissionAmount);
+                WalletTransaction::create([
+                    'provider_id' => $provider->id,
+                    'amount' => $commissionAmount,
+                    'type_of_transaction' => 1, // add
+                    'note' => "Commission refund for canceled appointment #{$appointment->number}"
+                ]);
+                break;
+                
+            case 'visa':
+                $providerAmount = $appointment->total_prices - $commissionAmount;
+                // Deduct provider amount from provider wallet
+                $provider->decrement('balance', $providerAmount);
+                WalletTransaction::create([
+                    'provider_id' => $provider->id,
+                    'amount' => $providerAmount,
+                    'type_of_transaction' => 2, // withdrawal
+                    'note' => "Payment reversal for canceled appointment #{$appointment->number}"
+                ]);
+                break;
+                
+            case 'wallet':
+                // Already handled in main refund
+                break;
+        }
+    }
+
+    /**
+     * Get total customers for an appointment
+     */
+    private function getTotalCustomers($appointment)
+    {
+        if (isset($appointment->providerType->type->booking_type) && 
+            $appointment->providerType->type->booking_type == 'service') {
+            return $appointment->appointmentServices->sum('customer_count');
+        }
+        return 1; // Default for hourly appointments
+    }
+
+    /**
+     * Get services summary for service-based appointments
+     */
+    private function getServicesSummary($appointment)
+    {
+        if (isset($appointment->providerType->type->booking_type) && 
+            $appointment->providerType->type->booking_type == 'service') {
+            
+            $services = $appointment->appointmentServices->map(function($appointmentService) {
+                return [
+                    'name' => app()->getLocale() == 'ar' ? 
+                        $appointmentService->service->name_ar : 
+                        $appointmentService->service->name_en,
+                    'customer_count' => $appointmentService->customer_count,
+                    'service_price' => $appointmentService->service_price,
+                    'total_price' => $appointmentService->total_price
+                ];
+            });
+
+            return [
+                'services' => $services,
+                'total_services' => $services->count(),
+                'total_customers' => $services->sum('customer_count'),
+                'services_total' => $services->sum('total_price')
+            ];
+        }
+        
+        return [
+            'services' => collect(),
+            'total_services' => 0,
+            'total_customers' => 1,
+            'services_total' => $appointment->total_prices - $appointment->delivery_fee
+        ];
+    }
+
+    /**
+     * Get commission details
+     */
+    private function getCommissionDetails($appointment)
+    {
+        $commission = $this->getAdminCommission();
+        $commissionAmount = ($appointment->total_prices * $commission) / 100;
+        $providerAmount = $appointment->total_prices - $commissionAmount;
+
+        return [
+            'commission_percentage' => $commission,
+            'commission_amount' => $commissionAmount,
+            'provider_amount' => $providerAmount,
+            'total_amount' => $appointment->total_prices
+        ];
+    }
+
+    /**
+     * Get admin commission from settings
+     */
+    private function getAdminCommission()
+    {
+        $setting = Setting::where('key', 'commission_of_admin')->first();
+        return $setting ? $setting->value : 1.5; // Default 1.5%
     }
 
     /**
@@ -217,49 +481,14 @@ class AppointmentController extends Controller
             'today_appointments' => Appointment::whereDate('date', today())->count(),
             'this_month_appointments' => Appointment::whereMonth('created_at', now()->month)
                                                   ->whereYear('created_at', now()->year)
-                                                  ->count()
+                                                  ->count(),
+            'service_based_appointments' => Appointment::whereHas('providerType.type', function($q) {
+                $q->where('booking_type', 'service');
+            })->count(),
+            'hourly_appointments' => Appointment::whereHas('providerType.type', function($q) {
+                $q->where('booking_type', 'hourly')->orWhereNull('booking_type');
+            })->count()
         ];
-    }
-
-    /**
-     * Handle payment status change
-     */
-    private function handlePaymentStatusChange($appointment, $newPaymentStatus)
-    {
-        if ($newPaymentStatus == 1 && $appointment->payment_type == 'wallet') {
-            // Deduct from user wallet if payment is marked as paid
-            $user = $appointment->user;
-            if ($user->balance >= $appointment->total_prices) {
-                $user->decrement('balance', $appointment->total_prices);
-                
-                // Create wallet transaction
-                WalletTransaction::create([
-                    'user_id' => $user->id,
-                    'amount' => $appointment->total_prices,
-                    'type_of_transaction' => 2, // withdrawal
-                    'note' => "Payment for appointment #{$appointment->number}"
-                ]);
-            }
-        }
-    }
-
-    /**
-     * Process cancellation refund
-     */
-    private function processCancellationRefund($appointment)
-    {
-        $user = $appointment->user;
-        
-        // Add refund to user wallet
-        $user->increment('balance', $appointment->total_prices);
-        
-        // Create wallet transaction for refund
-        WalletTransaction::create([
-            'user_id' => $user->id,
-            'amount' => $appointment->total_prices,
-            'type_of_transaction' => 1, // add
-            'note' => "Refund for canceled appointment #{$appointment->number}"
-        ]);
     }
 
     /**
@@ -290,10 +519,4 @@ class AppointmentController extends Controller
 
         return $labels[$status] ?? 'Unknown';
     }
-
- 
-
-   
-
-   
 }

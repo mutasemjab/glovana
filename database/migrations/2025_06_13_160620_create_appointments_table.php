@@ -16,13 +16,14 @@ return new class extends Migration
         Schema::create('appointments', function (Blueprint $table) {
             $table->id();
             $table->integer('number')->nullable();
-            $table->tinyInteger('appointment_status')->default(1);  // 1 Pending //2 Accepted //3 OnTheWay // 4 Delivered // 5 Canceled 
+            $table->tinyInteger('appointment_status')->default(1);  // 1 Pending //2 Accepted //3 OnTheWay // 4 Delivered // 5 Canceled  // 6 start work // 7 arrived user to provider
             $table->double('delivery_fee');
             $table->double('total_prices');
             $table->double('total_discounts');
             $table->double('coupon_discount')->nullable();
             $table->string('payment_type');// cash //visa //wallet
             $table->tinyInteger('payment_status')->default(2); // 1 Paid   // 2 Unpaid
+            $table->text('reason_of_cancel')->nullable(); 
             $table->dateTime('date');
             $table->text('note')->nullable();
             $table->unsignedBigInteger('user_id')->nullable();

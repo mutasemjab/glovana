@@ -12,7 +12,7 @@
                 <div class="page-title-right">
                     <ol class="breadcrumb m-0">
                         <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}">{{ __('messages.dashboard') }}</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('admin.appointments.index') }}">{{ __('messages.appointments') }}</a></li>
+                        <li class="breadcrumb-item"><a href="{{ route('appointments.index') }}">{{ __('messages.appointments') }}</a></li>
                         <li class="breadcrumb-item active">{{ __('messages.appointment_details') }}</li>
                     </ol>
                 </div>
@@ -39,6 +39,16 @@
                             <div class="mb-3">
                                 <label class="form-label">{{ __('messages.appointment_date') }}</label>
                                 <p class="form-control-static">{{ $appointment->date->format('Y-m-d H:i:s') }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{{ __('messages.booking_type') }}</label>
+                                <p class="form-control-static">
+                                    <span class="badge {{ $appointment->booking_type == 'service' ? 'bg-primary' : 'bg-secondary' }} fs-6">
+                                        {{ $appointment->booking_type == 'service' ? __('messages.service_based') : __('messages.hourly') }}
+                                    </span>
+                                </p>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -84,6 +94,14 @@
                                 </p>
                             </div>
                         </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">{{ __('messages.total_customers') }}</label>
+                                <p class="form-control-static">
+                                    <span class="badge bg-dark fs-6">{{ $appointment->total_customers }}</span>
+                                </p>
+                            </div>
+                        </div>
                         @if($appointment->note)
                         <div class="col-12">
                             <div class="mb-3">
@@ -95,6 +113,51 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Services Details (for service-based appointments) -->
+            @if($appointment->booking_type == 'service' && $appointment->services_summary['services']->count() > 0)
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">{{ __('messages.services_details') }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>{{ __('messages.service_name') }}</th>
+                                    <th>{{ __('messages.customer_count') }}</th>
+                                    <th>{{ __('messages.service_price') }}</th>
+                                    <th>{{ __('messages.total_price') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($appointment->services_summary['services'] as $service)
+                                <tr>
+                                    <td>{{ $service['name'] }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ $service['customer_count'] }}</span>
+                                    </td>
+                                    <td>{{ number_format($service['service_price'], 2) }} {{ __('messages.jd') }}</td>
+                                    <td>{{ number_format($service['total_price'], 2) }} {{ __('messages.jd') }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot class="table-active">
+                                <tr>
+                                    <th>{{ __('messages.total') }}</th>
+                                    <th>
+                                        <span class="badge bg-dark">{{ $appointment->services_summary['total_customers'] }}</span>
+                                    </th>
+                                    <th>-</th>
+                                    <th>{{ number_format($appointment->services_summary['services_total'], 2) }} {{ __('messages.jd') }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            @endif
 
             <!-- Provider Information -->
             <div class="card">
@@ -127,12 +190,14 @@
                                 <p class="form-control-static">{{ $appointment->providerType->name }}</p>
                             </div>
                         </div>
+                        @if($appointment->booking_type == 'hourly')
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">{{ __('messages.price_per_hour') }}</label>
                                 <p class="form-control-static">{{ number_format($appointment->providerType->price_per_hour, 2) }} {{ __('messages.jd') }}</p>
                             </div>
                         </div>
+                        @endif
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">{{ __('messages.provider_email') }}</label>
@@ -225,13 +290,23 @@
                     <div class="table-responsive">
                         <table class="table table-borderless">
                             <tbody>
-                                <tr>
-                                    <td>{{ __('messages.service_price') }}:</td>
-                                    <td class="text-end">
-                                        {{ number_format($appointment->total_prices - $appointment->delivery_fee, 2) }} 
-                                        {{ __('messages.jd') }}
-                                    </td>
-                                </tr>
+                                @if($appointment->booking_type == 'service')
+                                    <tr>
+                                        <td>{{ __('messages.services_price') }}:</td>
+                                        <td class="text-end">
+                                            {{ number_format($appointment->services_summary['services_total'], 2) }} 
+                                            {{ __('messages.jd') }}
+                                        </td>
+                                    </tr>
+                                @else
+                                    <tr>
+                                        <td>{{ __('messages.service_price') }}:</td>
+                                        <td class="text-end">
+                                            {{ number_format($appointment->total_prices - $appointment->delivery_fee, 2) }} 
+                                            {{ __('messages.jd') }}
+                                        </td>
+                                    </tr>
+                                @endif
                                 <tr>
                                     <td>{{ __('messages.delivery_fee') }}:</td>
                                     <td class="text-end">{{ number_format($appointment->delivery_fee, 2) }} {{ __('messages.jd') }}</td>
@@ -255,8 +330,61 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @if($appointment->booking_type == 'service')
+                    <hr>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="p-2 bg-light rounded">
+                                <h6 class="mb-1">{{ $appointment->services_summary['total_services'] }}</h6>
+                                <small class="text-muted">{{ __('messages.services') }}</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-light rounded">
+                                <h6 class="mb-1">{{ $appointment->services_summary['total_customers'] }}</h6>
+                                <small class="text-muted">{{ __('messages.customers') }}</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-light rounded">
+                                <h6 class="mb-1">{{ number_format($appointment->services_summary['services_total'], 0) }}</h6>
+                                <small class="text-muted">{{ __('messages.jd') }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </div>
+
+            <!-- Commission Details -->
+            @if(isset($appointment->commission_details))
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">{{ __('messages.commission_details') }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-borderless">
+                            <tbody>
+                                <tr>
+                                    <td>{{ __('messages.commission_rate') }}:</td>
+                                    <td class="text-end">{{ $appointment->commission_details['commission_percentage'] }}%</td>
+                                </tr>
+                                <tr>
+                                    <td>{{ __('messages.commission_amount') }}:</td>
+                                    <td class="text-end">{{ number_format($appointment->commission_details['commission_amount'], 2) }} {{ __('messages.jd') }}</td>
+                                </tr>
+                                <tr class="table-active">
+                                    <td><strong>{{ __('messages.provider_amount') }}:</strong></td>
+                                    <td class="text-end"><strong>{{ number_format($appointment->commission_details['provider_amount'], 2) }} {{ __('messages.jd') }}</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            @endif
 
             <!-- Actions -->
             <div class="card">
@@ -265,10 +393,10 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{{ route('admin.appointments.edit', $appointment->id) }}" class="btn btn-primary">
+                        {{-- <a href="{{ route('appointments.edit', $appointment->id) }}" class="btn btn-primary">
                             <i class="ri-edit-line"></i> {{ __('messages.edit_appointment') }}
-                        </a>
-                        <a href="{{ route('admin.appointments.index') }}" class="btn btn-secondary">
+                        </a> --}}
+                        <a href="{{ route('appointments.index') }}" class="btn btn-secondary">
                             <i class="ri-arrow-left-line"></i> {{ __('messages.back_to_appointments') }}
                         </a>
                     </div>
