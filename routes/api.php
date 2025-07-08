@@ -39,6 +39,7 @@ Route::group(['prefix' => 'v1/user'], function () {
     //---------------- Auth --------------------//
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
+    Route::get('/banners', [BannerController::class, 'index']);
 
     Route::get('/settings', [SettingController::class, 'index']);
     Route::get('/deliveries', [DeliveryController::class, 'index']);
@@ -71,7 +72,6 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::delete('/addresses/{id}', [UserAddressController::class, 'destroy']);
 
         Route::get('/wallet/transactions', [WalletController::class, 'getTransactions']);
-        Route::get('/banners', [BannerController::class, 'index']);
 
         //Ecommerce
         Route::get('/categories', [CategoryController::class, 'index']);
