@@ -104,9 +104,9 @@ class AuthController extends Controller
         if ($userType == 'provider') {
             $validator = Validator::make($request->all(), [
                 'name_of_manager' => 'required|string|max:255',
-                'phone' => 'required|string|unique:drivers',
+                'phone' => 'required|string|unique:providers',
                 'password' => 'required',
-                'email' => 'nullable|email|unique:drivers',
+                'email' => 'nullable|email|unique:providers',
                 'fcm_token' => 'nullable|string',
                 'photo_of_manager' => 'nullable|image|mimes:jpeg,png,jpg|max:4048',
             ]);
