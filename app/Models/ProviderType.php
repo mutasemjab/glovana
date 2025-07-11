@@ -50,6 +50,11 @@ class ProviderType extends Model
     {
         return $this->hasMany(ProviderServiceType::class);
     }
+
+     public function providerServices()
+    {
+        return $this->hasMany(ProviderService::class);
+    }
  
     public function ratings()
     {

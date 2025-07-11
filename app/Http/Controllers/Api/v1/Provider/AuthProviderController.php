@@ -70,7 +70,7 @@ class AuthProviderController extends Controller
 
 
 
-   public function updateProviderProfile(Request $request)
+    public function updateProviderProfile(Request $request)
     {
         $provider = auth()->user();
         
@@ -126,14 +126,21 @@ class AuthProviderController extends Controller
             'provider_types.*.lat' => 'required|numeric|between:-90,90',
             'provider_types.*.lng' => 'required|numeric|between:-180,180',
             'provider_types.*.address' => 'nullable|string',
-            'provider_types.*.price_per_hour' => 'required|numeric|min:0',
+            'provider_types.*.price_per_hour' => 'required_if:provider_types.*.booking_type,hourly|nullable|numeric|min:0',
             'provider_types.*.is_vip' => 'sometimes|in:1,2',
             'provider_types.*.service_ids' => 'required|array|min:1',
             'provider_types.*.service_ids.*' => 'exists:services,id',
+            // New validation for service pricing (for service-based types)
+            'provider_types.*.services_with_prices' => 'sometimes|array',
+            'provider_types.*.services_with_prices.*.service_id' => 'required|exists:services,id',
+            'provider_types.*.services_with_prices.*.price' => 'required|numeric|min:0',
+            'provider_types.*.services_with_prices.*.is_active' => 'sometimes|boolean',
+            // Images and galleries
             'provider_types.*.images' => 'nullable|array',
             'provider_types.*.images.*' => 'image|mimes:jpeg,png,jpg',
             'provider_types.*.galleries' => 'nullable|array',
             'provider_types.*.galleries.*' => 'image|mimes:jpeg,png,jpg',
+            // Availabilities
             'provider_types.*.availabilities' => 'required|array|min:1',
             'provider_types.*.availabilities.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
             'provider_types.*.availabilities.*.start_time' => 'required|date_format:H:i',
@@ -148,6 +155,20 @@ class AuthProviderController extends Controller
             DB::beginTransaction();
 
             foreach ($request->provider_types as $providerTypeData) {
+                // Get the type to check booking_type
+                $type = \App\Models\Type::find($providerTypeData['type_id']);
+                
+                // Validate pricing based on booking type
+                if ($type->booking_type === 'hourly' && empty($providerTypeData['price_per_hour'])) {
+                    DB::rollback();
+                    return $this->error_response('Validation error', 'Price per hour is required for hourly booking types');
+                }
+                
+                if ($type->booking_type === 'service' && empty($providerTypeData['services_with_prices'])) {
+                    DB::rollback();
+                    return $this->error_response('Validation error', 'Services with prices are required for service booking types');
+                }
+
                 // Create provider type
                 $providerType = \App\Models\ProviderType::create([
                     'provider_id' => $provider->id,
@@ -157,18 +178,40 @@ class AuthProviderController extends Controller
                     'lat' => $providerTypeData['lat'],
                     'lng' => $providerTypeData['lng'],
                     'address' => $providerTypeData['address'] ?? null,
-                    'price_per_hour' => $providerTypeData['price_per_hour'],
+                    'price_per_hour' => $type->booking_type === 'hourly' ? $providerTypeData['price_per_hour'] : null,
                     'is_vip' => $providerTypeData['is_vip'] ?? 2,
                     'activate' => 1,
                     'status' => 1,
                 ]);
 
-                // Add services for this provider type
-                foreach ($providerTypeData['service_ids'] as $serviceId) {
-                    \App\Models\ProviderServiceType::create([
-                        'provider_type_id' => $providerType->id,
-                        'service_id' => $serviceId,
-                    ]);
+                // Handle services based on booking type
+                if ($type->booking_type === 'hourly') {
+                    // For hourly types, use the existing service_ids approach
+                    foreach ($providerTypeData['service_ids'] as $serviceId) {
+                        \App\Models\ProviderServiceType::create([
+                            'provider_type_id' => $providerType->id,
+                            'service_id' => $serviceId,
+                        ]);
+                    }
+                } else {
+                    // For service types, use services_with_prices
+                    if (isset($providerTypeData['services_with_prices'])) {
+                        foreach ($providerTypeData['services_with_prices'] as $serviceData) {
+                            // Create in ProviderServiceType for compatibility
+                            \App\Models\ProviderServiceType::create([
+                                'provider_type_id' => $providerType->id,
+                                'service_id' => $serviceData['service_id'],
+                            ]);
+
+                            // Create in ProviderService with pricing
+                            \App\Models\ProviderService::create([
+                                'provider_type_id' => $providerType->id,
+                                'service_id' => $serviceData['service_id'],
+                                'price' => $serviceData['price'],
+                                'is_active' => $serviceData['is_active'] ?? 1,
+                            ]);
+                        }
+                    }
                 }
 
                 // Upload and save images
@@ -215,7 +258,9 @@ class AuthProviderController extends Controller
 
             return $this->success_response('Provider profile completed successfully', [
                 'provider' => $provider->fresh()->load([
+                    'providerTypes.type',
                     'providerTypes.services',
+                    'providerTypes.providerServices.service',
                     'providerTypes.images',
                     'providerTypes.galleries',
                     'providerTypes.availabilities'
@@ -240,6 +285,7 @@ class AuthProviderController extends Controller
         $provider->load([
             'providerTypes.type',
             'providerTypes.services',
+            'providerTypes.providerServices.service',
             'providerTypes.images',
             'providerTypes.galleries',
             'providerTypes.availabilities'
@@ -261,6 +307,7 @@ class AuthProviderController extends Controller
 
         $providerType = \App\Models\ProviderType::where('id', $providerTypeId)
             ->where('provider_id', $provider->id)
+            ->with('type')
             ->first();
 
         if (!$providerType) {
@@ -278,10 +325,17 @@ class AuthProviderController extends Controller
             'status' => 'sometimes|in:1,2',
             'service_ids' => 'sometimes|array|min:1',
             'service_ids.*' => 'exists:services,id',
+            // New validation for service pricing updates
+            'services_with_prices' => 'sometimes|array',
+            'services_with_prices.*.service_id' => 'required|exists:services,id',
+            'services_with_prices.*.price' => 'required|numeric|min:0',
+            'services_with_prices.*.is_active' => 'sometimes|boolean',
+            // Images and galleries
             'images' => 'nullable|array',
             'images.*' => 'image|mimes:jpeg,png,jpg',
             'galleries' => 'nullable|array',
             'galleries.*' => 'image|mimes:jpeg,png,jpg',
+            // Availabilities
             'availabilities' => 'sometimes|array|min:1',
             'availabilities.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
             'availabilities.*.start_time' => 'required',
@@ -296,20 +350,53 @@ class AuthProviderController extends Controller
             DB::beginTransaction();
 
             // Update provider type basic info
-            $updateData = $request->only(['name', 'description', 'lat', 'lng', 'address', 'price_per_hour', 'is_vip', 'status']);
+            $updateData = $request->only(['name', 'description', 'lat', 'lng', 'address', 'is_vip', 'status']);
+            
+            // Handle price_per_hour based on booking type
+            if ($providerType->type->booking_type === 'hourly' && $request->has('price_per_hour')) {
+                $updateData['price_per_hour'] = $request->price_per_hour;
+            }
+            
             $providerType->update($updateData);
 
-            // Update services if provided
-            if ($request->has('service_ids')) {
-                // Delete existing services
-                \App\Models\ProviderServiceType::where('provider_type_id', $providerType->id)->delete();
-                
-                // Add new services
-                foreach ($request->service_ids as $serviceId) {
-                    \App\Models\ProviderServiceType::create([
-                        'provider_type_id' => $providerType->id,
-                        'service_id' => $serviceId,
-                    ]);
+            // Update services based on booking type
+            if ($providerType->type->booking_type === 'hourly') {
+                // For hourly types, use traditional service_ids approach
+                if ($request->has('service_ids')) {
+                    // Delete existing services
+                    \App\Models\ProviderServiceType::where('provider_type_id', $providerType->id)->delete();
+                    
+                    // Add new services
+                    foreach ($request->service_ids as $serviceId) {
+                        \App\Models\ProviderServiceType::create([
+                            'provider_type_id' => $providerType->id,
+                            'service_id' => $serviceId,
+                        ]);
+                    }
+                }
+            } else {
+                // For service types, handle services_with_prices
+                if ($request->has('services_with_prices')) {
+                    // Delete existing services and provider services
+                    \App\Models\ProviderServiceType::where('provider_type_id', $providerType->id)->delete();
+                    \App\Models\ProviderService::where('provider_type_id', $providerType->id)->delete();
+                    
+                    // Add new services with prices
+                    foreach ($request->services_with_prices as $serviceData) {
+                        // Create in ProviderServiceType for compatibility
+                        \App\Models\ProviderServiceType::create([
+                            'provider_type_id' => $providerType->id,
+                            'service_id' => $serviceData['service_id'],
+                        ]);
+
+                        // Create in ProviderService with pricing
+                        \App\Models\ProviderService::create([
+                            'provider_type_id' => $providerType->id,
+                            'service_id' => $serviceData['service_id'],
+                            'price' => $serviceData['price'],
+                            'is_active' => $serviceData['is_active'] ?? 1,
+                        ]);
+                    }
                 }
             }
 
@@ -360,6 +447,7 @@ class AuthProviderController extends Controller
             $providerType->load([
                 'type',
                 'services',
+                'providerServices.service',
                 'images',
                 'galleries',
                 'availabilities'
@@ -372,6 +460,81 @@ class AuthProviderController extends Controller
         } catch (\Exception $e) {
             DB::rollback();
             return $this->error_response('Error updating provider type', $e->getMessage());
+        }
+    }
+
+    /**
+     * Add or update services with prices for a provider type
+     * POST /api/v1/providers/types/{providerTypeId}/services
+     */
+    public function updateProviderTypeServices(Request $request, $providerTypeId)
+    {
+        $provider = auth()->user();
+        
+        if (!$provider instanceof \App\Models\Provider) {
+            return $this->error_response('Unauthorized', 'Only providers can update services');
+        }
+
+        $providerType = \App\Models\ProviderType::where('id', $providerTypeId)
+            ->where('provider_id', $provider->id)
+            ->with('type')
+            ->first();
+
+        if (!$providerType) {
+            return $this->error_response('Not found', 'Provider type not found');
+        }
+
+        if ($providerType->type->booking_type !== 'service') {
+            return $this->error_response('Invalid operation', 'This provider type does not support service pricing');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'services' => 'required|array|min:1',
+            'services.*.service_id' => 'required|exists:services,id',
+            'services.*.price' => 'required|numeric|min:0',
+            'services.*.is_active' => 'sometimes|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error_response('Validation error', $validator->errors());
+        }
+
+        try {
+            DB::beginTransaction();
+
+            // Delete existing services
+            \App\Models\ProviderServiceType::where('provider_type_id', $providerType->id)->delete();
+            \App\Models\ProviderService::where('provider_type_id', $providerType->id)->delete();
+
+            // Add new services with prices
+            foreach ($request->services as $serviceData) {
+                // Create in ProviderServiceType for compatibility
+                \App\Models\ProviderServiceType::create([
+                    'provider_type_id' => $providerType->id,
+                    'service_id' => $serviceData['service_id'],
+                ]);
+
+                // Create in ProviderService with pricing
+                \App\Models\ProviderService::create([
+                    'provider_type_id' => $providerType->id,
+                    'service_id' => $serviceData['service_id'],
+                    'price' => $serviceData['price'],
+                    'is_active' => $serviceData['is_active'] ?? 1,
+                ]);
+            }
+
+            DB::commit();
+
+            $providerType->load('providerServices.service');
+
+            return $this->success_response('Provider services updated successfully', [
+                'provider_type' => $providerType,
+                'services' => $providerType->providerServices
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollback();
+            return $this->error_response('Error updating services', $e->getMessage());
         }
     }
 

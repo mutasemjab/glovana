@@ -16,8 +16,7 @@ class ProviderController extends Controller
 {
     use Responses;
 
-
-     public function searchProviders(Request $request)
+    public function searchProviders(Request $request)
     {
         try {
             $query = Provider::with([
@@ -27,6 +26,7 @@ class ProviderController extends Controller
                           ->with([
                               'type',
                               'services.service',
+                              'providerServices.service', // Add provider services with pricing
                               'images' => function ($query) {
                                   $query->limit(1);
                               }
@@ -55,6 +55,10 @@ class ProviderController extends Controller
                       ->orWhereHas('providerTypes.services.service', function ($subQuery) use ($searchTerm) {
                           $subQuery->where('name_en', 'LIKE', "%{$searchTerm}%")
                                    ->orWhere('name_ar', 'LIKE', "%{$searchTerm}%");
+                      })
+                      ->orWhereHas('providerTypes.providerServices.service', function ($subQuery) use ($searchTerm) {
+                          $subQuery->where('name_en', 'LIKE', "%{$searchTerm}%")
+                                   ->orWhere('name_ar', 'LIKE', "%{$searchTerm}%");
                       });
                 });
             }
@@ -73,42 +77,102 @@ class ProviderController extends Controller
                 });
             }
 
-            // Price range filter
+            // Price range filter - updated to handle both hourly and service pricing
             if ($request->has('min_price')) {
                 $query->whereHas('providerTypes', function ($q) use ($request) {
-                    $q->where('price_per_hour', '>=', $request->min_price);
+                    $q->where(function ($priceQuery) use ($request) {
+                        // For hourly types, check price_per_hour
+                        $priceQuery->where(function ($hourlyQuery) use ($request) {
+                            $hourlyQuery->whereHas('type', function ($typeQuery) {
+                                $typeQuery->where('booking_type', 'hourly');
+                            })->where('price_per_hour', '>=', $request->min_price);
+                        })
+                        // For service types, check provider_services prices
+                        ->orWhere(function ($serviceQuery) use ($request) {
+                            $serviceQuery->whereHas('type', function ($typeQuery) {
+                                $typeQuery->where('booking_type', 'service');
+                            })->whereHas('providerServices', function ($providerServiceQuery) use ($request) {
+                                $providerServiceQuery->where('price', '>=', $request->min_price)
+                                                   ->where('is_active', 1);
+                            });
+                        });
+                    });
                 });
             }
 
             if ($request->has('max_price')) {
                 $query->whereHas('providerTypes', function ($q) use ($request) {
-                    $q->where('price_per_hour', '<=', $request->max_price);
+                    $q->where(function ($priceQuery) use ($request) {
+                        // For hourly types, check price_per_hour
+                        $priceQuery->where(function ($hourlyQuery) use ($request) {
+                            $hourlyQuery->whereHas('type', function ($typeQuery) {
+                                $typeQuery->where('booking_type', 'hourly');
+                            })->where('price_per_hour', '<=', $request->max_price);
+                        })
+                        // For service types, check provider_services prices
+                        ->orWhere(function ($serviceQuery) use ($request) {
+                            $serviceQuery->whereHas('type', function ($typeQuery) {
+                                $typeQuery->where('booking_type', 'service');
+                            })->whereHas('providerServices', function ($providerServiceQuery) use ($request) {
+                                $providerServiceQuery->where('price', '<=', $request->max_price)
+                                                   ->where('is_active', 1);
+                            });
+                        });
+                    });
                 });
             }
 
-            // Sorting
-            $sortBy = $request->get('sort_by', 'created_at'); // Default sort
-            $sortOrder = $request->get('sort_order', 'desc'); // Default order
+            // Service-specific price filter
+            if ($request->has('service_id') && !empty($request->service_id)) {
+                $query->whereHas('providerTypes.providerServices', function ($q) use ($request) {
+                    $q->where('service_id', $request->service_id)
+                      ->where('is_active', 1);
+                    
+                    // Add price filters for specific service
+                    if ($request->has('service_min_price')) {
+                        $q->where('price', '>=', $request->service_min_price);
+                    }
+                    if ($request->has('service_max_price')) {
+                        $q->where('price', '<=', $request->service_max_price);
+                    }
+                });
+            }
+
+            // Sorting - updated to handle service pricing
+            $sortBy = $request->get('sort_by', 'created_at');
+            $sortOrder = $request->get('sort_order', 'desc');
 
             switch ($sortBy) {
                 case 'name':
                     $query->orderBy('name_of_manager', $sortOrder);
                     break;
                 case 'price_low':
-                    $query->join('provider_types', 'providers.id', '=', 'provider_types.provider_id')
+                    $query->leftJoin('provider_types', 'providers.id', '=', 'provider_types.provider_id')
+                          ->leftJoin('types', 'provider_types.type_id', '=', 'types.id')
+                          ->leftJoin('provider_services', 'provider_types.id', '=', 'provider_services.provider_type_id')
                           ->where('provider_types.activate', 1)
                           ->where('provider_types.status', 1)
-                          ->orderBy('provider_types.price_per_hour', 'asc')
-                          ->select('providers.*')
-                          ->distinct();
+                          ->selectRaw('providers.*, 
+                                     CASE 
+                                         WHEN types.booking_type = "hourly" THEN provider_types.price_per_hour
+                                         ELSE COALESCE(MIN(provider_services.price), 0)
+                                     END as sort_price')
+                          ->groupBy('providers.id')
+                          ->orderBy('sort_price', 'asc');
                     break;
                 case 'price_high':
-                    $query->join('provider_types', 'providers.id', '=', 'provider_types.provider_id')
+                    $query->leftJoin('provider_types', 'providers.id', '=', 'provider_types.provider_id')
+                          ->leftJoin('types', 'provider_types.type_id', '=', 'types.id')
+                          ->leftJoin('provider_services', 'provider_types.id', '=', 'provider_services.provider_type_id')
                           ->where('provider_types.activate', 1)
                           ->where('provider_types.status', 1)
-                          ->orderBy('provider_types.price_per_hour', 'desc')
-                          ->select('providers.*')
-                          ->distinct();
+                          ->selectRaw('providers.*, 
+                                     CASE 
+                                         WHEN types.booking_type = "hourly" THEN provider_types.price_per_hour
+                                         ELSE COALESCE(MAX(provider_services.price), 0)
+                                     END as sort_price')
+                          ->groupBy('providers.id')
+                          ->orderBy('sort_price', 'desc');
                     break;
                 case 'vip':
                     $query->join('provider_types', 'providers.id', '=', 'provider_types.provider_id')
@@ -149,6 +213,9 @@ class ProviderController extends Controller
                     'is_vip' => $request->is_vip,
                     'min_price' => $request->min_price,
                     'max_price' => $request->max_price,
+                    'service_id' => $request->service_id,
+                    'service_min_price' => $request->service_min_price,
+                    'service_max_price' => $request->service_max_price,
                     'sort_by' => $sortBy,
                     'sort_order' => $sortOrder,
                 ]
@@ -159,10 +226,6 @@ class ProviderController extends Controller
         }
     }
 
-    /**
-     * Get VIP providers only
-     * GET /api/v1/providers/vip
-     */
     public function getVipProviders(Request $request)
     {
         try {
@@ -170,10 +233,11 @@ class ProviderController extends Controller
                 'providerTypes' => function ($query) {
                     $query->where('activate', 1)
                           ->where('status', 1)
-                          ->where('is_vip', 1) // Only VIP types
+                          ->where('is_vip', 1)
                           ->with([
                               'type',
                               'services.service',
+                              'providerServices.service',
                               'images'
                           ]);
                 }
@@ -202,22 +266,34 @@ class ProviderController extends Controller
                     $query->orderBy('name_of_manager', $sortOrder);
                     break;
                 case 'price_low':
-                    $query->join('provider_types', 'providers.id', '=', 'provider_types.provider_id')
+                    $query->leftJoin('provider_types', 'providers.id', '=', 'provider_types.provider_id')
+                          ->leftJoin('types', 'provider_types.type_id', '=', 'types.id')
+                          ->leftJoin('provider_services', 'provider_types.id', '=', 'provider_services.provider_type_id')
                           ->where('provider_types.activate', 1)
                           ->where('provider_types.status', 1)
                           ->where('provider_types.is_vip', 1)
-                          ->orderBy('provider_types.price_per_hour', 'asc')
-                          ->select('providers.*')
-                          ->distinct();
+                          ->selectRaw('providers.*, 
+                                     CASE 
+                                         WHEN types.booking_type = "hourly" THEN provider_types.price_per_hour
+                                         ELSE COALESCE(MIN(provider_services.price), 0)
+                                     END as sort_price')
+                          ->groupBy('providers.id')
+                          ->orderBy('sort_price', 'asc');
                     break;
                 case 'price_high':
-                    $query->join('provider_types', 'providers.id', '=', 'provider_types.provider_id')
+                    $query->leftJoin('provider_types', 'providers.id', '=', 'provider_types.provider_id')
+                          ->leftJoin('types', 'provider_types.type_id', '=', 'types.id')
+                          ->leftJoin('provider_services', 'provider_types.id', '=', 'provider_services.provider_type_id')
                           ->where('provider_types.activate', 1)
                           ->where('provider_types.status', 1)
                           ->where('provider_types.is_vip', 1)
-                          ->orderBy('provider_types.price_per_hour', 'desc')
-                          ->select('providers.*')
-                          ->distinct();
+                          ->selectRaw('providers.*, 
+                                     CASE 
+                                         WHEN types.booking_type = "hourly" THEN provider_types.price_per_hour
+                                         ELSE COALESCE(MAX(provider_services.price), 0)
+                                     END as sort_price')
+                          ->groupBy('providers.id')
+                          ->orderBy('sort_price', 'desc');
                     break;
                 case 'created_at':
                 default:
@@ -256,11 +332,9 @@ class ProviderController extends Controller
         }
     }
 
-    
     public function getMapLocations()
     {
         try {
-            // Get providers where 'activate' is 1 and have active provider types
             $providers = Provider::where('activate', 1)
                 ->whereHas('providerTypes', function ($query) {
                     $query->where('activate', 1);
@@ -271,15 +345,15 @@ class ProviderController extends Controller
                             ->with([
                                 'type',
                                 'services.service',
+                                'providerServices.service',
                                 'images'
                             ]);
                     }
                 ])
                 ->get();
 
-            // Transform data
             $providersData = $providers->map(function ($provider) {
-                return $this->transformProviderData($provider, false); // false = listing view
+                return $this->transformProviderData($provider, false);
             });
 
             return $this->success_response('Providers retrieved successfully', [
@@ -291,7 +365,6 @@ class ProviderController extends Controller
             return $this->error_response('Failed to retrieve providers', $e->getMessage());
         }
     }
-
 
     private function transformProviderData($provider, $includeFullDetails = false)
     {
@@ -309,29 +382,24 @@ class ProviderController extends Controller
         ];
     }
 
-    /**
-     * Transform provider type data for API response
-     * @param ProviderType $providerType
-     * @param bool $includeFullDetails
-     * @return array
-     */
     private function transformProviderTypeData($providerType, $includeFullDetails = false)
     {
         $data = [
             'id' => $providerType->id,
             'name' => $providerType->name,
             'description' => $providerType->description,
-            'price_per_hour' => $providerType->price_per_hour,
             'address' => $providerType->address,
             'lat' => $providerType->lat,
             'lng' => $providerType->lng,
             'is_vip' => $providerType->is_vip == 1,
-            'is_favourite' => $providerType->is_favourite, // Add this line
-
+            'is_favourite' => $providerType->is_favourite,
             'type' => [
                 'id' => $providerType->type->id,
                 'name_en' => $providerType->type->name_en,
                 'name_ar' => $providerType->type->name_ar,
+                'booking_type' => $providerType->type->booking_type,
+                'have_delivery' => $providerType->type->have_delivery,
+                'minimum_order' => $providerType->type->minimum_order,
             ],
             'services' => $providerType->services->map(function ($service) {
                 return [
@@ -350,8 +418,31 @@ class ProviderController extends Controller
             }),
         ];
 
+        // Add pricing information based on booking type
+        if ($providerType->type->booking_type === 'hourly') {
+            $data['price_per_hour'] = $providerType->price_per_hour;
+            $data['pricing_type'] = 'hourly';
+        } else {
+            $data['pricing_type'] = 'service';
+            $data['provider_services'] = $providerType->providerServices
+                ->where('is_active', 1)
+                ->map(function ($providerService) {
+                    return [
+                        'id' => $providerService->id,
+                        'service' => [
+                            'id' => $providerService->service->id,
+                            'name_en' => $providerService->service->name_en,
+                            'name_ar' => $providerService->service->name_ar,
+                        ],
+                        'price' => $providerService->price,
+                        'is_active' => $providerService->is_active,
+                    ];
+                });
+            
+            
+        }
+
         if ($includeFullDetails) {
-            // Full details include all images, galleries, availability, etc.
             $data['images'] = $providerType->images->map(function ($image) {
                 return [
                     'id' => $image->id,
@@ -369,7 +460,6 @@ class ProviderController extends Controller
             $data['availability'] = $this->formatAvailability($providerType->availabilities);
             
             $data['upcoming_unavailability'] = $providerType->unavailabilities->map(function ($unavailability) {
-                // Ensure date is a Carbon instance
                 $date = $unavailability->unavailable_date instanceof \Carbon\Carbon 
                     ? $unavailability->unavailable_date 
                     : \Carbon\Carbon::parse($unavailability->unavailable_date);
@@ -385,7 +475,6 @@ class ProviderController extends Controller
                 ];
             });
         } else {
-            // Listing view - only first image
             $data['image'] = $providerType->images->first() ? 
                 asset('assets/admin/uploads/' . $providerType->images->first()->photo) : null;
         }
@@ -393,20 +482,14 @@ class ProviderController extends Controller
         return $data;
     }
 
-    /**
-     * Get all providers under a specific type
-     * GET /api/v1/providers/type/{typeId}
-     */
     public function getProvidersByType($typeId)
     {
         try {
-            // Check if type exists
             $type = Type::find($typeId);
             if (!$type) {
                 return $this->error_response('Type not found', null);
             }
 
-            // Get providers with their types, services, and images
             $providers = Provider::whereHas('providerTypes', function ($query) use ($typeId) {
                 $query->where('type_id', $typeId)
                       ->where('activate', 1)
@@ -420,6 +503,7 @@ class ProviderController extends Controller
                           ->with([
                               'type',
                               'services.service',
+                              'providerServices.service',
                               'images',
                           ]);
                 }
@@ -427,9 +511,8 @@ class ProviderController extends Controller
             ->where('activate', 1)
             ->get();
 
-            // Transform data using our reusable function
             $providersData = $providers->map(function ($provider) {
-                return $this->transformProviderData($provider, false); // false = listing view
+                return $this->transformProviderData($provider, false);
             });
 
             return $this->success_response('Providers retrieved successfully', [
@@ -437,6 +520,9 @@ class ProviderController extends Controller
                     'id' => $type->id,
                     'name_en' => $type->name_en,
                     'name_ar' => $type->name_ar,
+                    'booking_type' => $type->booking_type,
+                    'have_delivery' => $type->have_delivery,
+                    'minimum_order' => $type->minimum_order,
                 ],
                 'providers' => $providersData,
                 'total_providers' => $providersData->count()
@@ -447,14 +533,9 @@ class ProviderController extends Controller
         }
     }
 
-    /**
-     * Get provider details by ID
-     * GET /api/v1/providers/{providerId}
-     */
     public function getProviderDetails($providerId)
     {
         try {
-            // Get provider with all related data
             $provider = Provider::with([
                 'providerTypes' => function ($query) {
                     $query->where('activate', 1)
@@ -462,6 +543,7 @@ class ProviderController extends Controller
                           ->with([
                               'type',
                               'services.service',
+                              'providerServices.service',
                               'images',
                               'galleries',
                               'availabilities' => function ($query) {
@@ -481,8 +563,7 @@ class ProviderController extends Controller
                 return $this->error_response('Provider not found', null);
             }
 
-            // Transform provider data using our reusable function
-            $providerData = $this->transformProviderData($provider, true); // true = full details
+            $providerData = $this->transformProviderData($provider, true);
 
             return $this->success_response('Provider details retrieved successfully', $providerData);
 
@@ -492,8 +573,65 @@ class ProviderController extends Controller
     }
 
     /**
-     * Helper method to format availability data
+     * Get services with prices for a specific provider type
+     * GET /api/v1/providers/{providerId}/types/{typeId}/services
      */
+    public function getProviderTypeServices($providerId, $typeId)
+    {
+        try {
+            $providerType = ProviderType::where('provider_id', $providerId)
+                ->where('type_id', $typeId)
+                ->where('activate', 1)
+                ->where('status', 1)
+                ->with([
+                    'type',
+                    'providerServices' => function ($query) {
+                        $query->where('is_active', 1)->with('service');
+                    }
+                ])
+                ->first();
+
+            if (!$providerType) {
+                return $this->error_response('Provider type not found', null);
+            }
+
+            if ($providerType->type->booking_type !== 'service') {
+                return $this->error_response('This provider type does not offer services', null);
+            }
+
+            $servicesData = $providerType->providerServices->map(function ($providerService) {
+                return [
+                    'id' => $providerService->id,
+                    'service' => [
+                        'id' => $providerService->service->id,
+                        'name_en' => $providerService->service->name_en,
+                        'name_ar' => $providerService->service->name_ar,
+                    ],
+                    'price' => $providerService->price,
+                    'is_active' => $providerService->is_active,
+                ];
+            });
+
+            return $this->success_response('Provider services retrieved successfully', [
+                'provider_type' => [
+                    'id' => $providerType->id,
+                    'name' => $providerType->name,
+                    'type' => [
+                        'id' => $providerType->type->id,
+                        'name_en' => $providerType->type->name_en,
+                        'name_ar' => $providerType->type->name_ar,
+                        'booking_type' => $providerType->type->booking_type,
+                    ]
+                ],
+                'services' => $servicesData,
+                'total_services' => $servicesData->count()
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->error_response('Failed to retrieve provider services', $e->getMessage());
+        }
+    }
+
     private function formatAvailability($availabilities)
     {
         $daysOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -515,8 +653,4 @@ class ProviderController extends Controller
         
         return $formattedAvailability;
     }
-
-
-   
-
 }
