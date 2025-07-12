@@ -242,20 +242,20 @@ class AppointmentController extends Controller
                 $appointment->total_customers = $this->getTotalCustomers($appointment);
 
                 // Add calculation breakdown for response
-                $appointment->price_breakdown = [
-                    'service_price' => $servicePrice,
-                    'delivery_fee' => $deliveryFee,
-                    'subtotal' => $totalPrices,
-                    'coupon_discount' => $couponDiscount,
-                    'total_discounts' => $totalDiscounts,
-                    'final_total' => $finalTotal,
-                    'booking_type' => $bookingType
-                ];
+                // $appointment->price_breakdown = [
+                //     'service_price' => $servicePrice,
+                //     'delivery_fee' => $deliveryFee,
+                //     'subtotal' => $totalPrices,
+                //     'coupon_discount' => $couponDiscount,
+                //     'total_discounts' => $totalDiscounts,
+                //     'final_total' => $finalTotal,
+                //     'booking_type' => $bookingType
+                // ];
 
-                if ($bookingType === 'hourly') {
-                    $appointment->price_breakdown['price_per_hour'] = $providerType->price_per_hour;
-                    $appointment->price_breakdown['number_of_hours'] = $request->number_of_hours;
-                }
+                // if ($bookingType === 'hourly') {
+                //     $appointment->price_breakdown['price_per_hour'] = $providerType->price_per_hour;
+                //     $appointment->price_breakdown['number_of_hours'] = $request->number_of_hours;
+                // }
 
                 return $this->success_response('Appointment created successfully', $appointment);
             } catch (\Exception $e) {
