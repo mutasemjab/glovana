@@ -111,6 +111,8 @@ Route::group(['prefix' => 'v1/user'], function () {
             Route::get('/', [AppointmentController::class, 'index']); // GET /api/appointments
             Route::post('/', [AppointmentController::class, 'store']); // POST /api/appointments
             Route::post('/{appointmentId}/select-payment-method', [AppointmentController::class, 'selectPaymentMethod']);
+            Route::post('/{appointmentId}/status', [AppointmentController::class, 'updateAppointmentStatus']);
+
             // User can view appointments requiring payment method selection
             Route::get('/pending-payment', [AppointmentController::class, 'getPendingPaymentAppointments']);
         });

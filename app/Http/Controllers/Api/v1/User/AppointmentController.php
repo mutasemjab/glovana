@@ -85,6 +85,53 @@ class AppointmentController extends Controller
         }
     }
 
+
+     public function updateAppointmentStatus(Request $request, $appointmentId)
+    {
+        $user = auth()->user();
+
+        if (!$user instanceof \App\Models\User) {
+            return $this->error_response('Unauthorized', 'Only users can update appointment status');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:2,3,4,5,6,7', // Can't set to pending (1)
+            'note' => 'nullable|string|max:500',
+            'reason_of_cancel' => 'nullable|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error_response('Validation error', $validator->errors());
+        }
+
+        $appointment = \App\Models\Appointment::find($appointmentId);
+
+        if (!$appointment) {
+            return $this->error_response('Not found', 'Appointment not found');
+        }
+
+
+        // For other status changes
+        $appointment->appointment_status = $request->status;
+
+        if ($request->filled('note')) {
+            $appointment->note = $request->note;
+        }
+        if ($request->filled('reason_of_cancel')) {
+            $appointment->reason_of_cancel = $request->reason_of_cancel;
+        }
+
+        $appointment->save();
+
+
+        return $this->success_response('Appointment status updated successfully', [
+            'appointment' => $appointment,
+            'status_text' => $this->getAppointmentStatusText($request->status)
+        ]);
+    }
+
+    
+   
     /**
      * Store a new appointment (supports both hourly and service-based)
      */

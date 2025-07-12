@@ -144,7 +144,7 @@ class AppointmentProviderController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:2,3,4,5', // Can't set to pending (1)
+            'status' => 'required|in:2,3,4,5,6,7', // Can't set to pending (1)
             'note' => 'nullable|string|max:500',
             'reason_of_cancel' => 'nullable|string|max:500',
         ]);
