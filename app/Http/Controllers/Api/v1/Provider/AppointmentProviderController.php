@@ -165,14 +165,7 @@ class AppointmentProviderController extends Controller
         $currentStatus = $appointment->appointment_status;
         $newStatus = $request->status;
 
-        if (!$this->isValidStatusTransition($currentStatus, $newStatus)) {
-            return $this->error_response(
-                'Invalid status transition',
-                'Cannot change from ' . $this->getAppointmentStatusText($currentStatus) .
-                    ' to ' . $this->getAppointmentStatusText($newStatus)
-            );
-        }
-
+       
         // Special handling for completing appointment (status 4)
         if ($newStatus == 4) {
             // Mark as delivered but keep payment status as unpaid
