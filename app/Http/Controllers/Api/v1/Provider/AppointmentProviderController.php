@@ -10,6 +10,7 @@ use App\Models\Teacher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Http\Controllers\Admin\FCMController; // <-- Import the FCMController here
+use App\Models\Appointment;
 use App\Models\ParentStudent;
 use App\Models\Setting;
 use App\Models\WalletTransaction;
@@ -23,6 +24,48 @@ class AppointmentProviderController extends Controller
 {
     use Responses;
     
+
+     public function getPendingPaymentConfirmations(Request $request)
+    {
+        try {
+            $provider = auth()->user();
+
+            if (!$provider instanceof \App\Models\Provider) {
+                return $this->error_response('Unauthorized', 'Only providers can view appointments');
+            }
+
+                  $appointments = Appointment::whereHas('providerType', function ($q) use ($provider) {
+                    $q->where('provider_id', $provider->id);
+                })->with([
+                    'user:id,name,phone,email,photo',
+                    'providerType',
+                    'providerType.provider',
+                    'providerType.type',
+                    'appointmentServices.service'
+                ])->where('appointment_status', 4) // Delivered
+                    ->where('payment_status', 2) // Unpaid
+                    ->orderBy('updated_at', 'desc')
+                    ->get();
+
+
+            // Transform the data
+            $appointments->transform(function ($appointment) {
+                $appointment->appointment_status_label = $this->getAppointmentStatusText($appointment->appointment_status);
+                $appointment->booking_type = $appointment->providerType->type->booking_type ?? 'hourly';                
+
+                return $appointment;
+            });
+
+            return $this->success_response('Pending payment appointments retrieved successfully', [
+                'appointments' => $appointments,
+                'count' => $appointments->count()
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->error_response('Failed to retrieve pending payment appointments', ['error' => $e->getMessage()]);
+        }
+    }
+
     public function getProviderAppointments(Request $request)
     {
         $provider = auth()->user();
