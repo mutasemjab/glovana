@@ -552,7 +552,9 @@ class AppointmentProviderController extends Controller
             2 => 'Accepted',
             3 => 'On The Way',
             4 => 'Delivered',
-            5 => 'Canceled'
+            5 => 'Canceled',
+            6 => 'Start work',
+            7 => 'User arrived to provider',
         ];
 
         return $statuses[$status] ?? 'Unknown';

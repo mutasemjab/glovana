@@ -126,10 +126,24 @@ class AppointmentController extends Controller
 
         return $this->success_response('Appointment status updated successfully', [
             'appointment' => $appointment,
-            'status_text' => $request->status,
+            'status_text' => $this->getAppointmentStatusText($request->status)
         ]);
     }
 
+    private function getAppointmentStatusText($status)
+    {
+        $statuses = [
+            1 => 'Pending',
+            2 => 'Accepted',
+            3 => 'On The Way',
+            4 => 'Delivered',
+            5 => 'Canceled',
+            6 => 'Start work',
+            7 => 'User arrived to provider',
+        ];
+
+        return $statuses[$status] ?? 'Unknown';
+    }
     
    
     /**
