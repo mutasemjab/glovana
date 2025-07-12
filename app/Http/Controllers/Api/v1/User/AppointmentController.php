@@ -126,7 +126,7 @@ class AppointmentController extends Controller
 
         return $this->success_response('Appointment status updated successfully', [
             'appointment' => $appointment,
-            'status_text' => $this->getAppointmentStatusText($request->status)
+            'status_text' => $request->status,
         ]);
     }
 
