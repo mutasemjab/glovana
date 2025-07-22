@@ -19,9 +19,9 @@ class WalletTransaction extends Model
     /**
      * Get the driver associated with the transaction.
      */
-    public function driver()
+    public function provider()
     {
-        return $this->belongsTo(Driver::class);
+        return $this->belongsTo(Provider::class);
     }
 
     /**

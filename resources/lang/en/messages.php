@@ -133,7 +133,7 @@ return [
     'employees' => 'Employees',
     'admin_account' => 'My Account',
     'reports' => 'Reports',
-    'inventory_report_with_costs' => 'Inventory Report with Costs',
+    'Payment Report' => 'Payment Report',
     'order_report' => 'Order Report',
     'product_move' => 'Product Movement',
     'tax_report' => 'Tax Report',

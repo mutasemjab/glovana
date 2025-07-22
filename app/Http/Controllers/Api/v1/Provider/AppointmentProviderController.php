@@ -25,6 +25,71 @@ class AppointmentProviderController extends Controller
     use Responses;
     
 
+    public function paymentReport(Request $request)
+    {
+        $provider = auth()->user();
+
+        if (!$provider instanceof \App\Models\Provider) {
+            return $this->error_response('Unauthorized', 'Only providers can view reports');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
+            'payment_type' => 'nullable|in:cash,visa,wallet',
+            'appointment_status' => 'nullable|in:1,2,3,4,5',
+            'payment_status' => 'nullable|in:1,2',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error_response('Validation error', $validator->errors());
+        }
+
+        $appointments = Appointment::whereHas('providerType', function ($q) use ($provider) {
+            $q->where('provider_id', $provider->id);
+        })
+        ->when($request->filled('date_from'), fn($q) => $q->whereDate('date', '>=', $request->date_from))
+        ->when($request->filled('date_to'), fn($q) => $q->whereDate('date', '<=', $request->date_to))
+        ->when($request->filled('payment_type'), fn($q) => $q->where('payment_type', $request->payment_type))
+        ->when($request->filled('appointment_status'), fn($q) => $q->where('appointment_status', $request->appointment_status))
+        ->when($request->filled('payment_status'), fn($q) => $q->where('payment_status', $request->payment_status))
+        ->with('providerType.provider')
+        ->get();
+
+        $commissionRate = $this->getAdminCommission();
+
+        $report = [
+            'total_appointments' => $appointments->count(),
+            'total_amount' => 0,
+            'total_commission' => 0,
+            'total_provider_earnings' => 0,
+            'appointments' => [],
+        ];
+
+        foreach ($appointments as $appointment) {
+            $commission = ($appointment->total_prices * $commissionRate) / 100;
+            $providerEarnings = $appointment->total_prices - $commission;
+
+            $report['total_amount'] += $appointment->total_prices;
+            $report['total_commission'] += $commission;
+            $report['total_provider_earnings'] += $providerEarnings;
+
+            $report['appointments'][] = [
+                'id' => $appointment->id,
+                'number' => $appointment->number,
+                'date' => $appointment->date,
+                'status' => $this->getAppointmentStatusText($appointment->appointment_status),
+                'payment_type' => $appointment->payment_type,
+                'payment_status' => $appointment->payment_status == 1 ? 'Paid' : 'Unpaid',
+                'total' => $appointment->total_prices,
+                'commission' => round($commission, 2),
+                'provider_earnings' => round($providerEarnings, 2),
+            ];
+        }
+
+        return $this->success_response('Payment report generated', $report);
+    }
+
      public function getPendingPaymentConfirmations(Request $request)
     {
         try {

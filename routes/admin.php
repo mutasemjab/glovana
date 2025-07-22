@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\ServiceController;
 use App\Http\Controllers\Admin\TypeController;
 use App\Http\Controllers\Admin\WalletTransactionController;
 use App\Http\Controllers\Admin\WithdrawalRequestController;
+use App\Http\Controllers\Reports\PaymentReportController;
 use Mcamara\LaravelLocalization\Facades\LaravelLocalization;
 use Spatie\Permission\Models\Permission;
 /*
@@ -112,6 +113,12 @@ Route::prefix('provider-details')->name('admin.providerDetails.')->group(functio
     Route::put('{providerId}/{serviceTypeId}', [ProviderDetailsController::class, 'update'])->name('update');
     Route::delete('{providerId}/{serviceTypeId}', [ProviderDetailsController::class, 'destroy'])->name('destroy');
 });
+
+
+// Report
+Route::get('/admin/payment-report', [PaymentReportController::class, 'paymentReport'])->name('admin.payment.report');
+
+
 
 // Resource Route
 Route::resource('settings', SettingController::class);

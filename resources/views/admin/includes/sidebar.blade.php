@@ -175,7 +175,7 @@
                         <li class="nav-item">
                             <a href="{{ route('wallet_transactions.index') }}" class="nav-link {{ request()->routeIs('wallet_transactions.index') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-file-alt"></i>
-                                <p>{{ __('messages.wallets') }}</p>
+                                <p>{{ __('messages.Wallet Transactions') }}</p>
                             </a>
                         </li>
                   @endcanany
@@ -188,6 +188,37 @@
                     </a>
                 </li>
                 @endcanany
+
+
+
+                  @canany(['payment-table', 'payment-add', 'payment-edit', 'payment-delete'])
+                <li class="nav-item {{ request()->is('admin/payment-report*') ? 'menu-open' : '' }}">
+                    <a href="#" class="nav-link">
+                        <i class="nav-icon fas fa-concierge-bell"></i>
+                        <p>
+                            {{ __('messages.reports') }}
+                            <i class="right fas fa-angle-left"></i>
+                        </p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        @canany(['payment-table', 'payment-add', 'payment-edit', 'payment-delete'])
+                        <li class="nav-item">
+                            <a href="{{ route('admin.payment.report') }}" class="nav-link {{ request()->routeIs('admin.payment.report') ? 'active' : '' }}">
+                                <i class="fas fa-handshake nav-icon"></i>
+                                <p>{{ __('messages.Payment Report') }}</p>
+                            </a>
+                        </li>
+                        @endcanany
+
+                     
+                       
+                    </ul>
+                </li>
+                @endcanany
+
+
+
+
 
                 <!-- System Settings -->
                 <li class="nav-item {{ request()->is('admin/settings*') || request()->is('admin/roles*') || request()->is('admin/employees*') ? 'menu-open' : '' }}">

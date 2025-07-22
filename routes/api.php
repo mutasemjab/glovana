@@ -163,6 +163,7 @@ Route::group(['prefix' => 'v1/user'], function () {
          // Additional utility routes
          Route::delete('/images', [AuthProviderController::class, 'deleteProviderImages']);
          Route::delete('/gallery', [AuthProviderController::class, 'deleteProviderGalleries']);
+         Route::get('/pending-payment-confirmation', [AppointmentProviderController::class, 'getPendingPaymentConfirmations']);
 
 
          Route::prefix('appointments')->group(function () {
@@ -174,9 +175,10 @@ Route::group(['prefix' => 'v1/user'], function () {
             Route::post('/{appointmentId}/status', [AppointmentProviderController::class, 'updateAppointmentStatus']);
             // New payment confirmation route
              Route::post('/{appointmentId}/confirm-payment', [AppointmentProviderController::class, 'confirmPayment']);
+           
+             //Report
+             Route::get('/provider/payment-report', [AppointmentProviderController::class, 'paymentReport']);
 
-             // Get appointments requiring payment confirmation
-             Route::get('/pending-payment-confirmation', [AppointmentProviderController::class, 'getPendingPaymentConfirmations']);
         });
 
      });
