@@ -139,7 +139,7 @@ Route::group(['prefix' => 'v1/user'], function () {
      Route::group(['middleware' => ['auth:provider-api']], function () {
 
          Route::get('/active', [AuthProviderController::class, 'active']);
-         Route::post('/updateStatus', [AuthProviderController::class, 'updateStatusOnOff']);
+         Route::post('/updateStatus/{id}', [AuthProviderController::class, 'updateStatusOnOff']);
          Route::post('/withdrawal/request',  [WithdrawalRequestProviderController::class, 'requestWithdrawal']);
 
 

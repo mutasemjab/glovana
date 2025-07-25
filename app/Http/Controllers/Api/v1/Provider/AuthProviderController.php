@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Http\Controllers\Admin\FCMController; // <-- Import the FCMController here
 use App\Models\ParentStudent;
+use App\Models\ProviderType;
 use App\Traits\Responses;
 use Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,19 +23,15 @@ class AuthProviderController extends Controller
     use Responses;
 
 
-    public function updateStatusOnOff()
+    public function updateStatusOnOff($id)
     {
-        $provider = auth('provider-api')->user();
+        $providerType = ProviderType::findOrFail($id);
 
-        // Check if driver exists and has a valid status
-        if (!in_array($provider->status, [1, 2])) {
-            return response()->json(['message' => 'Invalid status value.'], 400);
-        }
+        // Toggle status: if 1 => 2, if 2 => 1
+        $providerType->status = $providerType->status == 1 ? 2 : 1;
+        $providerType->save();
 
-        // Toggle status
-        $provider->status = $provider->status == 1 ? 2 : 1;
-        $provider->save();
-        return $this->success_response('Status updated successfully.', $provider->status);
+        return $this->success_response('Status updated successfully.', $providerType);
     }
 
     public function active()
