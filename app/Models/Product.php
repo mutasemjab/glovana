@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\DB;
-
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 class Product extends Model
 {
-    use HasFactory;
+    use HasFactory,LogsActivity;
       
     protected $guarded = [];
 
@@ -35,6 +36,17 @@ class Product extends Model
 
     protected $appends = ['name', 'description', 'specification','is_favourite'];
 
+
+      public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Log all attributes since you're using $guarded = []
+            ->logOnlyDirty() // Only log changed attributes
+            ->dontSubmitEmptyLogs() // Don't log if nothing changed
+            ->dontLogIfAttributesChangedOnly(['updated_at']) // Don't log if only updated_at changed
+            ->setDescriptionForEvent(fn(string $eventName) => "Products {$eventName}")
+            ->useLogName('products'); // Custom log name for filtering
+    }
 
     public function getIsFavouriteAttribute()
     {
@@ -72,5 +84,7 @@ class Product extends Model
         $lang = request()->header('Accept-Language') ?? App::getLocale();
         return $lang === 'ar' ? $this->specification_ar : $this->specification_en;
     }
+
+   
 
 }

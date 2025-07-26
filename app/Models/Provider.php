@@ -6,11 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
-
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Provider extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable,LogsActivity;
 
     protected $guarded = [];
 
@@ -24,6 +25,17 @@ class Provider extends Authenticatable
         'photo_url',
     ];
     
+      public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Log all attributes since you're using $guarded = []
+            ->logOnlyDirty() // Only log changed attributes
+            ->dontSubmitEmptyLogs() // Don't log if nothing changed
+            ->dontLogIfAttributesChangedOnly(['updated_at']) // Don't log if only updated_at changed
+            ->setDescriptionForEvent(fn(string $eventName) => "Provider {$eventName}")
+            ->useLogName('provider'); // Custom log name for filtering
+    }
+
     public function providerTypes()
     {
         return $this->hasMany(ProviderType::class);
@@ -54,6 +66,16 @@ class Provider extends Authenticatable
     public function pointsTransactions()
     {
         return $this->hasMany(PointTransaction::class);
+    }
+
+        public function walletTransactions()
+    {
+        return $this->hasMany(WalletTransaction::class);
+    }
+
+    public function appointments()
+    {
+        return $this->hasManyThrough(Appointment::class, ProviderType::class);
     }
 
 }

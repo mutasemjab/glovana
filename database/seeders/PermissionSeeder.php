@@ -28,10 +28,15 @@ class PermissionSeeder extends Seeder
             'employee-edit',
             'employee-delete',
 
-            'customer-table',
-            'customer-add',
-            'customer-edit',
-            'customer-delete',
+            'user-table',
+            'user-add',
+            'user-edit',
+            'user-delete',
+    
+            'provider-table',
+            'provider-add',
+            'provider-edit',
+            'provider-delete',
 
 
             'order-table',
@@ -55,41 +60,23 @@ class PermissionSeeder extends Seeder
             'category-edit',
             'category-delete',
 
-            'unit-table',
-            'unit-add',
-            'unit-edit',
-            'unit-delete',
-
 
             'product-table',
             'product-add',
             'product-edit',
             'product-delete',
 
-            'offer-table',
-            'offer-add',
-            'offer-edit',
-            'offer-delete',
+            'coupon-table',
+            'coupon-add',
+            'coupon-edit',
+            'coupon-delete',
 
-            'transfer-table',
-            'transfer-add',
-            'transfer-edit',
-            'transfer-delete',
+
 
             'wallet-table',
             'wallet-add',
             'wallet-edit',
             'wallet-delete',
-
-            'dealer-table',
-            'dealer-add',
-            'dealer-edit',
-            'dealer-delete',
-
-            'cardPackage-table',
-            'cardPackage-add',
-            'cardPackage-edit',
-            'cardPackage-delete',
 
         ];
 

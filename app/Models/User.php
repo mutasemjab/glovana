@@ -7,12 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
-
-
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class User extends Authenticatable
 {
-   use HasApiTokens, HasFactory, Notifiable;
+   use HasApiTokens, HasFactory, Notifiable, LogsActivity;
 
    protected $guarded = [];
 
@@ -34,7 +34,23 @@ class User extends Authenticatable
         
         return null;
     }
+
+        public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Log all attributes since you're using $guarded = []
+            ->logOnlyDirty() // Only log changed attributes
+            ->dontSubmitEmptyLogs() // Don't log if nothing changed
+            ->dontLogIfAttributesChangedOnly(['updated_at']) // Don't log if only updated_at changed
+            ->setDescriptionForEvent(fn(string $eventName) => "User {$eventName}")
+            ->useLogName('User'); // Custom log name for filtering
+    }
     
+       public function coupons()
+    {
+        return $this->belongsToMany(Coupon::class, 'user_coupons')
+                    ->withTimestamps(); 
+    }
 
     public function favourites()
     {

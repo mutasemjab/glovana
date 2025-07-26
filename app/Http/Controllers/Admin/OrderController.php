@@ -126,19 +126,17 @@ class OrderController extends Controller
         }
     }
 
-    /**
-     * Update the specified order
-     */
+
     public function update(Request $request, $id)
     {
         try {
             $request->validate([
                 'order_status' => 'required|integer|in:1,2,3,4,5,6',
                 'payment_status' => 'required|integer|in:1,2',
-                'note' => 'nullable|string|max:500'
+                'note' => 'nullable|string|max:500',
             ]);
 
-            $order = Order::findOrFail($id);
+            $order = Order::with('orderProducts')->findOrFail($id);
             $oldStatus = $order->order_status;
             $oldPaymentStatus = $order->payment_status;
 
@@ -157,6 +155,12 @@ class OrderController extends Controller
                     $this->handlePaymentStatusChange($order, $request->payment_status);
                 }
 
+                // Handle delivery - create voucher when status changes to 4 (Delivered)
+                if ($request->order_status == 4 && $oldStatus != 4) {
+                    $warehouseId = $request->warehouse_id ?? $this->getDefaultWarehouseId();
+                    $this->createDeliveryVoucher($order, $warehouseId);
+                }
+
                 // Handle refund if status changed to refund
                 if ($request->order_status == 6 && $oldStatus != 6) {
                     $this->processRefund($order);
@@ -164,8 +168,13 @@ class OrderController extends Controller
 
                 DB::commit();
 
-                return redirect()->route('admin.orders.show', $order->id)
-                    ->with('success', 'Order updated successfully');
+                $message = 'Order updated successfully';
+                if ($request->order_status == 4 && $oldStatus != 4) {
+                    $message .= ' and delivery voucher created.';
+                }
+
+                return redirect()->route('orders.show', $order->id)
+                    ->with('success', $message);
 
             } catch (\Exception $e) {
                 DB::rollback();
@@ -176,6 +185,116 @@ class OrderController extends Controller
             return back()->with('error', 'Failed to update order: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Get default warehouse ID
+     */
+    private function getDefaultWarehouseId()
+    {
+        $defaultWarehouse = DB::table('warehouses')
+            ->orderBy('id', 'asc')
+            ->first();
+        
+        if (!$defaultWarehouse) {
+            throw new \Exception('No warehouse found. Please create a warehouse first.');
+        }
+        
+        return $defaultWarehouse->id;
+    }
+
+    /**
+     * Create delivery voucher when order is delivered
+     */
+    private function createDeliveryVoucher(Order $order, $warehouseId)
+    {
+        try {
+            // Validate warehouse exists
+            $warehouse = DB::table('warehouses')->find($warehouseId);
+            if (!$warehouse) {
+                throw new \Exception('Selected warehouse not found.');
+            }
+
+            // Check if voucher already exists for this order
+            $existingVoucher = DB::table('note_vouchers')
+                ->where('order_id', $order->id)
+                ->where('type', 2)
+                ->first();
+
+            if ($existingVoucher) {
+                \Log::warning("Delivery voucher already exists for order {$order->id}");
+                return; // Don't create duplicate voucher
+            }
+
+            // Generate voucher number
+            $voucherNumber = $this->generateVoucherNumber(2); // type 2 = out
+
+            // Create note voucher (type 2 = out, meaning products going out of warehouse)
+            $noteVoucher = DB::table('note_vouchers')->insertGetId([
+                'number' => $voucherNumber,
+                'type' => 2, // 2 = out (products leaving warehouse for delivery)
+                'date_note_voucher' => now()->toDateString(),
+                'note' => "Delivery voucher for Order #{$order->number} - Order delivered to customer",
+                'warehouse_id' => $warehouseId,
+                'order_id' => $order->id,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            // Get order products
+            $orderProducts = DB::table('order_products')
+                ->where('order_id', $order->id)
+                ->get();
+
+            if ($orderProducts->isEmpty()) {
+                throw new \Exception('No products found in this order.');
+            }
+
+            // Create voucher products entries
+            $voucherProductsData = [];
+            foreach ($orderProducts as $orderProduct) {
+                $voucherProductsData[] = [
+                    'quantity' => $orderProduct->quantity,
+                    'note' => "Delivered - Order #{$order->number}",
+                    'product_id' => $orderProduct->product_id,
+                    'note_voucher_id' => $noteVoucher,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ];
+            }
+
+            // Bulk insert voucher products
+            DB::table('voucher_products')->insert($voucherProductsData);
+
+            // Log the voucher creation
+            \Log::info("Delivery voucher created for order {$order->id}", [
+                'order_id' => $order->id,
+                'voucher_id' => $noteVoucher,
+                'voucher_number' => $voucherNumber,
+                'warehouse_id' => $warehouseId,
+                'products_count' => $orderProducts->count()
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error("Failed to create delivery voucher for order {$order->id}: " . $e->getMessage());
+            throw new \Exception("Failed to create delivery voucher: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate unique voucher number
+     */
+    private function generateVoucherNumber($type)
+    {
+        $lastVoucher = DB::table('note_vouchers')
+            ->where('type', $type)
+            ->lockForUpdate() // Prevent race conditions
+            ->orderBy('number', 'desc')
+            ->first();
+        
+        return $lastVoucher ? $lastVoucher->number + 1 : 1;
+    }
+
+  
 
     /**
      * Get order statistics

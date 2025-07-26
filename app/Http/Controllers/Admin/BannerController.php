@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Banner;
+use App\Models\Product;
+use App\Models\ProviderType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -21,71 +23,56 @@ class BannerController extends Controller
         return view('admin.banners.index',compact('data'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
     public function create()
     {
-
-        return view('admin.banners.create');
+        $products = Product::get();
+        $providerTypes = ProviderType::get();
+        return view('admin.banners.create', compact('products', 'providerTypes'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function store(Request $request)
+
+
+   public function store(Request $request)
     {
-        try{
+        $validated = $request->validate([
+            'photo' => 'required|image',
+            'type' => 'required|in:1,2',
+            'product_id' => 'nullable|exists:products,id',
+            'provider_type_id' => 'nullable|exists:provider_types,id',
+        ]);
+
+        try {
             $banner = new Banner();
+            $banner->type = $request->type;
 
-            if ($request->has('photo')) {
-                $the_file_path = uploadImage('assets/admin/uploads', $request->photo);
-                $banner->photo = $the_file_path;
-             }
-
-
-            if($banner->save()){
-                return redirect()->route('banners.index')->with(['success' => 'Banner created']);
-
-            }else{
-                return redirect()->back()->with(['error' => 'Something wrong']);
+            if ($request->type == 1) {
+                $banner->product_id = $request->product_id;
+                $banner->provider_type_id = null;
+            } else {
+                $banner->provider_type_id = $request->provider_type_id;
+                $banner->product_id = null;
             }
 
-        }catch(\Exception $ex){
-           Log::error($ex);
-           return redirect()->back()
-            ->with(['error' => 'An error occurred: ' . $ex->getMessage()])
-            ->withInput();
+            if ($request->hasFile('photo')) {
+                $banner->photo = uploadImage('assets/admin/uploads', $request->file('photo'));
+            }
+
+            $banner->save();
+
+            return redirect()->route('banners.index')->with(['success' => 'Banner created']);
+        } catch (\Exception $ex) {
+            Log::error($ex);
+            return redirect()->back()->with(['error' => 'An error occurred: ' . $ex->getMessage()]);
         }
-
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function show($id)
-    {
-        //
-    }
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
+     public function edit($id)
     {
-        $data = Banner::findOrFail($id); // Retrieve the category by ID
-        return view('admin.banners.edit', ['data' => $data]);
+        $data = Banner::findOrFail($id);
+        $products = Product::get();
+        $providerTypes = ProviderType::get();
+        return view('admin.banners.edit', compact('data', 'products', 'providerTypes'));
     }
 
     /**
@@ -105,6 +92,18 @@ class BannerController extends Controller
                 $the_file_path = uploadImage('assets/admin/uploads', $request->photo);
                 $banner->photo = $the_file_path;
              }
+
+             $banner->type = $request->type;
+
+            if ($request->type == 1) {
+                $banner->product_id = $request->product_id;
+                $banner->provider_type_id = null;
+            } else {
+                $banner->provider_type_id = $request->provider_type_id;
+                $banner->product_id = null;
+            }
+
+
 
             if ($banner->save()) {
                 return redirect()->route('banners.index')->with(['success' => 'Banner updated']);

@@ -20,7 +20,8 @@ return new class extends Migration
             $table->integer('customer_count')->default(1);
             $table->decimal('service_price', 10, 2);
             $table->decimal('total_price', 10, 2); // service_price * customer_count
-            
+            $table->integer('person_number')->nullable();
+
             $table->foreign('appointment_id')->references('id')->on('appointments')->onDelete('cascade');
             $table->foreign('service_id')->references('id')->on('services')->onDelete('cascade');
     

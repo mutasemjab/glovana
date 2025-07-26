@@ -19,6 +19,9 @@ class Kernel extends ConsoleKernel
                  ->everyThirtyMinutes()
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/appointment-reminders.log'));
+
+         $schedule->command('subscriptions:check-expired')->daily();
+
     }
 
     /**

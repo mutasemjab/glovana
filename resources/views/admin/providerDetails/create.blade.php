@@ -180,6 +180,21 @@
                             </div>
                         </div>
 
+                        <div class="mb-3">
+                            <label for="practice_license" class="form-label">{{ __('messages.Practice_License_Image') }}</label>
+                            <input type="file" class="form-control @error('practice_license') is-invalid @enderror" 
+                                id="practice_license" name="practice_license" accept="image/*">
+                            @error('practice_license')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="identity_photo" class="form-label">{{ __('messages.Identity_Photo_Image') }}</label>
+                            <input type="file" class="form-control @error('identity_photo') is-invalid @enderror" 
+                                id="identity_photo" name="identity_photo" accept="image/*">
+                            @error('identity_photo')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+
+
                         <!-- Images Section -->
                         <div class="row">
                             <div class="col-md-6">

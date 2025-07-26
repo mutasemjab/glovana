@@ -40,26 +40,32 @@
 
                     <div class="col-md-6">
                         <div class="form-group">
-                          <label>  {{ __('messages.Type') }}</label>
-                          <select name="type" id="type" class="form-control">
-                           <option value=""> select</option>
-                          <option   @if(old('type')==1  || old('type')=="" ) selected="selected"  @endif value="1"> About Us</option>
-                           <option @if( (old('type')==2 and old('type')!="")) selected="selected"  @endif   value="2"> Terms & Condition</option>
-                           <option @if( (old('type')==3 and old('type')!="")) selected="selected"  @endif   value="3"> Privacy & Policy</option>
-                           <option @if( (old('type')==4 and old('type')!="")) selected="selected"  @endif   value="4"> Help</option>
-                          </select>
-                          @error('type')
-                          <span class="text-danger">{{ $message }}</span>
-                          @enderror
-                          </div>
+                            <label> {{ __('messages.Type') }}</label>
+                            <select name="type" id="type" class="form-control">
+                                <option value=""> select</option>
+                                <option @if (old('type') == 1 || old('type') == '') selected="selected" @endif value="1"> About
+                                    Us</option>
+                                <option @if (old('type') == 2 and old('type') != '') selected="selected" @endif value="2"> Terms &
+                                    Condition</option>
+                                <option @if (old('type') == 3 and old('type') != '') selected="selected" @endif value="3"> Privacy
+                                    & Policy</option>
+                                <option @if (old('type') == 4 and old('type') != '') selected="selected" @endif value="4"> Help
+                                </option>
+                            </select>
+                            @error('type')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
+                    </div>
 
 
 
                     <div class="col-md-12">
                         <div class="form-group text-center">
-                            <button id="do_add_item_cardd" type="submit" class="btn btn-primary btn-sm"> {{__('messages.Submit')}}</button>
-                            <a href="{{ route('pages.index') }}" class="btn btn-sm btn-danger">{{__('messages.Cancel')}}</a>
+                            <button id="do_add_item_cardd" type="submit" class="btn btn-primary btn-sm">
+                                {{ __('messages.Submit') }}</button>
+                            <a href="{{ route('pages.index') }}"
+                                class="btn btn-sm btn-danger">{{ __('messages.Cancel') }}</a>
 
                         </div>
                     </div>
@@ -80,5 +86,21 @@
 
 
 @section('script')
-
+<script src="https://cdn.tiny.cloud/1/ffwdbcjhyfw4al7yr7y1e8shivh4g9nuipefj3gwz8y9s8h8/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+    tinymce.init({
+        selector: '#content', // Target the textarea with id="content"
+        height: 400,
+        menubar: false,
+        plugins: [
+            'advlist autolink lists link image charmap preview anchor',
+            'searchreplace visualblocks code fullscreen',
+            'insertdatetime media table paste help wordcount'
+        ],
+        toolbar: 'undo redo | formatselect | bold italic backcolor | \
+                  alignleft aligncenter alignright alignjustify | \
+                  bullist numlist outdent indent | removeformat | help'
+    });
+</script>
 @endsection
+

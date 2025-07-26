@@ -30,7 +30,7 @@
                     <div class="col-md-6">
                         <div class="form-group">
                             <label>{{ __('messages.Title') }}</label>
-                            <input name="title" id="title" class=""
+                            <input name="title" id="title" class="form-control"
                                 value="{{ old('title', $data['title']) }}">
                             @error('title')
                                 <span class="text-danger">{{ $message }}</span>
@@ -38,16 +38,16 @@
                         </div>
                     </div>
 
-                    <div class="col-md-6">
+                  <div class="col-md-6">
                         <div class="form-group">
                             <label>{{ __('messages.Content') }}</label>
-                            <input name="content" id="content" class=""
-                                value="{{ old('content', $data['content']) }}">
+                            <textarea name="content" id="content" class="form-control" rows="12">{{ old('content', $data['content']) }}</textarea>
                             @error('content')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
                         </div>
                     </div>
+
 
 
 
@@ -79,5 +79,20 @@
 @endsection
 
 @section('script')
-
+<script src="https://cdn.tiny.cloud/1/ffwdbcjhyfw4al7yr7y1e8shivh4g9nuipefj3gwz8y9s8h8/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<script>
+    tinymce.init({
+        selector: '#content',
+        height: 400,
+        menubar: false,
+        plugins: [
+            'advlist autolink lists link image charmap preview anchor',
+            'searchreplace visualblocks code fullscreen',
+            'insertdatetime media table paste help wordcount'
+        ],
+        toolbar: 'undo redo | formatselect | bold italic backcolor | ' +
+                 'alignleft aligncenter alignright alignjustify | ' +
+                 'bullist numlist outdent indent | removeformat | help'
+    });
+</script>
 @endsection

@@ -31,6 +31,43 @@
 
                     <div class="col-md-12">
                         <div class="form-group">
+                            <label for="type">Type</label>
+                            <select name="type" id="type" class="form-control" onchange="toggleFields()">
+                                <option value="1" {{ old('type', $data->type ?? '') == 1 ? 'selected' : '' }}>Store</option>
+                                <option value="2" {{ old('type', $data->type ?? '') == 2 ? 'selected' : '' }}>Provider Type</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-12" id="product-field">
+                        <div class="form-group">
+                            <label for="product_id">Product</label>
+                            <select name="product_id" class="form-control">
+                                @foreach ($products as $product)
+                                    <option value="{{ $product->id }}" {{ (old('product_id') ?? $data->product_id ?? '') == $product->id ? 'selected' : '' }}>
+                                        {{ $product->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-12" id="provider-type-field">
+                        <div class="form-group">
+                            <label for="provider_type_id">Provider Type</label>
+                            <select name="provider_type_id" class="form-control">
+                                @foreach ($providerTypes as $providerType)
+                                    <option value="{{ $providerType->id }}" {{ (old('provider_type_id') ?? $data->provider_type_id ?? '') == $providerType->id ? 'selected' : '' }}>
+                                        {{ $providerType->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
+
+                    <div class="col-md-12">
+                        <div class="form-group">
                             <img src="" id="image-preview" alt="Selected Image" height="50px" width="50px"
                                 style="display: none;">
                             <button class="btn"> photo</button>
@@ -71,6 +108,18 @@
 @endsection
 
 @section('script')
+    <script>
+        function toggleFields() {
+            var type = document.getElementById('type').value;
+            document.getElementById('product-field').style.display = type == 1 ? 'block' : 'none';
+            document.getElementById('provider-type-field').style.display = type == 2 ? 'block' : 'none';
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            toggleFields(); // Set fields based on default value
+        });
+
+    </script>
     <script>
         function previewImage() {
             var preview = document.getElementById('image-preview');

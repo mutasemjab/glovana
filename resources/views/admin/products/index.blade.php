@@ -11,7 +11,144 @@
                         {{ __('messages.Add_Product') }}
                     </a>
                 </div>
+                
+                <!-- Search and Filter Section -->
+                <div class="card-body border-bottom">
+                    <form method="GET" action="{{ route('products.index') }}" class="row g-3">
+                        <!-- Search Input -->
+                        <div class="col-md-4">
+                            <label class="form-label">{{ __('messages.Search') }}</label>
+                            <input type="text" 
+                                   name="search" 
+                                   class="form-control" 
+                                   placeholder="{{ __('messages.Search_Products') }}"
+                                   value="{{ request('search') }}">
+                        </div>
+
+                        <!-- Category Filter -->
+                        <div class="col-md-2">
+                            <label class="form-label">{{ __('messages.Category') }}</label>
+                            <select name="category_id" class="form-control">
+                                <option value="">{{ __('messages.All_Categories') }}</option>
+                                @foreach($categories as $category)
+                                    <option value="{{ $category->id }}" {{ request('category_id') == $category->id ? 'selected' : '' }}>
+                                        {{ app()->getLocale() == 'ar' ? $category->name_ar : $category->name_en }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <!-- Price Range -->
+                        <div class="col-md-2">
+                            <label class="form-label">{{ __('messages.Min_Price') }}</label>
+                            <input type="number" 
+                                   name="min_price" 
+                                   class="form-control" 
+                                   placeholder="0"
+                                   value="{{ request('min_price') }}"
+                                   min="0" 
+                                   step="0.01">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">{{ __('messages.Max_Price') }}</label>
+                            <input type="number" 
+                                   name="max_price" 
+                                   class="form-control" 
+                                   placeholder="1000"
+                                   value="{{ request('max_price') }}"
+                                   min="0" 
+                                   step="0.01">
+                        </div>
+
+                        <!-- Quantity Status Filter -->
+                        <div class="col-md-2">
+                            <label class="form-label">{{ __('messages.Stock_Status') }}</label>
+                            <select name="quantity_status" class="form-control">
+                                <option value="">{{ __('messages.All_Stock') }}</option>
+                                <option value="out_of_stock" {{ request('quantity_status') == 'out_of_stock' ? 'selected' : '' }}>
+                                    {{ __('messages.out_of_stock') }}
+                                </option>
+                                <option value="low_stock" {{ request('quantity_status') == 'low_stock' ? 'selected' : '' }}>
+                                    {{ __('messages.low_stock') }} (≤{{ $minimumQuantity }})
+                                </option>
+                                <option value="in_stock" {{ request('quantity_status') == 'in_stock' ? 'selected' : '' }}>
+                                    {{ __('messages.in_stock') }} (>{{ $minimumQuantity }})
+                                </option>
+                            </select>
+                        </div>
+
+                      
+
+                        <div class="col-md-2">
+                            <label class="form-label">{{ __('messages.Discount') }}</label>
+                            <select name="has_discount" class="form-control">
+                                <option value="">{{ __('messages.All') }}</option>
+                                <option value="yes" {{ request('has_discount') == 'yes' ? 'selected' : '' }}>
+                                    {{ __('messages.With_Discount') }}
+                                </option>
+                                <option value="no" {{ request('has_discount') == 'no' ? 'selected' : '' }}>
+                                    {{ __('messages.Without_Discount') }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">{{ __('messages.Sort_By') }}</label>
+                            <select name="sort_by" class="form-control">
+                                <option value="created_at" {{ request('sort_by') == 'created_at' ? 'selected' : '' }}>
+                                    {{ __('messages.Date_Added') }}
+                                </option>
+                                <option value="name_en" {{ request('sort_by') == 'name_en' ? 'selected' : '' }}>
+                                    {{ __('messages.Name') }}
+                                </option>
+                                <option value="price" {{ request('sort_by') == 'price' ? 'selected' : '' }}>
+                                    {{ __('messages.Price') }}
+                                </option>
+                                <option value="total_quantity" {{ request('sort_by') == 'total_quantity' ? 'selected' : '' }}>
+                                    {{ __('messages.Quantity') }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">{{ __('messages.Order') }}</label>
+                            <select name="sort_order" class="form-control">
+                                <option value="desc" {{ request('sort_order') == 'desc' ? 'selected' : '' }}>
+                                    {{ __('messages.Descending') }}
+                                </option>
+                                <option value="asc" {{ request('sort_order') == 'asc' ? 'selected' : '' }}>
+                                    {{ __('messages.Ascending') }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Filter Buttons -->
+                        <div class="col-md-4 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> {{ __('messages.Filter') }}
+                            </button>
+                            <a href="{{ route('products.index') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> {{ __('messages.Clear') }}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+
                 <div class="card-body">
+                    <!-- Results Info -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <small class="text-muted">
+                                {{ __('messages.Showing') }} {{ $products->firstItem() ?? 0 }} - {{ $products->lastItem() ?? 0 }} 
+                                {{ __('messages.of') }} {{ $products->total() }} {{ __('messages.results') }}
+                            </small>
+                        </div>
+                        @if(request()->hasAny(['search', 'category_id', 'min_price', 'max_price', 'quantity_status', 'sold_status', 'has_discount']))
+                            <div>
+                                <span class="badge bg-info">{{ __('messages.Filters_Applied') }}</span>
+                            </div>
+                        @endif
+                    </div>
 
                     <div class="table-responsive">
                         <table class="table table-bordered">
@@ -22,13 +159,13 @@
                                     <th>{{ __('messages.Category') }}</th>
                                     <th>{{ __('messages.Price') }}</th>
                                     <th>{{ __('messages.Price_After_Discount') }}</th>
-                                    <th>{{ __('messages.Sold') }}</th>
+                                    <th>{{ __('messages.Quantity') }}</th>
                                     <th>{{ __('messages.Actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($products as $product)
-                                    <tr>
+                                    <tr class="{{ $product->total_quantity <= $minimumQuantity ? 'table-warning' : '' }}">
                                         <td>
                                             @if($product->first_image)
                                                 <img src="{{ asset('assets/admin/uploads/' . $product->first_image) }}" 
@@ -72,10 +209,18 @@
                                             @endif
                                         </td>
                                         <td>
-                                            <span class="badge {{ $product->sold ? 'bg-success' : 'bg-secondary' }}">
-                                                {{ $product->sold ?: __('messages.Available') }}
-                                            </span>
+                                            <div class="d-flex flex-column">
+                                                <span class="fw-bold">{{ $product->total_quantity }}</span>
+                                                @if($product->total_quantity == 0)
+                                                    <span class="badge bg-danger">{{ __('messages.out_of_stock') }}</span>
+                                                @elseif($product->total_quantity <= $minimumQuantity)
+                                                    <span class="badge bg-warning">{{ __('messages.low_stock') }}</span>
+                                                @else
+                                                    <span class="badge bg-success">{{ __('messages.in_stock') }}</span>
+                                                @endif
+                                            </div>
                                         </td>
+                                   
                                         <td>
                                             <a href="{{ route('products.edit', $product->id) }}" 
                                                class="btn btn-sm btn-warning">
@@ -85,7 +230,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="text-center">
+                                        <td colspan="8" class="text-center">
                                             {{ __('messages.No_Products_Found') }}
                                         </td>
                                     </tr>
@@ -93,9 +238,23 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Pagination -->
+                    <div class="d-flex justify-content-center mt-4">
+                        {{ $products->links() }}
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.table-warning {
+    background-color: #fff3cd !important;
+}
+.low-stock {
+    background-color: #fff3cd;
+}
+</style>
 @endsection

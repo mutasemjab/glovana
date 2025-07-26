@@ -17,9 +17,9 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('country_code')->default('+962');
-            $table->string('phone')->unique();
-            $table->string('email')->nullable();
-            $table->string('password');
+            $table->string('phone')->nullable()->unique();
+            $table->string('email')->nullable()->unique();
+            $table->string('password')->nullable();
             $table->string('photo')->nullable();
             $table->text('fcm_token')->nullable();
             $table->double('balance')->default(0);
@@ -27,6 +27,13 @@ return new class extends Migration
             $table->text('referral_code')->nullable();
             $table->tinyInteger('activate')->default(1); // 1 yes //2 no
             $table->unsignedBigInteger('user_id')->nullable(); 
+
+            // for login in social google and apple 
+            $table->text('google_id')->nullable();
+            $table->text('apple_id')->nullable();
+            $table->text('access_token')->nullable();
+            $table->tinyInteger('type')->default(3); // 1 google //2 apple // 3 login by phone
+
             $table->rememberToken();
             $table->timestamps();
         });

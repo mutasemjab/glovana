@@ -28,6 +28,7 @@ edit Setting
         <form action="{{ route('settings.update',$data['id']) }}" method="post" enctype='multipart/form-data'>
             <div class="row">
                 @csrf
+                @method('PUT')
 
 
 

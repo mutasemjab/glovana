@@ -26,6 +26,11 @@ return new class extends Migration
             $table->text('reason_of_cancel')->nullable(); 
             $table->dateTime('date');
             $table->text('note')->nullable();
+            $table->dateTime('canceled_at')->nullable();
+            $table->double('fine_amount')->default(0);
+            $table->tinyInteger('fine_applied')->default(2); // 1 yes // 2 no
+
+
             $table->unsignedBigInteger('user_id')->nullable();
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->unsignedBigInteger('address_id')->nullable();

@@ -11,6 +11,19 @@ use Illuminate\Support\Facades\Validator;
 
 class CouponController extends Controller
 {
+
+     public function displayCouponUsed()
+    {
+        // Eager load users with pivot table data
+        $coupons = Coupon::with(['users' => function($query) {
+            $query->select('users.id', 'users.name', 'users.email')
+                  ->withPivot('created_at'); // Include when the user used the coupon
+        }])
+        ->orderBy('created_at', 'desc')
+        ->paginate(10); // Paginate with 10 items per page
+
+        return view('admin.coupons.used', compact('coupons'));
+    }
     /**
      * Display a listing of the resource.
      *

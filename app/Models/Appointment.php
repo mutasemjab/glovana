@@ -4,11 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class Appointment extends Model
 {
-    use HasFactory;
-
+    use HasFactory,LogsActivity;
+  
      protected $guarded = [];
      protected $casts = [
         'date' => 'datetime',
@@ -17,6 +19,17 @@ class Appointment extends Model
         'total_discounts' => 'double',
         'coupon_discount' => 'double',
     ];
+
+      public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Log all attributes since you're using $guarded = []
+            ->logOnlyDirty() // Only log changed attributes
+            ->dontSubmitEmptyLogs() // Don't log if nothing changed
+            ->dontLogIfAttributesChangedOnly(['updated_at']) // Don't log if only updated_at changed
+            ->setDescriptionForEvent(fn(string $eventName) => "Appointment {$eventName}")
+            ->useLogName('appointment'); // Custom log name for filtering
+    }
 
     public function appointmentServices()
     {

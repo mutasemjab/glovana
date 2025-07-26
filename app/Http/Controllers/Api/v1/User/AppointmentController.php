@@ -9,6 +9,7 @@ use App\Models\AppointmentService;
 use App\Models\ProviderType;
 use App\Models\Coupon;
 use App\Models\Delivery;
+use App\Models\Service;
 use App\Models\Setting;
 use App\Models\UserAddress;
 use App\Models\UserCoupon;
@@ -86,7 +87,7 @@ class AppointmentController extends Controller
     }
 
 
-     public function updateAppointmentStatus(Request $request, $appointmentId)
+    public function updateAppointmentStatus(Request $request, $appointmentId)
     {
         $user = auth()->user();
 
@@ -110,24 +111,86 @@ class AppointmentController extends Controller
             return $this->error_response('Not found', 'Appointment not found');
         }
 
+        // Check if user owns this appointment
+        if ($appointment->user_id !== $user->id) {
+            return $this->error_response('Unauthorized', 'You can only update your own appointments');
+        }
 
-        // For other status changes
+        // Check if appointment is already canceled or completed
+        if (in_array($appointment->appointment_status, [4, 5])) {
+            return $this->error_response('Invalid operation', 'Cannot update completed or canceled appointment');
+        }
+
+        $responseData = [
+            'appointment' => null,
+            'status_text' => $this->getAppointmentStatusText($request->status),
+            'fine_applied' => false,
+            'fine_amount' => 0,
+            'fine_details' => null
+        ];
+
+        // Handle cancellation (status = 5) with fine checking
+        if ($request->status == 5) {
+            $reason = $request->reason_of_cancel ?? 'Canceled by user';
+            
+            try {
+                // Use the appointment service to handle cancellation with fine logic
+                $appointmentService = new AppointmentService();
+                $result = $appointmentService->cancelAppointment($appointment, $reason, 'user');
+                
+                if (!$result) {
+                    return $this->error_response('Failed', 'Failed to cancel appointment');
+                }
+
+                // Refresh appointment to get updated data
+                $appointment->refresh();
+                
+                // Check if fine was applied
+                $latestFine = $appointment->latestFine;
+                if ($latestFine) {
+                    $responseData['fine_applied'] = true;
+                    $responseData['fine_amount'] = $latestFine->amount;
+                    $responseData['fine_details'] = [
+                        'id' => $latestFine->id,
+                        'amount' => $latestFine->amount,
+                        'percentage' => $latestFine->percentage,
+                        'reason' => $latestFine->reason,
+                        'status' => $latestFine->status_text,
+                        'applied_at' => $latestFine->applied_at ? $latestFine->applied_at->toISOString() : null
+                    ];
+                }
+
+                $responseData['appointment'] = $appointment;
+                
+                // If fine was applied, include updated user balance
+                if ($latestFine && $latestFine->status == 2) {
+                    $user->refresh();
+                    $responseData['updated_balance'] = $user->balance;
+                    
+                    return $this->success_response('Appointment canceled. A fine has been applied to your account.', $responseData);
+                } else if ($latestFine && $latestFine->status == 1) {
+                    return $this->success_response('Appointment canceled. A fine is pending review.', $responseData);
+                } else {
+                    return $this->success_response('Appointment canceled successfully', $responseData);
+                }
+                
+            } catch (\Exception $e) {
+                \Log::error('Error canceling appointment: ' . $e->getMessage());
+                return $this->error_response('Error', 'Failed to process cancellation');
+            }
+        }
+
+        // For other status changes (not cancellation)
         $appointment->appointment_status = $request->status;
 
         if ($request->filled('note')) {
             $appointment->note = $request->note;
         }
-        if ($request->filled('reason_of_cancel')) {
-            $appointment->reason_of_cancel = $request->reason_of_cancel;
-        }
 
         $appointment->save();
+        $responseData['appointment'] = $appointment;
 
-
-        return $this->success_response('Appointment status updated successfully', [
-            'appointment' => $appointment,
-            'status_text' => $this->getAppointmentStatusText($request->status)
-        ]);
+        return $this->success_response('Appointment status updated successfully', $responseData);
     }
 
     private function getAppointmentStatusText($status)
@@ -179,7 +242,7 @@ class AppointmentController extends Controller
             } else {
                 $validationRules['services'] = 'required|array|min:1';
                 $validationRules['services.*.service_id'] = 'required|exists:services,id';
-                $validationRules['services.*.customer_count'] = 'required|integer|min:1|max:10';
+                $validationRules['services.*.person'] = 'required|integer|min:1';
             }
 
             $validator = Validator::make($request->all(), $validationRules);
@@ -263,8 +326,8 @@ class AppointmentController extends Controller
                 ]);
 
                 // Create appointment services if service-based
-                if ($bookingType === 'service' && $services) {
-                    $this->createAppointmentServices($appointment->id, $services);
+                if ($bookingType === 'service' && $request->services) {
+                    $this->createAppointmentServices($appointment->id, $request->services);
                 }
 
                 // Process immediate payment if wallet
@@ -302,21 +365,6 @@ class AppointmentController extends Controller
                 $appointment->booking_type = $bookingType;
                 $appointment->total_customers = $this->getTotalCustomers($appointment);
 
-                // Add calculation breakdown for response
-                // $appointment->price_breakdown = [
-                //     'service_price' => $servicePrice,
-                //     'delivery_fee' => $deliveryFee,
-                //     'subtotal' => $totalPrices,
-                //     'coupon_discount' => $couponDiscount,
-                //     'total_discounts' => $totalDiscounts,
-                //     'final_total' => $finalTotal,
-                //     'booking_type' => $bookingType
-                // ];
-
-                // if ($bookingType === 'hourly') {
-                //     $appointment->price_breakdown['price_per_hour'] = $providerType->price_per_hour;
-                //     $appointment->price_breakdown['number_of_hours'] = $request->number_of_hours;
-                // }
 
                 return $this->success_response('Appointment created successfully', $appointment);
             } catch (\Exception $e) {
@@ -336,40 +384,52 @@ class AppointmentController extends Controller
         return $providerType->price_per_hour * $hours;
     }
 
+    
     /**
-     * Calculate service-based price
+     * Calculate service-based price from individual person-service combinations
      */
     private function calculateServicePrice($providerType, $requestedServices)
     {
         $totalPrice = 0;
         $services = [];
 
+        // Group services by service_id to count total customers per service
+        $serviceGroups = [];
+        
         foreach ($requestedServices as $requestedService) {
+            $serviceId = $requestedService['service_id'];
+            
             // Get service price from provider_services table
             $providerService = DB::table('provider_services')
                 ->where('provider_type_id', $providerType->id)
-                ->where('service_id', $requestedService['service_id'])
+                ->where('service_id', $serviceId)
                 ->where('is_active', 1)
                 ->first();
 
             if (!$providerService) {
-                throw new \Exception("Service not available for this provider");
+                throw new \Exception("Service ID {$serviceId} not available for this provider");
             }
 
-            $serviceTotal = $providerService->price * $requestedService['customer_count'];
-            $totalPrice += $serviceTotal;
-
-            $services[] = [
-                'service_id' => $requestedService['service_id'],
-                'customer_count' => $requestedService['customer_count'],
-                'service_price' => $providerService->price,
-                'total_price' => $serviceTotal
-            ];
+            // Add to total price (each person pays the service price)
+            $totalPrice += $providerService->price;
+            
+            // Group for summary (optional, for display purposes)
+            if (!isset($serviceGroups[$serviceId])) {
+                $serviceGroups[$serviceId] = [
+                    'service_id' => $serviceId,
+                    'customer_count' => 0,
+                    'service_price' => $providerService->price,
+                    'total_price' => 0
+                ];
+            }
+            
+            $serviceGroups[$serviceId]['customer_count']++;
+            $serviceGroups[$serviceId]['total_price'] += $providerService->price;
         }
 
         return [
             'total_price' => $totalPrice,
-            'services' => $services
+            'services' => array_values($serviceGroups) // For backward compatibility if needed
         ];
     }
 
@@ -379,12 +439,15 @@ class AppointmentController extends Controller
     private function createAppointmentServices($appointmentId, $services)
     {
         foreach ($services as $service) {
+            $serviceModel = Service::find($service['service_id']);
+            
             AppointmentService::create([
                 'appointment_id' => $appointmentId,
                 'service_id' => $service['service_id'],
-                'customer_count' => $service['customer_count'],
-                'service_price' => $service['service_price'],
-                'total_price' => $service['total_price']
+                'person_number' => $service['person'],
+                'customer_count' => 1,
+                'service_price' => $serviceModel->price,
+                'total_price' => $serviceModel->price
             ]);
         }
     }

@@ -25,6 +25,8 @@ return new class extends Migration
             $table->text('description');
             $table->double('lat');
             $table->double('lng');
+            $table->text('practice_license')->nullable();
+            $table->text('identity_photo')->nullable();
             $table->text('address')->nullable();
             $table->double('price_per_hour')->default(0); 
             $table->tinyInteger('status')->default(1); // 1 on //2 off

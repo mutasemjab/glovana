@@ -5,10 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class ProviderType extends Model
 {
-    use HasFactory;
+    use HasFactory,LogsActivity;
+
     protected $guarded = [];
      protected $casts = [
         'lat' => 'float',
@@ -17,6 +20,17 @@ class ProviderType extends Model
     ];
 
     protected $appends = ['is_favourite'];
+
+       public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logAll() // Log all attributes since you're using $guarded = []
+            ->logOnlyDirty() // Only log changed attributes
+            ->dontSubmitEmptyLogs() // Don't log if nothing changed
+            ->dontLogIfAttributesChangedOnly(['updated_at']) // Don't log if only updated_at changed
+            ->setDescriptionForEvent(fn(string $eventName) => "ProviderType {$eventName}")
+            ->useLogName('ProviderType'); // Custom log name for filtering
+    }
 
      public function getIsFavouriteAttribute()
     {
@@ -100,5 +114,20 @@ class ProviderType extends Model
     public function getIsVipTextAttribute()
     {
         return $this->is_vip == 1 ? 'VIP' : 'Regular';
+    }
+
+    public function vipSubscriptions()
+    {
+        return $this->hasMany(VipSubscription::class);
+    }
+
+    public function activeVipSubscription()
+    {
+        return $this->hasOne(VipSubscription::class)->active();
+    }
+
+    public function getIsCurrentlyVipAttribute()
+    {
+        return $this->activeVipSubscription()->exists();
     }
 }

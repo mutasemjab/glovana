@@ -6,22 +6,22 @@ use App\Http\Controllers\Controller;
 
 use App\Models\WalletTransaction;
 use App\Models\User;
-use App\Models\Driver;
+use App\Models\Provider;
+use App\Models\ProviderType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 
 class WalletTransactionController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function index()
+      public function index()
     {
         $transactions = WalletTransaction::with(['user', 'provider', 'admin'])->orderBy('created_at', 'desc')->get();
-        return view('admin.wallet_transactions.index', compact('transactions'));
+        $users = User::all();
+        $providers = Provider::with('providerTypes')->get();
+        $providerTypes = ProviderType::all(); // Add this line
+        
+        return view('admin.wallet_transactions.index', compact('transactions', 'users', 'providers', 'providerTypes'));
     }
 
     /**
@@ -32,8 +32,8 @@ class WalletTransactionController extends Controller
     public function create()
     {
         $users = User::all();
-        $drivers = Driver::all();
-        return view('admin.wallet_transactions.create', compact('users', 'drivers'));
+        $providers = Provider::all();
+        return view('admin.wallet_transactions.create', compact('users', 'providers'));
     }
 
     /**
@@ -45,7 +45,7 @@ class WalletTransactionController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'entity_type' => 'required|in:user,driver',
+            'entity_type' => 'required|in:user,provider',
             'entity_id' => 'required',
             'amount' => 'required|numeric|min:0.01',
             'type_of_transaction' => 'required|in:1,2',
@@ -67,11 +67,11 @@ class WalletTransactionController extends Controller
             'admin_id' => Auth::id(), // Current logged in admin
         ];
 
-        // Set the appropriate entity (user or driver)
+        // Set the appropriate entity (user or provider)
         if ($request->entity_type == 'user') {
             $user = User::findOrFail($request->entity_id);
             $transactionData['user_id'] = $user->id;
-            $transactionData['driver_id'] = null;
+            $transactionData['provider_id'] = null;
             
             // Update user balance
             if ($request->type_of_transaction == 1) {
@@ -89,25 +89,25 @@ class WalletTransactionController extends Controller
             }
             $user->save();
         } else {
-            $driver = Driver::findOrFail($request->entity_id);
-            $transactionData['driver_id'] = $driver->id;
+            $provider = Provider::findOrFail($request->entity_id);
+            $transactionData['provider_id'] = $provider->id;
             $transactionData['user_id'] = null;
             
-            // Update driver balance
+            // Update provider balance
             if ($request->type_of_transaction == 1) {
                 // Add to balance
-                $driver->balance += $request->amount;
+                $provider->balance += $request->amount;
             } else {
                 // Withdraw from balance
-                if ($driver->balance < $request->amount) {
+                if ($provider->balance < $request->amount) {
                     return redirect()
                         ->route('wallet_transactions.create')
                         ->with('error', __('messages.Insufficient_Balance'))
                         ->withInput();
                 }
-                $driver->balance -= $request->amount;
+                $provider->balance -= $request->amount;
             }
-            $driver->save();
+            $provider->save();
         }
 
         // Create the transaction
@@ -126,7 +126,7 @@ class WalletTransactionController extends Controller
      */
     public function show($id)
     {
-        $transaction = WalletTransaction::with(['user', 'driver', 'admin'])->findOrFail($id);
+        $transaction = WalletTransaction::with(['user', 'provider', 'admin'])->findOrFail($id);
         return view('admin.wallet_transactions.show', compact('transaction'));
     }
 
@@ -139,8 +139,9 @@ class WalletTransactionController extends Controller
     public function filter(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'entity_type' => 'required|in:all,user,driver',
-            'entity_id' => 'nullable|required_if:entity_type,user,driver',
+            'entity_type' => 'required|in:all,user,provider',
+            'entity_id' => 'nullable|numeric',
+            'provider_type_id' => 'nullable|numeric|exists:provider_types,id',
             'transaction_type' => 'nullable|in:all,1,2',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
@@ -152,17 +153,28 @@ class WalletTransactionController extends Controller
                 ->withErrors($validator);
         }
 
-        $query = WalletTransaction::with(['user', 'driver', 'admin']);
+        $query = WalletTransaction::with(['user', 'provider.providerTypes', 'admin']);
 
         // Filter by entity type and ID
         if ($request->entity_type == 'user' && $request->entity_id) {
             $query->where('user_id', $request->entity_id);
-        } elseif ($request->entity_type == 'driver' && $request->entity_id) {
-            $query->where('driver_id', $request->entity_id);
+        } elseif ($request->entity_type == 'provider') {
+            // Filter by provider type if specified
+            if ($request->provider_type_id) {
+                $query->whereHas('provider.providerTypes', function($q) use ($request) {
+                    $q->where('provider_types.id', $request->provider_type_id);
+                });
+            }
+            
+            // Filter by specific provider if specified
+            if ($request->entity_id) {
+                $query->where('provider_id', $request->entity_id);
+            } else {
+                // Show all provider transactions
+                $query->whereNotNull('provider_id');
+            }
         } elseif ($request->entity_type == 'user') {
             $query->whereNotNull('user_id');
-        } elseif ($request->entity_type == 'driver') {
-            $query->whereNotNull('driver_id');
         }
 
         // Filter by transaction type
@@ -181,44 +193,12 @@ class WalletTransactionController extends Controller
         // Get the filtered transactions
         $transactions = $query->orderBy('created_at', 'desc')->get();
         
-        // Get users and drivers for the filter dropdowns
+        // Get users, providers, and provider types for the filter dropdowns
         $users = User::all();
-        $drivers = Driver::all();
+        $providers = Provider::with('providerTypes')->get();
+        $providerTypes = ProviderType::all();
 
-        return view('admin.wallet_transactions.index', compact('transactions', 'users', 'drivers'));
+        return view('admin.wallet_transactions.index', compact('transactions', 'users', 'providers', 'providerTypes'));
     }
 
-    /**
-     * Show user transactions.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function userTransactions($id)
-    {
-        $user = User::findOrFail($id);
-        $transactions = WalletTransaction::with(['admin'])
-            ->where('user_id', $id)
-            ->orderBy('created_at', 'desc')
-            ->get();
-        
-        return view('admin.wallet_transactions.user_transactions', compact('transactions', 'user'));
-    }
-
-    /**
-     * Show driver transactions.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function driverTransactions($id)
-    {
-        $driver = Driver::findOrFail($id);
-        $transactions = WalletTransaction::with(['admin'])
-            ->where('driver_id', $id)
-            ->orderBy('created_at', 'desc')
-            ->get();
-        
-        return view('admin.wallet_transactions.driver_transactions', compact('transactions', 'driver'));
-    }
 }

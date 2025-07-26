@@ -15,9 +15,44 @@ use Illuminate\Support\Str;
 
 class ProviderController extends Controller
 {
-   public function index()
+   
+    public function index(Request $request)
     {
-        $providers = Provider::all();
+        $query = Provider::query();
+        
+        // Filter by activation status
+        if ($request->has('status') && $request->status != '') {
+            $query->where('activate', $request->status);
+        }
+        
+        // Filter by balance type (positive/negative)
+        if ($request->has('balance_type') && $request->balance_type != '') {
+            if ($request->balance_type == 'positive') {
+                $query->where('balance', '>', 0);
+            } elseif ($request->balance_type == 'negative') {
+                $query->where('balance', '<', 0);
+            } elseif ($request->balance_type == 'zero') {
+                $query->where('balance', '=', 0);
+            }
+        }
+        
+        // Filter by minimum balance
+        if ($request->has('min_balance') && $request->min_balance != '') {
+            $query->where('balance', '>=', $request->min_balance);
+        }
+        
+        // Filter by maximum balance
+        if ($request->has('max_balance') && $request->max_balance != '') {
+            $query->where('balance', '<=', $request->max_balance);
+        }
+        
+        // Search by name
+        if ($request->has('search') && $request->search != '') {
+            $query->where('name_of_manager', 'like', '%' . $request->search . '%');
+        }
+        
+        $providers = $query->orderBy('created_at', 'desc')->get();
+        
         return view('admin.providers.index', compact('providers'));
     }
 

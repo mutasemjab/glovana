@@ -47,7 +47,7 @@
                             <select class="form-control" id="entity_type" name="entity_type" required>
                                 <option value="">{{ __('messages.Select_Entity_Type') }}</option>
                                 <option value="user" {{ old('entity_type') == 'user' ? 'selected' : '' }}>{{ __('messages.User') }}</option>
-                                <option value="driver" {{ old('entity_type') == 'driver' ? 'selected' : '' }}>{{ __('messages.Driver') }}</option>
+                                <option value="provider" {{ old('entity_type') == 'provider' ? 'selected' : '' }}>{{ __('messages.provider') }}</option>
                             </select>
                         </div>
                         
@@ -64,14 +64,14 @@
                             </select>
                         </div>
                         
-                        <!-- Driver Selection -->
-                        <div class="form-group entity-select driver-select" style="display: {{ old('entity_type') == 'driver' ? 'block' : 'none' }};">
-                            <label for="driver_entity_id">{{ __('messages.Select_Driver') }} <span class="text-danger">*</span></label>
-                            <select class="form-control" id="driver_entity_id" name="entity_id">
-                                <option value="">{{ __('messages.Select_Driver') }}</option>
-                                @foreach($drivers as $driver)
-                                <option value="{{ $driver->id }}" {{ old('entity_id') == $driver->id && old('entity_type') == 'driver' ? 'selected' : '' }} data-balance="{{ $driver->balance }}">
-                                    {{ $driver->name }} ({{ $driver->phone }}) - {{ __('messages.Balance') }}: {{ $driver->balance }}
+                        <!-- provider Selection -->
+                        <div class="form-group entity-select provider-select" style="display: {{ old('entity_type') == 'provider' ? 'block' : 'none' }};">
+                            <label for="provider_entity_id">{{ __('messages.Select_provider') }} <span class="text-danger">*</span></label>
+                            <select class="form-control" id="provider_entity_id" name="entity_id">
+                                <option value="">{{ __('messages.Select_provider') }}</option>
+                                @foreach($providers as $provider)
+                                <option value="{{ $provider->id }}" {{ old('entity_id') == $provider->id && old('entity_type') == 'provider' ? 'selected' : '' }} data-balance="{{ $provider->balance }}">
+                                    {{ $provider->providerTypes->first()->name }}  ({{ $provider->phone }}) - {{ __('messages.Balance') }}: {{ $provider->balance }}
                                 </option>
                                 @endforeach
                             </select>
@@ -132,12 +132,12 @@
             
             if ($(this).val() == 'user') {
                 $('.user-select').show();
-                $('#driver_entity_id').val('');
+                $('#provider_entity_id').val('');
                 $('#user_entity_id').trigger('change');
-            } else if ($(this).val() == 'driver') {
-                $('.driver-select').show();
+            } else if ($(this).val() == 'provider') {
+                $('.provider-select').show();
                 $('#user_entity_id').val('');
-                $('#driver_entity_id').trigger('change');
+                $('#provider_entity_id').trigger('change');
             }
         });
         
@@ -156,8 +156,8 @@
             }
         });
         
-        // Handle driver selection
-        $('#driver_entity_id').on('change', function() {
+        // Handle provider selection
+        $('#provider_entity_id').on('change', function() {
             if ($(this).val()) {
                 var balance = $(this).find('option:selected').data('balance');
                 $('#balance-amount').text(balance);

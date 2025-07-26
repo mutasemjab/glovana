@@ -125,6 +125,8 @@ class AuthProviderController extends Controller
             'provider_types.*.address' => 'nullable|string',
             'provider_types.*.price_per_hour' => 'required_if:provider_types.*.booking_type,hourly|nullable|numeric|min:0',
             'provider_types.*.is_vip' => 'sometimes|in:1,2',
+            'provider_types.*.practice_license' => 'nullable',
+            'provider_types.*.identity_photo' => 'nullable',
             'provider_types.*.service_ids' => 'required|array|min:1',
             'provider_types.*.service_ids.*' => 'exists:services,id',
             // New validation for service pricing (for service-based types)
@@ -166,6 +168,8 @@ class AuthProviderController extends Controller
                     return $this->error_response('Validation error', 'Services with prices are required for service booking types');
                 }
 
+                 $practice_license_path = uploadImage('assets/admin/uploads', $providerTypeData['practice_license']);
+                 $identity_photo_path = uploadImage('assets/admin/uploads', $providerTypeData['identity_photo']);
                 // Create provider type
                 $providerType = \App\Models\ProviderType::create([
                     'provider_id' => $provider->id,
@@ -174,6 +178,8 @@ class AuthProviderController extends Controller
                     'description' => $providerTypeData['description'],
                     'lat' => $providerTypeData['lat'],
                     'lng' => $providerTypeData['lng'],
+                    'practice_license' => $practice_license_path,
+                    'identity_photo' =>  $identity_photo_path,
                     'address' => $providerTypeData['address'] ?? null,
                     'price_per_hour' => $type->booking_type === 'hourly' ? $providerTypeData['price_per_hour'] : null,
                     'is_vip' => $providerTypeData['is_vip'] ?? 2,
@@ -316,6 +322,8 @@ class AuthProviderController extends Controller
             'description' => 'sometimes|string',
             'lat' => 'sometimes|numeric|between:-90,90',
             'lng' => 'sometimes|numeric|between:-180,180',
+            'practice_license' => 'sometimes',
+            'identity_photo' => 'sometimes',
             'address' => 'nullable|string',
             'price_per_hour' => 'sometimes|numeric|min:0',
             'is_vip' => 'sometimes|in:1,2',
@@ -355,6 +363,17 @@ class AuthProviderController extends Controller
             }
             
             $providerType->update($updateData);
+
+            // ✅ Handle new file uploads for practice_license and identity_photo
+            if ($request->hasFile('practice_license')) {
+                $practiceLicensePath = uploadImage('assets/admin/uploads', $request->file('practice_license'));
+                $providerType->update(['practice_license' => $practiceLicensePath]);
+            }
+
+            if ($request->hasFile('identity_photo')) {
+                $identityPhotoPath = uploadImage('assets/admin/uploads', $request->file('identity_photo'));
+                $providerType->update(['identity_photo' => $identityPhotoPath]);
+            }
 
             // Update services based on booking type
             if ($providerType->type->booking_type === 'hourly') {

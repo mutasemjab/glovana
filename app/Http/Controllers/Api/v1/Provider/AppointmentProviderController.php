@@ -546,13 +546,14 @@ class AppointmentProviderController extends Controller
     }
 
     /**
-     * Get services summary for service-based appointments
+     * Get services summary for service-based appointments including individual customer services
      */
     private function getServicesSummary($appointment)
     {
         if (isset($appointment->providerType->type->booking_type) && 
             $appointment->providerType->type->booking_type == 'service') {
             
+            // Get aggregated services (existing functionality)
             $services = $appointment->appointmentServices->map(function($appointmentService) {
                 return [
                     'name' => app()->getLocale() == 'ar' ? 
@@ -564,11 +565,34 @@ class AppointmentProviderController extends Controller
                 ];
             });
 
+            // Get individual customer services grouped by person
+            $customerServices = $appointment->appointmentServices
+                ->groupBy('person_number')
+                ->map(function ($services, $personNumber) {
+                    return [
+                        'person_number' => $personNumber,
+                        'total_services' => $services->count(),
+                        'total_amount' => $services->sum('service_price'),
+                        'services' => $services->map(function ($service) {
+                            return [
+                                'service_id' => $service->service_id,
+                                'service_name' => app()->getLocale() == 'ar' ? 
+                                    $service->service->name_ar : 
+                                    $service->service->name_en,
+                                'service_price' => $service->service_price
+                            ];
+                        })->toArray()
+                    ];
+                })
+                ->values()
+                ->toArray();
+
             return [
                 'services' => $services,
                 'total_services' => $services->count(),
                 'total_customers' => $services->sum('customer_count'),
-                'services_total' => $services->sum('total_price')
+                'services_total' => $services->sum('total_price'),
+                'customer_services' => $customerServices // Individual customer breakdown
             ];
         }
         

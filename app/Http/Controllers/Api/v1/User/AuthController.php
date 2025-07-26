@@ -168,6 +168,155 @@ class AuthController extends Controller
         ]);
     }
 
+
+    public function googleLogin(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'google_id' => 'required|string',
+            'access_token' => 'required|string',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email',
+            'photo' => 'nullable|string', // URL from Google
+            'fcm_token' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error_response('Validation error', $validator->errors());
+        }
+
+        // Check if user already exists with this Google ID
+        $user = User::where('google_id', $request->google_id)->first();
+
+        if ($user) {
+            // User exists, update access token and FCM token if provided
+            $user->access_token = $request->access_token;
+            
+            if ($request->filled('fcm_token')) {
+                $user->fcm_token = $request->fcm_token;
+            }
+            
+            $user->save();
+        } else {
+            // Check if user exists with same email
+            $existingUser = User::where('email', $request->email)->first();
+            
+            if ($existingUser) {
+                // Link Google account to existing user
+                $existingUser->google_id = $request->google_id;
+                $existingUser->access_token = $request->access_token;
+                $existingUser->type = 1; // Google login
+                
+                if ($request->filled('fcm_token')) {
+                    $existingUser->fcm_token = $request->fcm_token;
+                }
+                
+                $existingUser->save();
+                $user = $existingUser;
+            } else {
+                // Create new user
+                $userData = [
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'google_id' => $request->google_id,
+                    'access_token' => $request->access_token,
+                    'fcm_token' => $request->fcm_token,
+                    'balance' => 0,
+                    'referral_code' => $this->generateReferralCode(),
+                    'type' => 1, // Google login
+                    'activate' => 1, // Active by default for social login
+                ];
+
+                // Handle photo from Google
+                if ($request->filled('photo')) {
+                    // You might want to download and store the image locally
+                    // For now, we'll store the URL
+                    $userData['photo'] = $request->photo;
+                }
+
+                $user = User::create($userData);
+            }
+        }
+
+        // Generate access token
+        $accessToken = $user->createToken('authToken')->accessToken;
+
+        return $this->success_response('Google login successful', [
+            'token' => $accessToken,
+            'user' => $user,
+        ]);
+    }
+
+    public function appleLogin(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'apple_id' => 'required|string', // This would be the Apple user identifier
+            'access_token' => 'required|string', // Apple identity token
+            'name' => 'nullable|string|max:255', // Apple might not always provide name
+            'email' => 'nullable|email', // Apple might provide private relay email
+            'fcm_token' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error_response('Validation error', $validator->errors());
+        }
+
+        $user = User::where('apple_id', $request->apple_id)->where('type', 2)->first();
+
+        if ($user) {
+            // User exists, update access token and FCM token if provided
+            $user->access_token = $request->access_token;
+            
+            if ($request->filled('fcm_token')) {
+                $user->fcm_token = $request->fcm_token;
+            }
+            
+            $user->save();
+        } else {
+            // Check if user exists with same email (if email is provided)
+            $existingUser = null;
+            if ($request->filled('email')) {
+                $existingUser = User::where('email', $request->email)->first();
+            }
+            
+            if ($existingUser) {
+                // Link Apple account to existing user
+                $existingUser->apple_id = $request->apple_id; 
+                $existingUser->access_token = $request->access_token;
+                $existingUser->type = 2; // Apple login
+                
+                if ($request->filled('fcm_token')) {
+                    $existingUser->fcm_token = $request->fcm_token;
+                }
+                
+                $existingUser->save();
+                $user = $existingUser;
+            } else {
+                // Create new user
+                $userData = [
+                    'name' => $request->name ?? 'Apple User', // Default name if not provided
+                    'email' => $request->email, // Can be null
+                    'apple_id' => $request->apple_id, // Using google_id field for Apple ID
+                    'access_token' => $request->access_token,
+                    'fcm_token' => $request->fcm_token,
+                    'balance' => 0,
+                    'referral_code' => $this->generateReferralCode(),
+                    'type' => 2, // Apple login
+                    'activate' => 1, // Active by default for social login
+                ];
+
+                $user = User::create($userData);
+            }
+        }
+
+        // Generate access token
+        $accessToken = $user->createToken('authToken')->accessToken;
+
+        return $this->success_response('Apple login successful', [
+            'token' => $accessToken,
+            'user' => $user,
+        ]);
+    }
+
     public function userProfile()
     {
         try {
