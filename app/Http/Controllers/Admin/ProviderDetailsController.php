@@ -64,7 +64,7 @@ class ProviderDetailsController extends Controller
             $validationRules['price_per_hour'] = 'required|numeric|min:0';
         } else {
             $validationRules['service_prices'] = 'required|array|min:1';
-            $validationRules['service_prices.*'] = 'numeric|min:0';
+           $validationRules['service_prices.*'] = 'nullable|numeric|min:0';
             $validationRules['price_per_hour'] = 'nullable|numeric|min:0';
         }
 
@@ -101,7 +101,7 @@ class ProviderDetailsController extends Controller
         } else {
             // Create provider services with individual pricing (new way)
             foreach ($request->service_prices as $serviceId => $price) {
-                if ($price > 0) {
+               if (!empty($price) && $price > 0) {
                     DB::table('provider_services')->insert([
                         'provider_type_id' => $providerType->id,
                         'service_id' => $serviceId,
@@ -185,7 +185,7 @@ class ProviderDetailsController extends Controller
             $validationRules['price_per_hour'] = 'required|numeric|min:0';
         } else {
             $validationRules['service_prices'] = 'required|array|min:1';
-            $validationRules['service_prices.*'] = 'numeric|min:0';
+           $validationRules['service_prices.*'] = 'nullable|numeric|min:0';
             $validationRules['price_per_hour'] = 'nullable|numeric|min:0';
         }
 
@@ -223,7 +223,7 @@ class ProviderDetailsController extends Controller
             // Update services with individual pricing (new way)
             DB::table('provider_services')->where('provider_type_id', $providerType->id)->delete();
             foreach ($request->service_prices as $serviceId => $price) {
-                if ($price > 0) {
+                 if (!empty($price) && $price > 0) {
                     DB::table('provider_services')->insert([
                         'provider_type_id' => $providerType->id,
                         'service_id' => $serviceId,
