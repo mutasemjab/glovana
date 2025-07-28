@@ -13,21 +13,23 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
+
+
 class UserAddressController extends Controller
 {
     use Responses;
 
+    /**
+     * Display a listing of user addresses.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
     public function index(Request $request)
     {
         $user_id = $request->user_id ?? Auth::id();
         
         $addresses = UserAddress::with('delivery')->where('user_id', $user_id)->get();
-        
-        // Add delivery fee calculation to each address
-        $addresses->transform(function ($address) {
-            $address->delivery_fee = $this->calculateDeliveryFee($address);
-            return $address;
-        });
         
         return $this->success_response('Addresses retrieved successfully', $addresses);
     }
@@ -42,11 +44,10 @@ class UserAddressController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'user_id' => 'sometimes|exists:users,id',
-            'address' => 'nullable',
-            'lat' => 'required|numeric',
-            'lng' => 'required|numeric',
-            'delivery_id' => 'required',
-            'provider_type_id' => 'sometimes|exists:provider_types,id', // Add this if needed
+            'address' => 'required|string',
+            'lat' => 'required|string',
+            'lng' => 'required|string',
+            'delivery_id' => 'required|exists:deliveries,id',
         ]);
 
         if ($validator->fails()) {
@@ -59,11 +60,8 @@ class UserAddressController extends Controller
         }
 
         $address = UserAddress::create($request->only([
-            'user_id', 'name', 'address', 'lat', 'lng', 'delivery_id'
+            'user_id', 'address', 'lat', 'lng', 'delivery_id'
         ]));
-
-        // Calculate and add delivery fee
-        $address->delivery_fee = $this->calculateDeliveryFee($address);
 
         return $this->success_response('Address created successfully', $address);
     }
@@ -76,14 +74,11 @@ class UserAddressController extends Controller
      */
     public function show($id)
     {
-        $address = UserAddress::find($id);
+        $address = UserAddress::with('delivery')->find($id);
         
         if (!$address) {
             return $this->error_response('Address not found', null);
         }
-
-        // Calculate and add delivery fee
-        $address->delivery_fee = $this->calculateDeliveryFee($address);
 
         return $this->success_response('Address retrieved successfully', $address);
     }
@@ -104,10 +99,10 @@ class UserAddressController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'address' => 'nullable',
-            'lat' => 'sometimes|numeric',
-            'lng' => 'sometimes|numeric',
-            'delivery_id' => 'required',
+            'address' => 'sometimes|string',
+            'lat' => 'sometimes|string',
+            'lng' => 'sometimes|string',
+            'delivery_id' => 'sometimes|exists:deliveries,id',
         ]);
 
         if ($validator->fails()) {
@@ -115,11 +110,8 @@ class UserAddressController extends Controller
         }
 
         $address->update($request->only([
-            'lat', 'lng', 'address', 'delivery_id'
+            'address', 'lat', 'lng', 'delivery_id'
         ]));
-
-        // Calculate and add delivery fee
-        $address->delivery_fee = $this->calculateDeliveryFee($address);
 
         return $this->success_response('Address updated successfully', $address);
     }
@@ -149,98 +141,82 @@ class UserAddressController extends Controller
     }
 
     /**
-     * Calculate delivery fee based on settings
+     * Calculate delivery fee based on distance between user address and provider
      *
-     * @param  UserAddress  $address
-     * @param  int|null  $provider_type_id
-     * @return float
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
      */
-    private function calculateDeliveryFee($address, $provider_type_id = null)
+    public function calculateDeliveryFee(Request $request)
     {
-        // Get settings from database
-        $settings = $this->getSettings([
-            'calculate_delivery_fee_depend_on_the_place_or_distance',
-            'start_price',
-            'price_per_km'
+        $validator = Validator::make($request->all(), [
+            'address_id' => 'required|exists:user_addresses,id',
+            'provider_type_id' => 'required|exists:provider_types,id',
         ]);
 
-        $calculation_method = $settings['calculate_delivery_fee_depend_on_the_place_or_distance'] ?? 1;
-
-        // If calculation method is 'place', return the delivery fee from the delivery record
-        if ($calculation_method == 1) {
-            return $address->delivery ? floatval($address->delivery->price ?? 0) : 0;
+        if ($validator->fails()) {
+            return $this->error_response('Validation error', $validator->errors());
         }
 
-        // If calculation method is 'distance', calculate based on distance
-        if ($calculation_method == 2) {
-            return $this->calculateDistanceBasedFee($address, $settings, $provider_type_id);
+        // Check if calculation method is set to distance-based (2)
+        $calculation_method = DB::table('settings')
+            ->where('key', 'calculate_delivery_fee_depend_on_the_place_or_distance')
+            ->value('value');
+
+        if ($calculation_method != 2) {
+            return $this->error_response('Distance-based calculation is not enabled', null);
         }
 
-        return 0;
-    }
-
-    /**
-     * Calculate distance-based delivery fee
-     *
-     * @param  UserAddress  $address
-     * @param  array  $settings
-     * @param  int|null  $provider_type_id
-     * @return float
-     */
-    private function calculateDistanceBasedFee($address, $settings, $provider_type_id = null)
-    {
-        $start_price = floatval($settings['start_price'] ?? 0.25);
-        $price_per_km = floatval($settings['price_per_km'] ?? 0.15);
-
-        // Get provider location - you'll need to adjust this based on your provider_types table structure
-        $provider_location = $this->getProviderLocation($provider_type_id);
-        
-        if (!$provider_location) {
-            // If no provider location found, return start price as fallback
-            return $start_price;
+        // Get user address coordinates
+        $userAddress = UserAddress::find($request->address_id);
+        if (!$userAddress) {
+            return $this->error_response('User address not found', null);
         }
 
-        // Calculate distance in kilometers
-        $distance_km = $this->calculateDistance(
-            $address->lat,
-            $address->lng,
-            $provider_location['lat'],
-            $provider_location['lng']
-        );
-
-        // Calculate total fee: start_price + (distance * price_per_km)
-        $total_fee = $start_price + ($distance_km * $price_per_km);
-
-        return round($total_fee, 2);
-    }
-
-    /**
-     * Get provider location coordinates
-     *
-     * @param  int|null  $provider_type_id
-     * @return array|null
-     */
-    private function getProviderLocation($provider_type_id = null)
-    {
-        if (!$provider_type_id) {
-            // You might want to get the default provider or handle this case differently
-            return null;
-        }
-
-        // Adjust this query based on your provider_types table structure
+        // Get provider coordinates
         $provider = DB::table('provider_types')
             ->select('lat', 'lng')
-            ->where('id', $provider_type_id)
+            ->where('id', $request->provider_type_id)
             ->first();
 
         if (!$provider) {
-            return null;
+            return $this->error_response('Provider type not found', null);
         }
 
-        return [
-            'lat' => $provider->lat,
-            'lng' => $provider->lng
-        ];
+        // Get pricing settings
+        $settings = DB::table('settings')
+            ->whereIn('key', ['start_price', 'price_per_km'])
+            ->pluck('value', 'key')
+            ->toArray();
+
+        $start_price = floatval($settings['start_price'] ?? 0.25);
+        $price_per_km = floatval($settings['price_per_km'] ?? 0.15);
+
+        // Calculate distance using Haversine formula
+        $distance_km = $this->calculateDistance(
+            floatval($userAddress->lat),
+            floatval($userAddress->lng),
+            floatval($provider->lat),
+            floatval($provider->lng)
+        );
+
+        // Calculate delivery fee: start_price + (distance * price_per_km)
+        $delivery_fee = $start_price + ($distance_km * $price_per_km);
+        $delivery_fee = round($delivery_fee, 2);
+
+        return $this->success_response('Delivery fee calculated successfully', [
+            'delivery_fee' => $delivery_fee,
+            'distance_km' => round($distance_km, 2),
+            'start_price' => $start_price,
+            'price_per_km' => $price_per_km,
+            'user_address' => [
+                'lat' => $userAddress->lat,
+                'lng' => $userAddress->lng
+            ],
+            'provider_location' => [
+                'lat' => $provider->lat,
+                'lng' => $provider->lng
+            ]
+        ]);
     }
 
     /**
@@ -268,51 +244,5 @@ class UserAddressController extends Controller
         $distance = $earth_radius * $c;
 
         return $distance;
-    }
-
-    /**
-     * Get settings from database
-     *
-     * @param  array  $keys
-     * @return array
-     */
-    private function getSettings($keys)
-    {
-        $settings = DB::table('settings')
-            ->whereIn('key', $keys)
-            ->pluck('value', 'key')
-            ->toArray();
-
-        return $settings;
-    }
-
-    /**
-     * Calculate delivery fee for a specific address and provider
-     * This can be called externally when you have the provider_type_id
-     *
-     * @param  Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function calculateFee(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'address_id' => 'required|exists:user_addresses,id',
-            'provider_type_id' => 'sometimes|exists:provider_types,id',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->error_response('Validation error', $validator->errors());
-        }
-
-        $address = UserAddress::with('delivery')->find($request->address_id);
-        $provider_type_id = $request->provider_type_id ?? null;
-
-        $delivery_fee = $this->calculateDeliveryFee($address, $provider_type_id);
-
-        return $this->success_response('Delivery fee calculated successfully', [
-            'address' => $address,
-            'delivery_fee' => $delivery_fee,
-            'provider_type_id' => $provider_type_id
-        ]);
     }
 }

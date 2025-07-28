@@ -70,6 +70,7 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::post('/addresses', [UserAddressController::class, 'store']);
         Route::put('/addresses/{id}', [UserAddressController::class, 'update']);
         Route::delete('/addresses/{id}', [UserAddressController::class, 'destroy']);
+        Route::post('/addresses/calculate-delivery-fee', [UserAddressController::class, 'calculateDeliveryFee']);
 
         Route::get('/wallet/transactions', [WalletController::class, 'getTransactions']);
 
