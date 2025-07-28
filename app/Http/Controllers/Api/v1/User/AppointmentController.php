@@ -436,18 +436,30 @@ class AppointmentController extends Controller
     /**
      * Create appointment services
      */
-    private function createAppointmentServices($appointmentId, $services)
+   private function createAppointmentServices($appointmentId, $services)
     {
+        // Get the appointment to access provider_type_id
+        $appointment = Appointment::find($appointmentId);
+        
         foreach ($services as $service) {
-            $serviceModel = Service::find($service['service_id']);
-            
+            // Get service price from provider_services table instead of services table
+            $providerService = DB::table('provider_services')
+                ->where('provider_type_id', $appointment->provider_type_id)
+                ->where('service_id', $service['service_id'])
+                ->where('is_active', 1)
+                ->first();
+
+            if (!$providerService) {
+                throw new \Exception("Service ID {$service['service_id']} not available for this provider");
+            }
+
             AppointmentService::create([
                 'appointment_id' => $appointmentId,
                 'service_id' => $service['service_id'],
                 'person_number' => $service['person'],
                 'customer_count' => 1,
-                'service_price' => $serviceModel->price,
-                'total_price' => $serviceModel->price
+                'service_price' => $providerService->price, // Use price from provider_services table
+                'total_price' => $providerService->price * 1 // service_price * customer_count
             ]);
         }
     }
