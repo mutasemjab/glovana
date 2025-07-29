@@ -24,60 +24,100 @@ class AppointmentController extends Controller
 {
     use Responses;
 
-    /**
-     * Display a listing of appointments
-     */
     public function index(Request $request)
     {
         try {
             $user = Auth::user();
 
-            $appointments = Appointment::with([
-                'user',
+            // Validation matching provider structure
+            $validator = Validator::make($request->all(), [
+                'status' => 'nullable|in:1,2,3,4,5', // Filter by status
+                'date_from' => 'nullable|date',
+                'date_to' => 'nullable|date|after_or_equal:date_from',
+                'payment_status' => 'nullable|in:1,2', // 1 = Paid, 2 = Unpaid
+                'per_page' => 'nullable|integer|min:1|max:100',
+                'page' => 'nullable|integer|min:1'
+            ]);
+
+            if ($validator->fails()) {
+                return $this->error_response('Validation error', $validator->errors());
+            }
+
+            // Build query with relationships
+            $query = Appointment::with([
+                'user:id,name,phone,email,photo',
                 'address',
                 'providerType',
-                'providerType.provider',
+                'providerType.provider:id,name_of_manager,phone,photo',
                 'providerType.type',
                 'appointmentServices.service'
-            ])
-                ->where('user_id', $user->id)
-                ->orderBy('created_at', 'desc');
+            ])->where('user_id', $user->id);
 
             // Filter by appointment status if provided
-            if ($request->has('appointment_status') && $request->appointment_status != '') {
-                $appointments->where('appointment_status', $request->appointment_status);
+            if ($request->filled('status')) {
+                $query->where('appointment_status', $request->status);
             }
 
             // Filter by payment status if provided
-            if ($request->has('payment_status') && $request->payment_status != '') {
-                $appointments->where('payment_status', $request->payment_status);
+            if ($request->filled('payment_status')) {
+                $query->where('payment_status', $request->payment_status);
             }
 
             // Filter by date range if provided
-            if ($request->has('from_date') && $request->from_date != '') {
-                $appointments->whereDate('date', '>=', $request->from_date);
+            if ($request->filled('date_from')) {
+                $query->whereDate('date', '>=', $request->date_from);
+            }
+            
+            if ($request->filled('date_to')) {
+                $query->whereDate('date', '<=', $request->date_to);
             }
 
-            if ($request->has('to_date') && $request->to_date != '') {
-                $appointments->whereDate('date', '<=', $request->to_date);
-            }
+            // Order by date (newest first) - matching provider structure
+            $query->orderBy('date', 'desc');
 
-            $appointments = $appointments->paginate(10);
+            // Pagination
+            $perPage = $request->get('per_page', 15);
+            $appointments = $query->paginate($perPage);
 
-            // Transform the data to include status labels and booking info
+            // Transform the data to include status labels and additional info
             $appointments->getCollection()->transform(function ($appointment) {
-                $appointment->appointment_status_label = $this->getAppointmentStatusLabel($appointment->appointment_status);
-                $appointment->payment_status_label = $this->getPaymentStatusLabel($appointment->payment_status);
+                // Status labels
+                $appointment->status_text = $this->getAppointmentStatusText($appointment->appointment_status);
+                $appointment->payment_status_text = $appointment->payment_status == 1 ? 'Paid' : 'Unpaid';
+                
+                // Provider info
                 $appointment->is_vip_label = $appointment->providerType->is_vip == 1 ? 'VIP' : 'Regular';
                 $appointment->booking_type = $appointment->providerType->type->booking_type ?? 'hourly';
+                
+                // Customer and service info
                 $appointment->total_customers = $this->getTotalCustomers($appointment);
+                
+                // User-specific flags
+                $appointment->can_cancel = in_array($appointment->appointment_status, [1, 2]); // Can cancel if Pending or Accepted
+                $appointment->can_rate = ($appointment->appointment_status == 4 && $appointment->payment_status == 1); // Can rate if delivered and paid
+                $appointment->requires_payment_selection = ($appointment->appointment_status == 4 && $appointment->payment_status == 2);
+                
+                // Add services summary for service-based appointments
+                if ($appointment->booking_type == 'service') {
+                    $appointment->services_summary = $this->getServicesSummary($appointment);
+                }
+
+                // Payment info for wallet users
+                if ($appointment->requires_payment_selection) {
+                    $appointment->payment_options = [
+                        'can_pay_with_wallet' => $appointment->user->balance >= $appointment->total_prices,
+                        'user_wallet_balance' => $appointment->user->balance,
+                        'required_amount' => $appointment->total_prices
+                    ];
+                }
+
                 return $appointment;
             });
 
-            return $this->success_response(
-                'Appointments retrieved successfully',
-                $appointments
-            );
+            return $this->success_response('Appointments retrieved successfully', [
+                'appointments' => $appointments,
+            ]);
+
         } catch (\Exception $e) {
             return $this->error_response(
                 'Failed to retrieve appointments',
@@ -742,4 +782,57 @@ class AppointmentController extends Controller
         }
     }
 
+    /**
+     * Get services summary for service-based appointments - matching provider method
+     */
+    private function getServicesSummary($appointment)
+    {
+        if (isset($appointment->providerType->type->booking_type) && 
+            $appointment->providerType->type->booking_type == 'service') {
+            
+            // Get aggregated services
+            $services = $appointment->appointmentServices->map(function($appointmentService) {
+                return [
+                    'name' => app()->getLocale() == 'ar' ? 
+                        $appointmentService->service->name_ar : 
+                        $appointmentService->service->name_en,
+                    'customer_count' => $appointmentService->customer_count,
+                    'service_price' => $appointmentService->service_price,
+                    'total_price' => $appointmentService->total_price
+                ];
+            });
+
+            // Get individual customer services grouped by person
+            $customerServices = $appointment->appointmentServices
+                ->groupBy('person_number')
+                ->map(function ($services, $personNumber) {
+                    return [
+                        'person_number' => $personNumber,
+                        'total_services' => $services->count(),
+                        'total_amount' => $services->sum('service_price'),
+                        'services' => $services->map(function ($service) {
+                            return [
+                                'service_id' => $service->service_id,
+                                'service_name' => app()->getLocale() == 'ar' ? 
+                                    $service->service->name_ar : 
+                                    $service->service->name_en,
+                                'service_price' => $service->service_price
+                            ];
+                        })->toArray()
+                    ];
+                })
+                ->values()
+                ->toArray();
+
+            return [
+                'services' => $services,
+                'total_services' => $services->count(),
+                'total_customers' => $services->sum('customer_count'),
+                'services_total' => $services->sum('total_price'),
+                'customer_services' => $customerServices
+            ];
+        }
+        
+        return null;
+    }
 }
