@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use App\Models\User;
+use App\Models\WalletTransaction;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
@@ -13,33 +15,22 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
+    
     public function index()
     {
-        $users = User::all();
+        // Get users with pagination (15 users per page)
+        $users = User::orderBy('created_at', 'desc')->paginate(15);
+        
         return view('admin.users.index', compact('users'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
+ 
     public function create()
     {
         return view('admin.users.create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
+   
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -158,12 +149,7 @@ class UserController extends Controller
             ->with('success', 'User updated successfully');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
+   
     public function destroy($id)
     {
         $user = User::findOrFail($id);
@@ -174,6 +160,58 @@ class UserController extends Controller
         return redirect()
             ->route('users.index')
             ->with('success', 'User deleted successfully');
+    }
+
+    public function updateWallet(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'amount' => 'required|numeric|min:0.01',
+            'type_of_transaction' => 'required|in:1,2',
+            'note' => 'nullable|string|max:500'
+        ]);
+
+        DB::beginTransaction();
+        
+        try {
+            $user = User::findOrFail($request->user_id);
+            $amount = $request->amount;
+            $transactionType = $request->type_of_transaction;
+            
+            // Calculate new balance
+            if ($transactionType == 1) {
+                // Add to wallet
+                $newBalance = $user->balance + $amount;
+            } else {
+                // Deduct from wallet
+                $newBalance = $user->balance - $amount;
+            }
+            
+            // Update user balance
+            $user->balance = $newBalance;
+            $user->save();
+            
+            // Create wallet transaction record
+            WalletTransaction::create([
+                'user_id' => $user->id,
+                'admin_id' => auth()->user()->id, // Assuming admin is logged in
+                'amount' => $amount,
+                'type_of_transaction' => $transactionType,
+                'note' => $request->note
+            ]);
+            
+            DB::commit();
+            
+            $message = $transactionType == 1 ? 
+                "Successfully added JD" . number_format($amount, 2) . " to " . $user->name . "'s wallet." :
+                "Successfully deducted JD" . number_format($amount, 2) . " from " . $user->name . "'s wallet.";
+                
+            return redirect()->back()->with('success', $message);
+            
+        } catch (\Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', 'An error occurred while updating the wallet: ' . $e->getMessage());
+        }
     }
 }
 

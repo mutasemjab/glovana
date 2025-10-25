@@ -257,6 +257,16 @@
                         </a>
                     </li>
                 @endcanany
+             
+                @canany(['deleteRequest-table', 'deleteRequest-add', 'deleteRequest-edit', 'deleteRequest-delete'])
+                    <li class="nav-item">
+                        <a href="{{ route('admin.provider-delete-requests.index') }}"
+                            class="nav-link {{ request()->routeIs('admin.provider-delete-requests.index') ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-file-alt"></i>
+                            <p>{{ __('messages.delete_account_requests') }}</p>
+                        </a>
+                    </li>
+                @endcanany
 
 
 
@@ -271,6 +281,15 @@
                         </a>
                         <ul class="nav nav-treeview">
 
+                            @canany(['points-report'])
+                                <li class="nav-item">
+                                    <a href="{{ route('reports.points') }}"
+                                        class="nav-link {{ request()->routeIs('reports.points') ? 'active' : '' }}">
+                                        <i class="fas fa-handshake nav-icon"></i>
+                                        <p>{{ __('messages.Points_Reports') }}</p>
+                                    </a>
+                                </li>
+                            @endcanany
                             @canany(['payment-report'])
                                 <li class="nav-item">
                                     <a href="{{ route('admin.payment.report') }}"

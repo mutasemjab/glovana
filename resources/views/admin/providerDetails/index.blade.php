@@ -122,6 +122,11 @@
                                                    class="btn btn-info btn-sm mb-1">
                                                     {{ __('messages.Availability') }}
                                                 </a>
+
+                                                <a href="{{ route('discounts.index', [$provider->id, $providerType->id]) }}" 
+                                                    class="btn btn-outline-success btn-sm">
+                                                        <i class="fas fa-percentage"></i> {{ __('messages.Manage_Discounts') }}
+                                                </a>
                                                 
                                                 <form action="{{ route('admin.providerDetails.destroy', [$provider->id, $providerType->id]) }}" 
                                                       method="POST" class="d-inline">

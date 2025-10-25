@@ -24,7 +24,7 @@ return new class extends Migration
             $table->text('fcm_token')->nullable();
             $table->double('balance')->default(0);
             $table->integer('total_points')->default(0);
-            $table->tinyInteger('activate')->default(1); // 1 yes //2 no
+            $table->tinyInteger('activate')->default(1); // 1 yes //2 no //3 waiting approve
             $table->rememberToken();
             $table->timestamps();
         });

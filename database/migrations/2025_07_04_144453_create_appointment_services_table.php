@@ -25,6 +25,13 @@ return new class extends Migration
             $table->foreign('appointment_id')->references('id')->on('appointments')->onDelete('cascade');
             $table->foreign('service_id')->references('id')->on('services')->onDelete('cascade');
     
+            $table->decimal('original_service_price', 10, 2)->nullable();
+            $table->double('service_discount_percentage')->default(0);
+            $table->decimal('service_discount_amount', 10, 2)->default(0);
+            $table->tinyInteger('has_service_discount')->default(2); // 1 = yes, 2 = no
+            
+            // Add index for performance
+            $table->index(['appointment_id', 'has_service_discount']);
             $table->timestamps();
         });
     }

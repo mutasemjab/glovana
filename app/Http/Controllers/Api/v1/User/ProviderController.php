@@ -25,6 +25,9 @@ class ProviderController extends Controller
 
                         ->with([
                             'type',
+                             'discounts' => function ($query) {
+                                $query->active()->current()->with('services');
+                            },
                             'services.service',
                             'providerServices.service', // Add provider services with pricing
                             'images' => function ($query) {
@@ -235,6 +238,9 @@ class ProviderController extends Controller
                         ->where('is_vip', 1)
                         ->with([
                             'type',
+                             'discounts' => function ($query) {
+                                $query->active()->current()->with('services');
+                            },
                             'services.service',
                             'providerServices.service',
                             'images'
@@ -342,6 +348,9 @@ class ProviderController extends Controller
                         $query->where('activate', 1)
                             ->with([
                                 'type',
+                                 'discounts' => function ($query) {
+                                    $query->active()->current()->with('services');
+                                },
                                 'services.service',
                                 'providerServices.service',
                                 'images'
@@ -497,6 +506,9 @@ class ProviderController extends Controller
 
                             ->with([
                                 'type',
+                                 'discounts' => function ($query) {
+                                $query->active()->current()->with('services');
+                            },
                                 'services.service',
                                 'providerServices.service',
                                 'images',
@@ -527,15 +539,18 @@ class ProviderController extends Controller
         }
     }
 
-    public function getProviderDetails($providerId)
+     public function getProviderDetails($providerId)
     {
         try {
+            // Load provider with all needed relations
             $provider = Provider::with([
                 'providerTypes' => function ($query) {
                     $query->where('activate', 1)
-
                         ->with([
                             'type',
+                            'discounts' => function ($query) {
+                                $query->active()->current()->with('services');
+                            },
                             'services.service',
                             'providerServices.service',
                             'images',
@@ -546,24 +561,64 @@ class ProviderController extends Controller
                             'unavailabilities' => function ($query) {
                                 $query->where('unavailable_date', '>=', now()->toDateString())
                                     ->orderBy('unavailable_date');
-                            }
+                            },
+                            'ratings.user'
                         ]);
                 }
             ])
                 ->where('activate', 1)
                 ->find($providerId);
 
+            // If provider not found
             if (!$provider) {
                 return $this->error_response('Provider not found', null);
             }
 
+            // Transform provider data using your transformer method
             $providerData = $this->transformProviderData($provider, true);
+
+            /** ✅ Provider overall average rating (based on ProviderType accessors) */
+            $providerAvg = $provider->providerTypes->avg('avg_rating');
+            $providerData['avg_rating'] = round($providerAvg ?? 0, 1);
+
+            /** ✅ Find similar providers (same type_id as first providerType) */
+            $firstTypeId = optional($provider->providerTypes->first())->type_id;
+
+            $similarProviders = collect();
+            if ($firstTypeId) {
+                $similarProviders = Provider::whereHas('providerTypes', function ($query) use ($firstTypeId, $providerId) {
+                    $query->where('type_id', $firstTypeId)
+                        ->where('activate', 1);
+                })
+                    ->where('activate', 1)
+                    ->where('id', '!=', $providerId)
+                    ->with([
+                        'providerTypes' => function ($query) {
+                            $query->where('activate', 1)
+                                ->with([
+                                    'type',
+                                    'images',
+                                    'services.service',
+                                    'providerServices.service'
+                                ]);
+                        }
+                    ])
+                    ->take(5)
+                    ->get()
+                    ->map(function ($similar) {
+                        return $this->transformProviderData($similar, false);
+                    });
+            }
+
+            /** ✅ Add similar providers to response */
+            $providerData['similar_providers'] = $similarProviders;
 
             return $this->success_response('Provider details retrieved successfully', $providerData);
         } catch (\Exception $e) {
             return $this->error_response('Failed to retrieve provider details', $e->getMessage());
         }
     }
+
 
     /**
      * Get services with prices for a specific provider type

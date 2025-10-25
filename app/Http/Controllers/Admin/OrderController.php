@@ -24,7 +24,7 @@ class OrderController extends Controller
             $query = Order::with([
                 'user:id,name,phone,email',
                 'address',
-                'orderProducts.product:id,name,image'
+                'orderProducts.product'
             ])->orderBy('created_at', 'desc');
 
             // Filter by order status
@@ -92,7 +92,7 @@ class OrderController extends Controller
             $order = Order::with([
                 'user:id,name,phone,email,country_code',
                 'address',
-                'orderProducts.product:id,name,image,description'
+                'orderProducts.product'
             ])->findOrFail($id);
 
             $order->order_status_label = $this->getOrderStatusLabel($order->order_status);

@@ -15,16 +15,16 @@ use Illuminate\Support\Str;
 
 class ProviderController extends Controller
 {
-   
+
     public function index(Request $request)
     {
         $query = Provider::query();
-        
+
         // Filter by activation status
         if ($request->has('status') && $request->status != '') {
             $query->where('activate', $request->status);
         }
-        
+
         // Filter by balance type (positive/negative)
         if ($request->has('balance_type') && $request->balance_type != '') {
             if ($request->balance_type == 'positive') {
@@ -35,25 +35,35 @@ class ProviderController extends Controller
                 $query->where('balance', '=', 0);
             }
         }
-        
+
         // Filter by minimum balance
         if ($request->has('min_balance') && $request->min_balance != '') {
             $query->where('balance', '>=', $request->min_balance);
         }
-        
+
         // Filter by maximum balance
         if ($request->has('max_balance') && $request->max_balance != '') {
             $query->where('balance', '<=', $request->max_balance);
         }
-        
+
         // Search by name
         if ($request->has('search') && $request->search != '') {
             $query->where('name_of_manager', 'like', '%' . $request->search . '%');
         }
-        
+
+        // NEW: Filter by provider type
+        if ($request->has('type_id') && $request->type_id != '') {
+            $query->whereHas('providerTypes', function ($q) use ($request) {
+                $q->where('type_id', $request->type_id);
+            });
+        }
+
         $providers = $query->orderBy('created_at', 'desc')->get();
-        
-        return view('admin.providers.index', compact('providers'));
+
+        // Get all types for the filter dropdown
+        $types = \App\Models\Type::all(); // Adjust the namespace according to your Type model
+
+        return view('admin.providers.index', compact('providers', 'types'));
     }
 
     /**
@@ -93,14 +103,14 @@ class ProviderController extends Controller
         }
 
         $userData = $request->except('photo_of_manager');
-    
+
 
         // Handle photo upload
         if ($request->has('photo_of_manager')) {
-                $the_file_path = uploadImage('assets/admin/uploads', $request->photo_of_manager);
-                 $userData['photo_of_manager'] = $the_file_path;
-             }
-                
+            $the_file_path = uploadImage('assets/admin/uploads', $request->photo_of_manager);
+            $userData['photo_of_manager'] = $the_file_path;
+        }
+
         $providerData['password'] = Hash::make($request->password);
 
         Provider::create($userData);
@@ -119,7 +129,7 @@ class ProviderController extends Controller
     public function show($id)
     {
         $provider = Provider::findOrFail($id);
-        
+
         return view('admin.providers.show', compact('provider'));
     }
 
@@ -132,7 +142,7 @@ class ProviderController extends Controller
     public function edit($id)
     {
         $provider = Provider::findOrFail($id);
-        
+
         return view('admin.providers.edit', compact('provider'));
     }
 
@@ -165,16 +175,16 @@ class ProviderController extends Controller
                 ->withInput();
         }
 
-        $providerData = $request->except('photo_of_manager','password');
+        $providerData = $request->except('photo_of_manager', 'password');
 
         // Handle photo_of_manager upload
-          if ($request->has('photo_of_manager')) {
-                $the_file_path = uploadImage('assets/admin/uploads', $request->photo_of_manager);
-                $providerData['photo_of_manager'] = $the_file_path;
-             }
-          if ($request->has('password')) {
-                $providerData['password'] = Hash::make($request->password);
-             }
+        if ($request->has('photo_of_manager')) {
+            $the_file_path = uploadImage('assets/admin/uploads', $request->photo_of_manager);
+            $providerData['photo_of_manager'] = $the_file_path;
+        }
+      if ($request->filled('password')) {
+            $providerData['password'] = Hash::make($request->password);
+        }
 
         $provider->update($providerData);
 
@@ -192,8 +202,8 @@ class ProviderController extends Controller
     public function destroy($id)
     {
         $provider = Provider::findOrFail($id);
-        
-        
+
+
         $provider->delete();
 
         return redirect()
@@ -201,4 +211,54 @@ class ProviderController extends Controller
             ->with('success', 'provider deleted successfully');
     }
 
+    public function updateProviderWallet(Request $request)
+    {
+        $request->validate([
+            'provider_id' => 'required|exists:providers,id',
+            'amount' => 'required|numeric|min:0.01',
+            'type_of_transaction' => 'required|in:1,2',
+            'note' => 'nullable|string|max:500'
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $provider = Provider::findOrFail($request->provider_id);
+            $amount = $request->amount;
+            $transactionType = $request->type_of_transaction;
+
+            // Calculate new balance
+            if ($transactionType == 1) {
+                // Add to wallet
+                $newBalance = $provider->balance + $amount;
+            } else {
+                // Deduct from wallet
+                $newBalance = $provider->balance - $amount;
+            }
+
+            // Update provider balance
+            $provider->balance = $newBalance;
+            $provider->save();
+
+            // Create wallet transaction record
+            WalletTransaction::create([
+                'provider_id' => $provider->id,
+                'admin_id' => auth()->user()->id,
+                'amount' => $amount,
+                'type_of_transaction' => $transactionType,
+                'note' => $request->note
+            ]);
+
+            DB::commit();
+
+            $message = $transactionType == 1 ?
+                "Successfully added " . number_format($amount, 2) . " JD to " . $provider->name_of_manager . "'s wallet." :
+                "Successfully deducted " . number_format($amount, 2) . " JD from " . $provider->name_of_manager . "'s wallet.";
+
+            return redirect()->back()->with('success', $message);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', 'An error occurred while updating the wallet: ' . $e->getMessage());
+        }
+    }
 }

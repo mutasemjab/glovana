@@ -11,7 +11,13 @@ class OrderReportController extends Controller
 {
     public function index()
     {
-        return view('reports.ordersReport');
+        // Get delivery options for filter dropdown with place names
+        $deliveries = DB::table('deliveries')
+            ->select('id', 'place')
+            ->orderBy('place')
+            ->get();
+
+        return view('reports.ordersReport', compact('deliveries'));
     }
 
     public function generate(Request $request)
@@ -24,6 +30,7 @@ class OrderReportController extends Controller
             'payment_status' => 'nullable|integer|in:1,2',
             'payment_type' => 'nullable|string',
             'user_id' => 'nullable|exists:users,id',
+            'delivery_id' => 'nullable|integer', // Add delivery_id validation
             'report_type' => 'required|in:summary,detailed'
         ]);
 
@@ -53,6 +60,11 @@ class OrderReportController extends Controller
             $ordersQuery->where('orders.user_id', $request->user_id);
         }
 
+        // Add delivery filter
+        if ($request->filled('delivery_id')) {
+            $ordersQuery->where('user_addresses.delivery_id', $request->delivery_id);
+        }
+
         // Generate summary statistics
         $summary = $this->generateSummary($ordersQuery, $startDate, $endDate);
 
@@ -70,8 +82,11 @@ class OrderReportController extends Controller
                     'users.phone as customer_phone',
                     'user_addresses.address_line_1',
                     'user_addresses.city',
-                    'user_addresses.state'
+                    'user_addresses.state',
+                    'user_addresses.delivery_id',
+                    'deliveries.place as delivery_place' // Add delivery place to select
                 )
+                ->leftJoin('deliveries', 'user_addresses.delivery_id', '=', 'deliveries.id') // Join with deliveries table
                 ->orderBy('orders.date', 'desc')
                 ->paginate(50)
                 ->withQueryString();
@@ -93,6 +108,12 @@ class OrderReportController extends Controller
             ->whereNotNull('payment_type')
             ->pluck('payment_type');
 
+        // Get deliveries for filter dropdown with place names
+        $deliveries = DB::table('deliveries')
+            ->select('id', 'place')
+            ->orderBy('place')
+            ->get();
+
         return view('reports.ordersReport', compact(
             'orders',
             'summary',
@@ -100,6 +121,7 @@ class OrderReportController extends Controller
             'topProducts',
             'users',
             'paymentTypes',
+            'deliveries', // Add deliveries to compact
             'startDate',
             'endDate'
         ));
@@ -132,39 +154,7 @@ class OrderReportController extends Controller
     private function getDailyStats($startDate, $endDate, $request)
     {
         $query = DB::table('orders')
-            ->whereBetween('date', [$startDate, $endDate]);
-
-        // Apply same filters as main query
-        if ($request->filled('order_status')) {
-            $query->whereIn('order_status', $request->order_status);
-        }
-        if ($request->filled('payment_status')) {
-            $query->where('payment_status', $request->payment_status);
-        }
-        if ($request->filled('payment_type')) {
-            $query->where('payment_type', $request->payment_type);
-        }
-        if ($request->filled('user_id')) {
-            $query->where('user_id', $request->user_id);
-        }
-
-        return $query
-            ->select(
-                DB::raw('DATE(date) as order_date'),
-                DB::raw('COUNT(*) as orders_count'),
-                DB::raw('SUM(total_prices) as daily_revenue'),
-                DB::raw('AVG(total_prices) as avg_order_value')
-            )
-            ->groupBy(DB::raw('DATE(date)'))
-            ->orderBy('order_date')
-            ->get();
-    }
-
-    private function getTopProducts($startDate, $endDate, $request)
-    {
-        $query = DB::table('order_products')
-            ->join('orders', 'order_products.order_id', '=', 'orders.id')
-            ->join('products', 'order_products.product_id', '=', 'products.id')
+            ->leftJoin('user_addresses', 'orders.address_id', '=', 'user_addresses.id') // Add join for delivery filter
             ->whereBetween('orders.date', [$startDate, $endDate]);
 
         // Apply same filters as main query
@@ -179,6 +169,48 @@ class OrderReportController extends Controller
         }
         if ($request->filled('user_id')) {
             $query->where('orders.user_id', $request->user_id);
+        }
+        // Add delivery filter to daily stats
+        if ($request->filled('delivery_id')) {
+            $query->where('user_addresses.delivery_id', $request->delivery_id);
+        }
+
+        return $query
+            ->select(
+                DB::raw('DATE(orders.date) as order_date'),
+                DB::raw('COUNT(*) as orders_count'),
+                DB::raw('SUM(orders.total_prices) as daily_revenue'),
+                DB::raw('AVG(orders.total_prices) as avg_order_value')
+            )
+            ->groupBy(DB::raw('DATE(orders.date)'))
+            ->orderBy('order_date')
+            ->get();
+    }
+
+    private function getTopProducts($startDate, $endDate, $request)
+    {
+        $query = DB::table('order_products')
+            ->join('orders', 'order_products.order_id', '=', 'orders.id')
+            ->join('products', 'order_products.product_id', '=', 'products.id')
+            ->leftJoin('user_addresses', 'orders.address_id', '=', 'user_addresses.id') // Add join for delivery filter
+            ->whereBetween('orders.date', [$startDate, $endDate]);
+
+        // Apply same filters as main query
+        if ($request->filled('order_status')) {
+            $query->whereIn('orders.order_status', $request->order_status);
+        }
+        if ($request->filled('payment_status')) {
+            $query->where('orders.payment_status', $request->payment_status);
+        }
+        if ($request->filled('payment_type')) {
+            $query->where('orders.payment_type', $request->payment_type);
+        }
+        if ($request->filled('user_id')) {
+            $query->where('orders.user_id', $request->user_id);
+        }
+        // Add delivery filter to top products
+        if ($request->filled('delivery_id')) {
+            $query->where('user_addresses.delivery_id', $request->delivery_id);
         }
 
         return $query
@@ -197,9 +229,6 @@ class OrderReportController extends Controller
 
     public function export(Request $request)
     {
-        // You can implement CSV/PDF export here
-        // For now, let's return a simple CSV download
-        
         $request->validate([
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
@@ -210,8 +239,16 @@ class OrderReportController extends Controller
 
         $orders = DB::table('orders')
             ->leftJoin('users', 'orders.user_id', '=', 'users.id')
-            ->whereBetween('orders.date', [$startDate, $endDate])
-            ->select(
+            ->leftJoin('user_addresses', 'orders.address_id', '=', 'user_addresses.id') // Add join for export
+            ->leftJoin('deliveries', 'user_addresses.delivery_id', '=', 'deliveries.id') // Join with deliveries table
+            ->whereBetween('orders.date', [$startDate, $endDate]);
+
+        // Apply delivery filter to export if present
+        if ($request->filled('delivery_id')) {
+            $orders->where('user_addresses.delivery_id', $request->delivery_id);
+        }
+
+        $orders = $orders->select(
                 'orders.number',
                 'orders.date',
                 'orders.order_status',
@@ -222,7 +259,9 @@ class OrderReportController extends Controller
                 'orders.delivery_fee',
                 'orders.total_discounts',
                 'users.name as customer_name',
-                'users.email as customer_email'
+                'users.email as customer_email',
+                'user_addresses.delivery_id',
+                'deliveries.place as delivery_place' // Add delivery place to export
             )
             ->orderBy('orders.date', 'desc')
             ->get();
@@ -249,7 +288,9 @@ class OrderReportController extends Controller
                 'Delivery Fee',
                 'Discounts',
                 'Customer Name',
-                'Customer Email'
+                'Customer Email',
+                'Delivery ID',
+                'Delivery Place' // Add delivery place to CSV headers
             ]);
 
             // CSV Data
@@ -265,7 +306,9 @@ class OrderReportController extends Controller
                     $order->delivery_fee,
                     $order->total_discounts,
                     $order->customer_name,
-                    $order->customer_email
+                    $order->customer_email,
+                    $order->delivery_id,
+                    $order->delivery_place // Add delivery place to CSV data
                 ]);
             }
 

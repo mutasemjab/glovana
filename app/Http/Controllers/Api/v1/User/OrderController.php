@@ -128,6 +128,9 @@ class OrderController extends Controller
                 'note' => $request->note
             ]);
 
+             $order->number = $order->id;
+             $order->save();
+
             foreach ($orderProducts as &$op) {
                 $op['order_id'] = $order->id;
             }

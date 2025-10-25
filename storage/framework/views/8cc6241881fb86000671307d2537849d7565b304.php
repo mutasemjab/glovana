@@ -260,6 +260,16 @@
                         </a>
                     </li>
                 <?php endif; ?>
+             
+                <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->any(['deleteRequest-table', 'deleteRequest-add', 'deleteRequest-edit', 'deleteRequest-delete'])): ?>
+                    <li class="nav-item">
+                        <a href="<?php echo e(route('admin.provider-delete-requests.index')); ?>"
+                            class="nav-link <?php echo e(request()->routeIs('admin.provider-delete-requests.index') ? 'active' : ''); ?>">
+                            <i class="nav-icon fas fa-file-alt"></i>
+                            <p><?php echo e(__('messages.delete_account_requests')); ?></p>
+                        </a>
+                    </li>
+                <?php endif; ?>
 
 
 
@@ -275,6 +285,15 @@
                         </a>
                         <ul class="nav nav-treeview">
 
+                            <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->any(['points-report'])): ?>
+                                <li class="nav-item">
+                                    <a href="<?php echo e(route('reports.points')); ?>"
+                                        class="nav-link <?php echo e(request()->routeIs('reports.points') ? 'active' : ''); ?>">
+                                        <i class="fas fa-handshake nav-icon"></i>
+                                        <p><?php echo e(__('messages.Points_Reports')); ?></p>
+                                    </a>
+                                </li>
+                            <?php endif; ?>
                             <?php if (app(\Illuminate\Contracts\Auth\Access\Gate::class)->any(['payment-report'])): ?>
                                 <li class="nav-item">
                                     <a href="<?php echo e(route('admin.payment.report')); ?>"

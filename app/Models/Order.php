@@ -12,6 +12,9 @@ class Order extends Model
     use HasFactory, LogsActivity;
 
     protected $guarded = [];
+    protected $casts = [
+        'date'=>'date'
+    ];
 
     public function getActivitylogOptions(): LogOptions
     {
@@ -30,6 +33,10 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+    public function address()
+    {
+        return $this->belongsTo(UserAddress::class);
     }
 
     public function orderProducts() 

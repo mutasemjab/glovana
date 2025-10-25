@@ -1119,6 +1119,425 @@ return [
     'Detailed_Report_Description' => 'تاريخ المعاملات التفصيلي مع المرشحات.',
     'Movements_Report_Description' => 'جميع حركات المخزون والمعاملات.',
     'activity-logs' => 'سجلات التتبع',
+      'delete_account_requests' => 'طلبات حذف الحساب',
+    'provider_delete_requests' => 'طلبات حذف حسابات مقدمي الخدمة',
+    'provider_deletion_details' => 'تفاصيل طلب حذف مقدم الخدمة',
+    
+    // Table headers
+    'id' => 'الرقم التعريفي',
+    'provider_info' => 'معلومات مقدم الخدمة',
+    'contact_info' => 'معلومات الاتصال',
+    'business_stats' => 'إحصائيات العمل',
+    'status' => 'الحالة',
+    'request_date' => 'تاريخ الطلب',
+    'actions' => 'الإجراءات',
+    
+    // Provider information
+    'name' => 'الاسم',
+    'phone' => 'الهاتف',
+    'email' => 'البريد الإلكتروني',
+    'member_since' => 'عضو منذ',
+    'joined_date' => 'تاريخ الانضمام',
+    'not_provided' => 'غير متوفر',
+    
+    // Financial information
+    'balance' => 'الرصيد',
+    'points' => 'النقاط',
+    'current_balance' => 'الرصيد الحالي',
+    'total_points' => 'إجمالي النقاط',
+    'financial_information' => 'المعلومات المالية',
+    'recent_wallet_transactions' => 'المعاملات المالية الأخيرة',
+    'date' => 'التاريخ',
+    'amount' => 'المبلغ',
+    'type' => 'النوع',
+    
+    // Services information
+    'services' => 'الخدمات',
+    'services_information' => 'معلومات الخدمات',
+    'price_per_hour' => 'السعر في الساعة',
+    'vip_service' => 'خدمة مميزة',
+    'no_services_registered' => 'لا توجد خدمات مسجلة',
+    
+    // Appointments
+    'appointments' => 'المواعيد',
+    'appointments_history' => 'تاريخ المواعيد',
+    'total_appointments' => 'إجمالي المواعيد',
+    'appointment_number' => 'رقم الموعد',
+    'total_price' => 'إجمالي السعر',
+    'no_appointments_found' => 'لم يتم العثور على مواعيد',
+    'recent_appointments' => 'المواعيد الأخيرة',
+    
+    // Appointment statuses
+    'pending' => 'قيد الانتظار',
+    'accepted' => 'مقبول',
+    'on_the_way' => 'في الطريق',
+    'delivered' => 'تم التسليم',
+    'cancelled' => 'ملغي',
+    'completed' => 'مكتمل',
+    'started' => 'بدأ',
+    'arrived' => 'وصل',
+    
+    // Provider statuses
+    'active' => 'نشط',
+    'inactive' => 'غير نشط',
+    'waiting_approval' => 'في انتظار الموافقة',
+    
+    // Ratings and reviews
+    'ratings_reviews' => 'التقييمات والمراجعات',
+    'from' => 'من',
+    'reviews' => 'مراجعة',
+    'recent_reviews' => 'المراجعات الأخيرة',
+    
+    // Basic information
+    'basic_information' => 'المعلومات الأساسية',
+    
+    // Action buttons
+    'view_details' => 'عرض التفاصيل',
+    'approve' => 'موافقة',
+    'reject' => 'رفض',
+    'approve_deletion' => 'الموافقة على الحذف',
+    'reject_deletion' => 'رفض الحذف',
+    'close' => 'إغلاق',
+    
+    // Messages and alerts
+    'no_delete_requests_found' => 'لم يتم العثور على طلبات حذف',
+    'are_you_sure' => 'هل أنت متأكد؟',
+    'approve_delete_warning' => 'سيؤدي هذا إلى حذف حساب مقدم الخدمة وجميع البيانات المرتبطة به نهائياً. لا يمكن التراجع عن هذا الإجراء!',
+    'reject_deletion_request' => 'رفض طلب الحذف',
+    'reason_for_rejection' => 'سبب الرفض',
+    'enter_reason' => 'أدخل سبب الرفض',
+    'reason_required' => 'يرجى تقديم سبب للرفض',
+    'yes_approve' => 'نعم، موافق',
+    'yes_reject' => 'نعم، رفض',
+    'cancel' => 'إلغاء',
+    'approved' => 'تمت الموافقة!',
+    'rejected' => 'تم الرفض!',
+    'error' => 'خطأ!',
+    'something_went_wrong' => 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
+    
+    // Edit appointment (as requested in original message)
+    'edit_appointment' => 'تعديل الموعد',
+    // Points related translations
+    'Points' => 'النقاط',
+    'Points_History' => 'تاريخ النقاط',
+    'Total_Points' => 'إجمالي النقاط',
+    'Current_Points' => 'النقاط الحالية',
+    'Add_Points' => 'إضافة نقاط',
+    'Deduct_Points' => 'خصم نقاط',
+    'Manage_Points' => 'إدارة النقاط',
+    'Update_Points' => 'تحديث النقاط',
+    'Points_Amount' => 'عدد النقاط',
+    'pts' => 'نقطة',
+    
+    // Transaction types
+    'Added' => 'مضافة',
+    'Deducted' => 'مخصومة',
+    'Transaction_Type' => 'نوع المعاملة',
+    'Select_Transaction_Type' => 'اختر نوع المعاملة',
+    'Transaction_History' => 'تاريخ المعاملات',
+    
+    // Summary statistics
+    'Total_Earned' => 'إجمالي المكتسب',
+    'Total_Deducted' => 'إجمالي المخصوم',
+    'Total_Transactions' => 'إجمالي المعاملات',
+    'Current_Balance' => 'الرصيد الحالي',
+    
+    // Table headers
+    'Date' => 'التاريخ',
+    'Type' => 'النوع',
+    'Performed_By' => 'تم بواسطة',
+    'Note' => 'ملاحظة',
+    'No_Note' => 'لا توجد ملاحظة',
+    
+    // Filters
+    'Filter' => 'تصفية',
+    'Clear' => 'مسح',
+    'All_Types' => 'جميع الأنواع',
+    
+    // Roles
+    'Admin' => 'المدير',
+    'Provider' => 'مقدم الخدمة',
+    'System' => 'النظام',
+    
+    // Form elements
+    'Preview' => 'معاينة',
+    'Optional' => 'اختياري',
+    'Cancel' => 'إلغاء',
+    'Add_Note_Placeholder' => 'إضافة ملاحظة لهذه المعاملة...',
+    
+    // Actions text
+    'ADD' => 'إضافة',
+    'DEDUCT' => 'خصم',
+    'New_Points_Total' => 'إجمالي النقاط الجديد',
+    'NEGATIVE_POINTS' => 'نقاط سالبة',
+    
+    // Confirmations
+    'Negative_Points_Confirmation' => 'سيؤدي هذا إلى نقاط سالبة. هل أنت متأكد من أنك تريد المتابعة؟',
+    
+    // Navigation
+    'Back_to_Users' => 'العودة للمستخدمين',
+    
+    // Empty states
+    'No_Transactions_Found' => 'لم يتم العثور على معاملات',
+    'No_Point_Transactions_Message' => 'هذا المستخدم ليس لديه تاريخ معاملات نقاط حتى الآن.',
+    'Points' => 'النقاط',
+    'Points_History' => 'تاريخ النقاط',
+    'Total_Points' => 'إجمالي النقاط',
+    'Current_Points' => 'النقاط الحالية',
+    'Add_Points' => 'إضافة نقاط',
+    'Deduct_Points' => 'خصم نقاط',
+    'Manage_Points' => 'إدارة النقاط',
+    'Update_Points' => 'تحديث النقاط',
+    'Points_Amount' => 'عدد النقاط',
+    'pts' => 'نقطة',
+    
+    // Transaction types
+    'Added' => 'مضافة',
+    'Deducted' => 'مخصومة',
+    'Transaction_Type' => 'نوع المعاملة',
+    'Select_Transaction_Type' => 'اختر نوع المعاملة',
+    'Transaction_History' => 'تاريخ المعاملات',
+    
+    // Summary statistics
+    'Total_Earned' => 'إجمالي المكتسب',
+    'Total_Deducted' => 'إجمالي المخصوم',
+    'Total_Transactions' => 'إجمالي المعاملات',
+    'Current_Balance' => 'الرصيد الحالي',
+    
+    // Table headers
+    'Date' => 'التاريخ',
+    'Type' => 'النوع',
+    'Performed_By' => 'تم بواسطة',
+    'Note' => 'ملاحظة',
+    'No_Note' => 'لا توجد ملاحظة',
+    
+    // Filters
+    'Filter' => 'تصفية',
+    'Clear' => 'مسح',
+    'All_Types' => 'جميع الأنواع',
+    
+    // Roles
+    'Admin' => 'المدير',
+    'Provider' => 'مقدم الخدمة',
+    'System' => 'النظام',
+    
+    // Form elements
+    'Preview' => 'معاينة',
+    'Optional' => 'اختياري',
+    'Cancel' => 'إلغاء',
+    'Add_Note_Placeholder' => 'إضافة ملاحظة لهذه المعاملة...',
+    
+    // Actions text
+    'ADD' => 'إضافة',
+    'DEDUCT' => 'خصم',
+    'New_Points_Total' => 'إجمالي النقاط الجديد',
+    'NEGATIVE_POINTS' => 'نقاط سالبة',
+    
+    // Confirmations
+    'Negative_Points_Confirmation' => 'سيؤدي هذا إلى نقاط سالبة. هل أنت متأكد من أنك تريد المتابعة؟',
+    
+    // Navigation
+    'Back_to_Users' => 'العودة للمستخدمين',
+    
+    // Empty states
+    'No_Transactions_Found' => 'لم يتم العثور على معاملات',
+    'No_Point_Transactions_Message' => 'هذا المستخدم ليس لديه تاريخ معاملات نقاط حتى الآن.',
+     'Points_Reports' => 'تقارير النقاط',
+    'Export_Report' => 'تصدير التقرير',
+    'Export_Users_Report' => 'تصدير تقرير المستخدمين',
+    'Export_Transactions_Report' => 'تصدير تقرير المعاملات',
+    'Export_Summary_Report' => 'تصدير التقرير الموجز',
+    'Filters' => 'المرشحات',
+    'Date_From' => 'من تاريخ',
+    'Date_To' => 'إلى تاريخ',
+    'Earned_Only' => 'المكتسبة فقط',
+    'Deducted_Only' => 'المخصومة فقط',
+    'Top_Users_Limit' => 'حد المستخدمين الأوائل',
+    'Top_5' => 'أفضل 5',
+    'Top_10' => 'أفضل 10',
+    'Top_20' => 'أفضل 20',
+    'Top_50' => 'أفضل 50',
+    'Apply_Filters' => 'تطبيق المرشحات',
+    'Period_Points_Earned' => 'النقاط المكتسبة في الفترة',
+    'Period_Points_Deducted' => 'النقاط المخصومة في الفترة',
+    'Period_Transactions' => 'معاملات الفترة',
+    'Active_Users_Period' => 'المستخدمون النشطون (الفترة)',
+    'Daily_Points_Activity' => 'النشاط اليومي للنقاط',
+    'Points_Distribution' => 'توزيع النقاط',
+    'Top_Points_Earners' => 'أكبر جامعي النقاط',
+    'Top_Points_Spenders' => 'أكبر منفقي النقاط',
+    'Period' => 'الفترة',
+    'Rank' => 'الترتيب',
+    'User' => 'المستخدم',
+    'Period_Points' => 'نقاط الفترة',
+    'Transactions' => 'المعاملات',
+    'No_Earners_Found' => 'لم يتم العثور على جامعي نقاط في هذه الفترة',
+    'No_Spenders_Found' => 'لم يتم العثور على منفقي نقاط في هذه الفترة',
+    'Top_Performing_Admins' => 'المديرون الأفضل أداءً',
+    'Top_Performing_Providers' => 'مقدمو الخدمة الأفضل أداءً',
+    'Points_Added' => 'النقاط المضافة',
+    'Points_Deducted' => 'النقاط المخصومة',
+    'No_Admin_Activity' => 'لا يوجد نشاط للمديرين في هذه الفترة',
+    'No_Provider_Activity' => 'لا يوجد نشاط لمقدمي الخدمة في هذه الفترة',
+    'Overall_Platform_Statistics' => 'إحصائيات المنصة الإجمالية',
+    'Total_Platform_Users' => 'إجمالي مستخدمي المنصة',
+    'Total_Platform_Points' => 'إجمالي نقاط المنصة',
+    'Average_Points_Per_User' => 'متوسط النقاط لكل مستخدم',
+    'All_Time_Transactions' => 'جميع المعاملات عبر الوقت',
+    'Points_Earned' => 'النقاط المكتسبة',
+    'users' => 'مستخدمين',
+    'Auto_Refresh_Confirmation' => 'تحديث التقرير بأحدث البيانات؟',
+    'Transactions_Count' => 'عدد المعاملات',
+    'Avg_Transaction' => 'متوسط المعاملة',
+    'Discounts' => 'الخصومات',
+    'Add_Discount' => 'إضافة خصم',
+    'Add_First_Discount' => 'إضافة أول خصم',
+    'Create_Discount' => 'إنشاء خصم',
+    'Edit_Discount' => 'تعديل الخصم',
+    'Update_Discount' => 'تحديث الخصم',
+    'Delete_Discount' => 'حذف الخصم',
+    'Manage_Discounts' => 'إدارة الخصومات',
+    'No_Discounts_Found' => 'لا توجد خصومات',
+    'Create_First_Discount_Message' => 'قم بإنشاء أول خصم لك لبدء تقديم أسعار خاصة للعملاء.',
+    'Discount_Created_Successfully' => 'تم إنشاء الخصم بنجاح',
+    'Discount_Updated_Successfully' => 'تم تحديث الخصم بنجاح',
+    'Discount_Deleted_Successfully' => 'تم حذف الخصم بنجاح',
+    'Discount_Status_Updated' => 'تم تحديث حالة الخصم بنجاح',
+    'Confirm_Delete_Discount' => 'هل أنت متأكد من حذف هذا الخصم؟',
+
+    // Discount Fields
+    'Discount_Name' => 'اسم الخصم',
+    'Discount_Type' => 'نوع الخصم',
+    'Discount_Percentage' => 'نسبة الخصم',
+    'Discount_Settings' => 'إعدادات الخصم',
+    'Basic_Information' => 'المعلومات الأساسية',
+    'Description' => 'الوصف',
+    'Percentage' => 'النسبة المئوية',
+    'Start_Date' => 'تاريخ البداية',
+    'End_Date' => 'تاريخ النهاية',
+    'Date_Range' => 'المدة الزمنية',
+    'From' => 'من',
+    'To' => 'إلى',
+    'Status' => 'الحالة',
+    'Active' => 'نشط',
+    'Inactive' => 'غير نشط',
+    'Activate' => 'تفعيل',
+    'Deactivate' => 'إلغاء التفعيل',
+
+    // Discount Types
+    'Select_Discount_Type' => 'اختر نوع الخصم',
+    'Hourly_Pricing_Only' => 'التسعير بالساعة فقط',
+    'Service_Pricing_Only' => 'تسعير الخدمات فقط',
+    'Both_Hourly_and_Service' => 'كلا من التسعير بالساعة والخدمات',
+    'Hourly' => 'بالساعة',
+    'Service' => 'الخدمة',
+    'Both' => 'كلاهما',
+    'Applied_to_hourly_rate' => 'مطبق على السعر بالساعة فقط',
+    'Applied_to_individual_services' => 'مطبق على أسعار الخدمات الفردية',
+    'Applied_to_both_pricing_types' => 'مطبق على كلا من التسعير بالساعة والخدمات',
+
+    // Service Selection
+    'Apply_to_Services' => 'تطبيق على الخدمات',
+    'Apply_to_All_Services' => 'تطبيق على جميع الخدمات',
+    'All_Services' => 'جميع الخدمات',
+    'Selected_Services' => 'الخدمات المحددة',
+    'Services' => 'الخدمات',
+    'Services_with_Pricing' => 'الخدمات مع التسعير',
+    'Select_Multiple_Services' => 'حدد الخدمات المتعددة التي ينطبق عليها هذا الخصم',
+    'Leave_unchecked_for_specific_services' => 'اتركه غير محدد لاختيار خدمات محددة أدناه',
+    'If_no_services_selected_applies_to_all' => 'إذا لم يتم اختيار خدمات محددة، ينطبق الخصم على جميع الخدمات',
+    'Enter_Price_For_Each_Service' => 'أدخل السعر لكل خدمة تريد تقديمها',
+    'Leave_Empty_To_Exclude_Service' => 'اتركه فارغًا لاستبعاد هذه الخدمة',
+
+    // Validation Messages
+    'Enter_Percentage_0_to_100' => 'أدخل نسبة مئوية بين 0 و 100',
+    'Select_discount_type_to_see_preview' => 'اختر نوع الخصم والنسبة المئوية لرؤية المعاينة',
+    'Loading_preview' => 'جاري تحميل المعاينة...',
+
+    // Preview & Status
+    'Discount_Preview' => 'معاينة الخصم',
+    'Current_Status' => 'الحالة الحالية',
+    'Active_Now' => 'نشط الآن',
+    'Upcoming' => 'قادم',
+    'Expired' => 'منتهي الصلاحية',
+    'This_discount_is_currently_active' => 'هذا الخصم نشط حالياً ويتم تطبيقه على الأسعار',
+    'This_discount_will_start_on' => 'سيبدأ هذا الخصم في',
+    'This_discount_has_expired' => 'انتهت صلاحية هذا الخصم ولم يعد يتم تطبيقه',
+
+    // Preview Messages
+    'discount_will_be_applied_to' => 'سيتم تطبيق الخصم على',
+    'Hourly_pricing_only' => 'التسعير بالساعة فقط',
+    'All_services' => 'جميع الخدمات',
+    'Selected_services' => 'الخدمات المحددة',
+    'Both_hourly_and' => 'كلا من التسعير بالساعة و',
+    'all_services' => 'جميع الخدمات',
+    'selected_services' => 'الخدمات المحددة',
+
+    // Pricing Display
+    'Price' => 'السعر',
+    'Original_Price' => 'السعر الأصلي',
+    'Discounted_Price' => 'السعر بعد الخصم',
+    'Price_Per_Hour' => 'السعر في الساعة',
+    'Currency' => 'ريال', // Change to your currency (or دولار for dollar, etc.)
+    'You_Save' => 'توفر',
+    'Save' => 'توفير',
+    'Savings' => 'المدخرات',
+    'Total_Savings' => 'إجمالي التوفير',
+
+    // Actions
+    'Edit' => 'تعديل',
+    'Delete' => 'حذف',
+    'Create' => 'إنشاء',
+    'Update' => 'تحديث',
+    'Cancel' => 'إلغاء',
+    'Back_to_Provider' => 'العودة إلى مقدم الخدمة',
+    'Actions' => 'الإجراءات',
+    'More' => 'المزيد',
+
+    // General
+    'Name' => 'الاسم',
+    'Type' => 'النوع',
+    'Provider' => 'مقدم الخدمة',
+    'Provider_Type' => 'نوع مقدم الخدمة',
+    'Type_Information' => 'معلومات النوع',
+    'Type_Name' => 'اسم النوع',
+    'Location_Settings' => 'إعدادات الموقع',
+    'Select_Type' => 'اختر النوع',
+    'Select_All' => 'تحديد الكل',
+    'Deselect_All' => 'إلغاء تحديد الكل',
+    'Latitude' => 'خط العرض',
+    'Longitude' => 'خط الطول',
+    'Address' => 'العنوان',
+
+    // Error Messages
+    'Error_Deleting_Image' => 'خطأ في حذف الصورة',
+    'Confirm_Delete_Image' => 'هل أنت متأكد من حذف هذه الصورة؟',
+
+    // Booking & Pricing Context
+    'Service_Based' => 'على أساس الخدمة',
+    'Hourly_Based' => 'على أساس الساعة',
+    'Auto_Determined_Type' => 'النوع المحدد تلقائياً',
+    'Discount_type_automatically_determined' => 'يتم تحديد نوع الخصم تلقائياً بناءً على طريقة الحجز لنوع مقدم الخدمة',
+    'Enter_percentage_to_see_preview' => 'أدخل النسبة المئوية لرؤية المعاينة',
+    'Both_hourly_and_all_services' => 'كلا من التسعير بالساعة وجميع الخدمات',
+
+    // Additional Arabic-specific terms
+    'Discount_Applied' => 'تم تطبيق الخصم',
+    'No_Discount' => 'بدون خصم',
+    'Special_Offer' => 'عرض خاص',
+    'Limited_Time' => 'لفترة محدودة',
+    'Promotional_Price' => 'سعر ترويجي',
+    'Regular_Price' => 'السعر العادي',
+    'Final_Price' => 'السعر النهائي',
+    'Before_Discount' => 'قبل الخصم',
+    'After_Discount' => 'بعد الخصم',
+    'Discount_Amount' => 'مبلغ الخصم',
+    'Total_Amount' => 'المبلغ الإجمالي',
+    'Discount_Details' => 'تفاصيل الخصم',
+    'Valid_Until' => 'صالح حتى',
+    'Valid_From' => 'صالح من',
+    'Terms_and_Conditions' => 'الشروط والأحكام',
+
     ""=>"",
     ""=>"",
     ""=>"",

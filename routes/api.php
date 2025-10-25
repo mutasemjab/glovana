@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\v1\User\DeliveryController;
 use App\Http\Controllers\Api\v1\User\TypeController;
 use App\Http\Controllers\Api\v1\User\FavouriteController;
 use App\Http\Controllers\Api\v1\Provider\AuthProviderController;
+use App\Http\Controllers\Api\v1\Provider\DiscountController;
 use App\Http\Controllers\Api\v1\Provider\WithdrawalRequestProviderController;
 use App\Http\Controllers\Api\v1\Provider\RatingProviderController;
 use App\Http\Controllers\Api\v1\Provider\WalletProviderController;
@@ -39,6 +40,8 @@ Route::group(['prefix' => 'v1/user'], function () {
     //---------------- Auth --------------------//
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
+     Route::post('/google-login', [AuthController::class, 'googleLogin']);
+    Route::post('/apple-login', [AuthController::class, 'appleLogin']);
     Route::get('/banners', [BannerController::class, 'index']);
 
     Route::get('/settings', [SettingController::class, 'index']);
@@ -182,7 +185,21 @@ Route::group(['prefix' => 'v1/user'], function () {
            
              //Report
              Route::get('/provider/payment-report', [AppointmentProviderController::class, 'paymentReport']);
+        });
 
+
+        Route::prefix('discounts')->group(function () {
+            // Get discounts for a specific provider type
+            Route::get('/provider-type/{providerTypeId}', [DiscountController::class, 'getByProviderType']);
+            
+            // Create a new discount
+            Route::post('/', [DiscountController::class, 'store']);
+            
+            // Update an existing discount
+            Route::put('/{discountId}', [DiscountController::class, 'update']);
+            
+            // Delete a discount
+            Route::delete('/{discountId}', [DiscountController::class, 'destroy']);
         });
 
      });

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Http\Controllers\Admin\FCMController; // <-- Import the FCMController here
 use App\Models\ParentStudent;
+use App\Models\ProviderDeleteRequest;
 use App\Models\ProviderType;
 use App\Traits\Responses;
 use Auth;
@@ -46,23 +47,126 @@ class AuthProviderController extends Controller
 
     public function deleteAccount(Request $request)
     {
+        $request->validate([
+            'reason' => 'nullable|string|max:1000'
+        ]);
+
         try {
-            // Check both authentication guards
+            // Check provider authentication
             $providerApi = auth('provider-api')->user();
+            
+            if (!$providerApi) {
+                return $this->error_response('Unauthorized', null, 401);
+            }
 
-                // provider account deactivation
-                $providerApi->update(['activate' => 2]);
+            // Check if provider already has a pending delete request
+            $existingRequest = ProviderDeleteRequest::where('provider_id', $providerApi->id)
+                ->where('status', 'pending')
+                ->first();
 
-                // Revoke all tokens for the provider
-                $providerApi->tokens()->delete();
+            if ($existingRequest) {
+                return $this->error_response('Delete request already submitted and pending review', null, 409);
+            }
 
-                return $this->success_response('provider account deleted successfully', null);
+            // Check if provider has any pending appointments
+            $pendingAppointments = $providerApi->appointments()
+                ->whereIn('appointment_status', [1, 2, 3, 6, 7]) // Pending, Accepted, OnTheWay, StartWork, Arrived
+                ->count();
+
+            if ($pendingAppointments > 0) {
+                return $this->error_response('Cannot delete account with pending appointments. Please complete or cancel all pending appointments first.', [
+                    'pending_appointments_count' => $pendingAppointments
+                ], 400);
+            }
+
+            DB::beginTransaction();
+
+            // Collect provider statistics at the time of delete request
+            $providerStats = [
+                'total_appointments' => $providerApi->appointments()->count(),
+                'completed_appointments' => $providerApi->appointments()->where('appointment_status', 4)->count(),
+                'cancelled_appointments' => $providerApi->appointments()->where('appointment_status', 5)->count(),
+                'current_balance' => $providerApi->balance,
+                'total_points' => $providerApi->total_points,
+                'total_services' => $providerApi->providerTypes()->count(),
+                'active_services' => $providerApi->providerTypes()->where('activate', 1)->count(),
+                'account_age_days' => $providerApi->created_at->diffInDays(now()),
+                'last_login' => $providerApi->updated_at, // Assuming updated_at tracks last activity
+                'total_earnings' => $providerApi->walletTransactions()
+                    ->where('type_of_transaction',1)
+                    ->sum('amount'),
+                'average_rating' => $this->calculateAverageRating($providerApi),
+                'total_reviews' => $this->getTotalReviews($providerApi)
+            ];
+
+            // Create delete request record
+            $deleteRequest = ProviderDeleteRequest::create([
+                'provider_id' => $providerApi->id,
+                'reason' => $request->input('reason'),
+                'status' => 'pending',
+                'additional_data' => $providerStats
+            ]);
+
+            // Deactivate provider account (set to waiting status)
+            $providerApi->update(['activate' => 3]); // 3 = waiting approve (in this case, waiting for delete approval)
+
+            // Log the delete request
+            \Log::info('Provider delete request submitted', [
+                'provider_id' => $providerApi->id,
+                'provider_name' => $providerApi->name_of_manager,
+                'delete_request_id' => $deleteRequest->id,
+                'reason' => $request->input('reason'),
+                'stats' => $providerStats
+            ]);
+
+           
+            DB::commit();
+
+            return $this->success_response('Delete request submitted successfully. Your account will be reviewed by our team.', [
+                'request_id' => $deleteRequest->id,
+                'status' => 'pending_review',
+                'message' => 'Your account deletion request has been submitted and is pending admin review. You will be notified once a decision is made.'
+            ]);
+
         } catch (\Exception $e) {
-            \Log::error('Account deletion error: ' . $e->getMessage());
-            return $this->error_response('Failed to delete account', ['error' => $e->getMessage()]);
+            DB::rollBack();
+            \Log::error('Account deletion request error: ' . $e->getMessage(), [
+                'provider_id' => $providerApi->id ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return $this->error_response('Failed to submit delete request', ['error' => $e->getMessage()], 500);
         }
     }
-   
+
+    /**
+     * Calculate average rating for the provider across all their services
+     */
+    private function calculateAverageRating($provider)
+    {
+        $allRatings = collect();
+        
+        foreach ($provider->providerTypes as $providerType) {
+            $allRatings = $allRatings->merge($providerType->ratings);
+        }
+        
+        return $allRatings->isNotEmpty() ? round($allRatings->avg('rating'), 2) : 0;
+    }
+
+    /**
+     * Get total number of reviews for the provider
+     */
+    private function getTotalReviews($provider)
+    {
+        $totalReviews = 0;
+        
+        foreach ($provider->providerTypes as $providerType) {
+            $totalReviews += $providerType->ratings()->whereNotNull('review')->count();
+        }
+        
+        return $totalReviews;
+    }
 
 
 

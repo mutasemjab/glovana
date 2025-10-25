@@ -201,4 +201,6 @@ class WalletTransactionController extends Controller
         return view('admin.wallet_transactions.index', compact('transactions', 'users', 'providers', 'providerTypes'));
     }
 
+    
+
 }

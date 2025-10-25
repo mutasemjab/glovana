@@ -12,8 +12,8 @@
                 <div class="page-title-right">
                     <ol class="breadcrumb m-0">
                         <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}">{{ __('messages.dashboard') }}</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('admin.orders.index') }}">{{ __('messages.orders') }}</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('admin.orders.show', $order->id) }}">{{ __('messages.order_details') }}</a></li>
+                        <li class="breadcrumb-item"><a href="{{ route('orders.index') }}">{{ __('messages.orders') }}</a></li>
+                        <li class="breadcrumb-item"><a href="{{ route('orders.show', $order->id) }}">{{ __('messages.order_details') }}</a></li>
                         <li class="breadcrumb-item active">{{ __('messages.edit') }}</li>
                     </ol>
                 </div>
@@ -21,7 +21,7 @@
         </div>
     </div>
 
-    <form action="{{ route('admin.orders.update', $order->id) }}" method="POST">
+    <form action="{{ route('orders.update', $order->id) }}" method="POST">
         @csrf
         @method('PUT')
         
@@ -37,7 +37,7 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">{{ __('messages.order_status') }} <span class="text-danger">*</span></label>
-                                    <select name="order_status" class="form-select @error('order_status') is-invalid @enderror" required>
+                                    <select name="order_status" class="form-control @error('order_status') is-invalid @enderror" required>
                                         <option value="">{{ __('messages.select_status') }}</option>
                                         <option value="1" {{ $order->order_status == 1 ? 'selected' : '' }}>{{ __('messages.pending') }}</option>
                                         <option value="2" {{ $order->order_status == 2 ? 'selected' : '' }}>{{ __('messages.accepted') }}</option>
@@ -55,7 +55,7 @@
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label class="form-label">{{ __('messages.payment_status') }} <span class="text-danger">*</span></label>
-                                    <select name="payment_status" class="form-select @error('payment_status') is-invalid @enderror" required>
+                                    <select name="payment_status" class="form-control @error('payment_status') is-invalid @enderror" required>
                                         <option value="">{{ __('messages.select_status') }}</option>
                                         <option value="1" {{ $order->payment_status == 1 ? 'selected' : '' }}>{{ __('messages.paid') }}</option>
                                         <option value="2" {{ $order->payment_status == 2 ? 'selected' : '' }}>{{ __('messages.unpaid') }}</option>
@@ -94,7 +94,7 @@
                     </div>
                     <div class="card-footer">
                         <div class="d-flex justify-content-between">
-                            <a href="{{ route('admin.orders.show', $order->id) }}" class="btn btn-secondary">
+                            <a href="{{ route('orders.show', $order->id) }}" class="btn btn-secondary">
                                 <i class="ri-arrow-left-line"></i> {{ __('messages.cancel') }}
                             </a>
                             <button type="submit" class="btn btn-primary">

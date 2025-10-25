@@ -1014,7 +1014,413 @@ return [
     'Detailed_Report_Description' => 'Detailed transaction history with filters.',
     'Movements_Report_Description' => 'All stock movements and transactions.',
     'activity-logs' => 'Activity Logs',
-    '' => '',
+     'delete_account_requests' => 'Delete Account Requests',
+    'provider_delete_requests' => 'Provider Delete Account Requests',
+    'provider_deletion_details' => 'Provider Deletion Request Details',
+    
+    // Table headers
+    'id' => 'ID',
+    'provider_info' => 'Provider Information',
+    'contact_info' => 'Contact Information',
+    'business_stats' => 'Business Statistics',
+    'status' => 'Status',
+    'request_date' => 'Request Date',
+    'actions' => 'Actions',
+    
+    // Provider information
+    'name' => 'Name',
+    'phone' => 'Phone',
+    'email' => 'Email',
+    'member_since' => 'Member since',
+    'joined_date' => 'Joined Date',
+    'not_provided' => 'Not provided',
+    
+    // Financial information
+    'balance' => 'Balance',
+    'points' => 'Points',
+    'current_balance' => 'Current Balance',
+    'total_points' => 'Total Points',
+    'financial_information' => 'Financial Information',
+    'recent_wallet_transactions' => 'Recent Wallet Transactions',
+    'date' => 'Date',
+    'amount' => 'Amount',
+    'type' => 'Type',
+    
+    // Services information
+    'services' => 'Services',
+    'services_information' => 'Services Information',
+    'price_per_hour' => 'Price per Hour',
+    'vip_service' => 'VIP Service',
+    'no_services_registered' => 'No services registered',
+    
+    // Appointments
+    'appointments' => 'Appointments',
+    'appointments_history' => 'Appointments History',
+    'total_appointments' => 'Total Appointments',
+    'appointment_number' => 'Appointment #',
+    'total_price' => 'Total Price',
+    'no_appointments_found' => 'No appointments found',
+    'recent_appointments' => 'Recent Appointments',
+    
+    // Appointment statuses
+    'pending' => 'Pending',
+    'accepted' => 'Accepted',
+    'on_the_way' => 'On The Way',
+    'delivered' => 'Delivered',
+    'cancelled' => 'Cancelled',
+    'completed' => 'Completed',
+    'started' => 'Started',
+    'arrived' => 'Arrived',
+    
+    // Provider statuses
+    'active' => 'Active',
+    'inactive' => 'Inactive',
+    'waiting_approval' => 'Waiting Approval',
+    
+    // Ratings and reviews
+    'ratings_reviews' => 'Ratings & Reviews',
+    'from' => 'from',
+    'reviews' => 'reviews',
+    'recent_reviews' => 'Recent Reviews',
+    
+    // Basic information
+    'basic_information' => 'Basic Information',
+    
+    // Action buttons
+    'view_details' => 'View Details',
+    'approve' => 'Approve',
+    'reject' => 'Reject',
+    'approve_deletion' => 'Approve Deletion',
+    'reject_deletion' => 'Reject Deletion',
+    'close' => 'Close',
+    
+    // Messages and alerts
+    'no_delete_requests_found' => 'No delete requests found',
+    'are_you_sure' => 'Are you sure?',
+    'approve_delete_warning' => 'This will permanently delete the provider account and all associated data. This action cannot be undone!',
+    'reject_deletion_request' => 'Reject Deletion Request',
+    'reason_for_rejection' => 'Reason for Rejection',
+    'enter_reason' => 'Enter reason for rejection',
+    'reason_required' => 'Please provide a reason for rejection',
+    'yes_approve' => 'Yes, Approve',
+    'yes_reject' => 'Yes, Reject',
+    'cancel' => 'Cancel',
+    'approved' => 'Approved!',
+    'rejected' => 'Rejected!',
+    'error' => 'Error!',
+    'something_went_wrong' => 'Something went wrong. Please try again.',
+    
+    // Edit appointment (as requested in original message)
+    'edit_appointment' => 'Edit Appointment',
+     'Points' => 'Points',
+    'Points_History' => 'Points History',
+    'Total_Points' => 'Total Points',
+    'Current_Points' => 'Current Points',
+    'Add_Points' => 'Add Points',
+    'Deduct_Points' => 'Deduct Points',
+    'Manage_Points' => 'Manage Points',
+    'Update_Points' => 'Update Points',
+    'Points_Amount' => 'Points Amount',
+    'pts' => 'pts',
+    
+    // Transaction types
+    'Added' => 'Added',
+    'Deducted' => 'Deducted',
+    'Transaction_Type' => 'Transaction Type',
+    'Select_Transaction_Type' => 'Select Transaction Type',
+    'Transaction_History' => 'Transaction History',
+    
+    // Summary statistics
+    'Total_Earned' => 'Total Earned',
+    'Total_Deducted' => 'Total Deducted',
+    'Total_Transactions' => 'Total Transactions',
+    'Current_Balance' => 'Current Balance',
+    
+    // Table headers
+    'Date' => 'Date',
+    'Type' => 'Type',
+    'Performed_By' => 'Performed By',
+    'Note' => 'Note',
+    'No_Note' => 'No Note',
+    
+    // Filters
+    'Filter' => 'Filter',
+    'Clear' => 'Clear',
+    'All_Types' => 'All Types',
+    
+    // Roles
+    'Admin' => 'Admin',
+    'Provider' => 'Provider',
+    'System' => 'System',
+    
+    // Form elements
+    'Preview' => 'Preview',
+    'Optional' => 'Optional',
+    'Cancel' => 'Cancel',
+    'Add_Note_Placeholder' => 'Add a note for this transaction...',
+    
+    // Actions text
+    'ADD' => 'ADD',
+    'DEDUCT' => 'DEDUCT',
+    'New_Points_Total' => 'New Points Total',
+    'NEGATIVE_POINTS' => 'NEGATIVE POINTS',
+    
+    // Confirmations
+    'Negative_Points_Confirmation' => 'This will result in negative points. Are you sure you want to continue?',
+    
+    // Navigation
+    'Back_to_Users' => 'Back to Users',
+    
+    // Empty states
+    'No_Transactions_Found' => 'No Transactions Found',
+    'No_Point_Transactions_Message' => 'This user has no point transaction history yet.',
+ 'Points' => 'Points',
+    'Points_History' => 'Points History',
+    'Total_Points' => 'Total Points',
+    'Current_Points' => 'Current Points',
+    'Add_Points' => 'Add Points',
+    'Deduct_Points' => 'Deduct Points',
+    'Manage_Points' => 'Manage Points',
+    'Update_Points' => 'Update Points',
+    'Points_Amount' => 'Points Amount',
+    'pts' => 'pts',
+    
+    // Transaction types
+    'Added' => 'Added',
+    'Deducted' => 'Deducted',
+    'Transaction_Type' => 'Transaction Type',
+    'Select_Transaction_Type' => 'Select Transaction Type',
+    'Transaction_History' => 'Transaction History',
+    
+    // Summary statistics
+    'Total_Earned' => 'Total Earned',
+    'Total_Deducted' => 'Total Deducted',
+    'Total_Transactions' => 'Total Transactions',
+    'Current_Balance' => 'Current Balance',
+    
+    // Table headers
+    'Date' => 'Date',
+    'Type' => 'Type',
+    'Performed_By' => 'Performed By',
+    'Note' => 'Note',
+    'No_Note' => 'No Note',
+    
+    // Filters
+    'Filter' => 'Filter',
+    'Clear' => 'Clear',
+    'All_Types' => 'All Types',
+    
+    // Roles
+    'Admin' => 'Admin',
+    'Provider' => 'Provider',
+    'System' => 'System',
+    
+    // Form elements
+    'Preview' => 'Preview',
+    'Optional' => 'Optional',
+    'Cancel' => 'Cancel',
+    'Add_Note_Placeholder' => 'Add a note for this transaction...',
+    
+    // Actions text
+    'ADD' => 'ADD',
+    'DEDUCT' => 'DEDUCT',
+    'New_Points_Total' => 'New Points Total',
+    'NEGATIVE_POINTS' => 'NEGATIVE POINTS',
+    
+    // Confirmations
+    'Negative_Points_Confirmation' => 'This will result in negative points. Are you sure you want to continue?',
+    
+    // Navigation
+    'Back_to_Users' => 'Back to Users',
+    
+    // Empty states
+    'No_Transactions_Found' => 'No Transactions Found',
+    'No_Point_Transactions_Message' => 'This user has no point transaction history yet.',
+
+    // Reports specific translations
+    'Points_Reports' => 'Points Reports',
+    'Export_Report' => 'Export Report',
+    'Export_Users_Report' => 'Export Users Report',
+    'Export_Transactions_Report' => 'Export Transactions Report',
+    'Export_Summary_Report' => 'Export Summary Report',
+    'Filters' => 'Filters',
+    'Date_From' => 'Date From',
+    'Date_To' => 'Date To',
+    'Earned_Only' => 'Earned Only',
+    'Deducted_Only' => 'Deducted Only',
+    'Top_Users_Limit' => 'Top Users Limit',
+    'Top_5' => 'Top 5',
+    'Top_10' => 'Top 10',
+    'Top_20' => 'Top 20',
+    'Top_50' => 'Top 50',
+    'Apply_Filters' => 'Apply Filters',
+    'Period_Points_Earned' => 'Period Points Earned',
+    'Period_Points_Deducted' => 'Period Points Deducted',
+    'Period_Transactions' => 'Period Transactions',
+    'Active_Users_Period' => 'Active Users (Period)',
+    'Daily_Points_Activity' => 'Daily Points Activity',
+    'Points_Distribution' => 'Points Distribution',
+    'Top_Points_Earners' => 'Top Points Earners',
+    'Top_Points_Spenders' => 'Top Points Spenders',
+    'Period' => 'Period',
+    'Rank' => 'Rank',
+    'User' => 'User',
+    'Period_Points' => 'Period Points',
+    'Transactions' => 'Transactions',
+    'No_Earners_Found' => 'No earners found for this period',
+    'No_Spenders_Found' => 'No spenders found for this period',
+    'Top_Performing_Admins' => 'Top Performing Admins',
+    'Top_Performing_Providers' => 'Top Performing Providers',
+    'Points_Added' => 'Points Added',
+    'Points_Deducted' => 'Points Deducted',
+    'No_Admin_Activity' => 'No admin activity in this period',
+    'No_Provider_Activity' => 'No provider activity in this period',
+    'Overall_Platform_Statistics' => 'Overall Platform Statistics',
+    'Total_Platform_Users' => 'Total Platform Users',
+    'Total_Platform_Points' => 'Total Platform Points',
+    'Average_Points_Per_User' => 'Average Points Per User',
+    'All_Time_Transactions' => 'All Time Transactions',
+    'Points_Earned' => 'Points Earned',
+    'users' => 'users',
+    'Auto_Refresh_Confirmation' => 'Refresh the report with latest data?',
+    'Transactions_Count' => 'Transactions Count',
+    'Avg_Transaction' => 'Avg Transaction',
+    'Gender' => 'Gender',
+    'Select_Gender' => 'Select Gender',
+    'Man' => 'Man',
+    'Woman' => 'Woman', 
+    'Both' => 'Both',
+      'Discounts' => 'Discounts',
+    'Add_Discount' => 'Add Discount',
+    'Add_First_Discount' => 'Add First Discount',
+    'Create_Discount' => 'Create Discount',
+    'Edit_Discount' => 'Edit Discount',
+    'Update_Discount' => 'Update Discount',
+    'Delete_Discount' => 'Delete Discount',
+    'Manage_Discounts' => 'Manage Discounts',
+    'No_Discounts_Found' => 'No Discounts Found',
+    'Create_First_Discount_Message' => 'Create your first discount to start offering special prices to customers.',
+    'Discount_Created_Successfully' => 'Discount created successfully',
+    'Discount_Updated_Successfully' => 'Discount updated successfully',
+    'Discount_Deleted_Successfully' => 'Discount deleted successfully',
+    'Discount_Status_Updated' => 'Discount status updated successfully',
+    'Confirm_Delete_Discount' => 'Are you sure you want to delete this discount?',
+
+    // Discount Fields
+    'Discount_Name' => 'Discount Name',
+    'Discount_Type' => 'Discount Type',
+    'Discount_Percentage' => 'Discount Percentage',
+    'Discount_Settings' => 'Discount Settings',
+    'Basic_Information' => 'Basic Information',
+    'Description' => 'Description',
+    'Percentage' => 'Percentage',
+    'Start_Date' => 'Start Date',
+    'End_Date' => 'End Date',
+    'Date_Range' => 'Date Range',
+    'From' => 'From',
+    'To' => 'To',
+    'Status' => 'Status',
+    'Active' => 'Active',
+    'Inactive' => 'Inactive',
+    'Activate' => 'Activate',
+    'Deactivate' => 'Deactivate',
+
+    // Discount Types
+    'Select_Discount_Type' => 'Select Discount Type',
+    'Hourly_Pricing_Only' => 'Hourly Pricing Only',
+    'Service_Pricing_Only' => 'Service Pricing Only',
+    'Both_Hourly_and_Service' => 'Both Hourly and Service',
+    'Hourly' => 'Hourly',
+    'Service' => 'Service',
+    'Both' => 'Both',
+    'Applied_to_hourly_rate' => 'Applied to hourly rate only',
+    'Applied_to_individual_services' => 'Applied to individual service prices',
+    'Applied_to_both_pricing_types' => 'Applied to both hourly and service pricing',
+
+    // Service Selection
+    'Apply_to_Services' => 'Apply to Services',
+    'Apply_to_All_Services' => 'Apply to All Services',
+    'All_Services' => 'All Services',
+    'Selected_Services' => 'Selected Services',
+    'Services' => 'Services',
+    'Services_with_Pricing' => 'Services with Pricing',
+    'Select_Multiple_Services' => 'Select multiple services that this discount applies to',
+    'Leave_unchecked_for_specific_services' => 'Leave unchecked to select specific services below',
+    'If_no_services_selected_applies_to_all' => 'If no specific services are selected, the discount applies to all services',
+    'Enter_Price_For_Each_Service' => 'Enter price for each service you want to offer',
+    'Leave_Empty_To_Exclude_Service' => 'Leave empty to exclude this service',
+
+    // Validation Messages
+    'Enter_Percentage_0_to_100' => 'Enter a percentage between 0 and 100',
+    'Select_discount_type_to_see_preview' => 'Select a discount type and percentage to see preview',
+    'Loading_preview' => 'Loading preview...',
+
+    // Preview & Status
+    'Discount_Preview' => 'Discount Preview',
+    'Current_Status' => 'Current Status',
+    'Active_Now' => 'Active Now',
+    'Upcoming' => 'Upcoming',
+    'Expired' => 'Expired',
+    'This_discount_is_currently_active' => 'This discount is currently active and being applied to prices',
+    'This_discount_will_start_on' => 'This discount will start on',
+    'This_discount_has_expired' => 'This discount has expired and is no longer being applied',
+
+    // Preview Messages
+    'discount_will_be_applied_to' => 'discount will be applied to',
+    'Hourly_pricing_only' => 'hourly pricing only',
+    'All_services' => 'all services',
+    'Selected_services' => 'selected services',
+    'Both_hourly_and' => 'both hourly pricing and',
+    'all_services' => 'all services',
+    'selected_services' => 'selected services',
+
+    // Pricing Display
+    'Price' => 'Price',
+    'Original_Price' => 'Original Price',
+    'Discounted_Price' => 'Discounted Price',
+    'Price_Per_Hour' => 'Price Per Hour',
+    'Currency' => 'USD', // Change to your currency
+    'You_Save' => 'You Save',
+    'Save' => 'Save',
+    'Savings' => 'Savings',
+    'Total_Savings' => 'Total Savings',
+
+    // Actions
+    'Edit' => 'Edit',
+    'Delete' => 'Delete',
+    'Create' => 'Create',
+    'Update' => 'Update',
+    'Cancel' => 'Cancel',
+    'Back_to_Provider' => 'Back to Provider',
+    'Actions' => 'Actions',
+    'More' => 'More',
+
+    // General
+    'Name' => 'Name',
+    'Type' => 'Type',
+    'Provider' => 'Provider',
+    'Provider_Type' => 'Provider Type',
+    'Type_Information' => 'Type Information',
+    'Type_Name' => 'Type Name',
+    'Location_Settings' => 'Location & Settings',
+    'Select_Type' => 'Select Type',
+    'Select_All' => 'Select All',
+    'Deselect_All' => 'Deselect All',
+    'Latitude' => 'Latitude',
+    'Longitude' => 'Longitude',
+    'Address' => 'Address',
+
+    // Error Messages
+    'Error_Deleting_Image' => 'Error deleting image',
+    'Confirm_Delete_Image' => 'Are you sure you want to delete this image?',
+
+    // Booking & Pricing Context
+    'Service_Based' => 'Service Based',
+    'Hourly_Based' => 'Hourly Based',
+    'Auto_Determined_Type' => 'Auto-Determined Type',
+    'Discount_type_automatically_determined' => 'Discount type is automatically determined based on the provider type\'s booking method',
+    'Enter_percentage_to_see_preview' => 'Enter a percentage to see preview',
+    'Both_hourly_and_all_services' => 'both hourly pricing and all services',
     '' => '',
     '' => '',
     '' => '',

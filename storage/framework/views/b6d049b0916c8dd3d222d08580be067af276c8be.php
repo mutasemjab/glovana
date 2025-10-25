@@ -1,0 +1,321 @@
+<?php $__env->startSection('title', __('messages.Wallet_Transactions')); ?>
+
+
+<?php $__env->startSection('css'); ?>
+<!-- DataTables CSS -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/css/dataTables.bootstrap4.min.css" rel="stylesheet" />
+<!-- Select2 CSS -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/select2-bootstrap-theme/0.1.0-beta.10/select2-bootstrap.min.css" rel="stylesheet" />
+<?php $__env->stopSection(); ?>
+
+
+<?php $__env->startSection('content'); ?>
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800"><?php echo e(__('messages.Wallet_Transactions')); ?></h1>
+        <a href="<?php echo e(route('wallet_transactions.create')); ?>" class="btn btn-primary">
+            <i class="fas fa-plus"></i> <?php echo e(__('messages.Add_New_Transaction')); ?>
+
+        </a>
+    </div>
+
+    <?php if(session('success')): ?>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <?php echo e(session('success')); ?>
+
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    <?php endif; ?>
+
+    <?php if(session('error')): ?>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <?php echo e(session('error')); ?>
+
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    <?php endif; ?>
+
+    <!-- Filter Card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary"><?php echo e(__('messages.Filter_Transactions')); ?></h6>
+        </div>
+        <div class="card-body">
+            <form action="<?php echo e(route('wallet_transactions.filter')); ?>" method="GET">
+                <div class="row">
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label for="entity_type"><?php echo e(__('messages.Entity_Type')); ?></label>
+                            <select class="form-control" id="entity_type" name="entity_type">
+                                <option value="all" <?php echo e(request('entity_type') == 'all' ? 'selected' : ''); ?>><?php echo e(__('messages.All')); ?></option>
+                                <option value="user" <?php echo e(request('entity_type') == 'user' ? 'selected' : ''); ?>><?php echo e(__('messages.Users')); ?></option>
+                                <option value="provider" <?php echo e(request('entity_type') == 'provider' ? 'selected' : ''); ?>><?php echo e(__('messages.providers')); ?></option>
+                            </select>
+                        </div>
+                    </div>
+                    
+    
+                    
+                    <!-- User Selection -->
+                    <div class="col-md-3 entity-select user-select" style="display: <?php echo e(request('entity_type') == 'user' ? 'block' : 'none'); ?>;">
+                        <div class="form-group">
+                            <label for="user_id"><?php echo e(__('messages.Select_User')); ?></label>
+                            <select class="form-control select2" id="user_id" name="entity_id">
+                                <option value=""><?php echo e(__('messages.All_Users')); ?></option>
+                                <?php $__currentLoopData = $users ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <option value="<?php echo e($user->id); ?>" <?php echo e(request('entity_id') == $user->id && request('entity_type') == 'user' ? 'selected' : ''); ?>>
+                                    <?php echo e($user->name); ?> (<?php echo e($user->phone); ?>)
+                                </option>
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Provider Selection -->
+                    <div class="col-md-3 entity-select provider-select" style="display: <?php echo e(request('entity_type') == 'provider' ? 'block' : 'none'); ?>;">
+                        <div class="form-group">
+                            <label for="provider_id"><?php echo e(__('messages.Select_provider')); ?></label>
+                            <select class="form-control select2" id="provider_id" name="entity_id">
+                                <option value=""><?php echo e(__('messages.All_providers')); ?></option>
+                                <?php $__currentLoopData = $providers ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $provider): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <option value="<?php echo e($provider->id); ?>" 
+                                        data-provider-type="<?php echo e($provider->providerTypes->first()->id ?? ''); ?>"
+                                        <?php echo e(request('entity_id') == $provider->id && request('entity_type') == 'provider' ? 'selected' : ''); ?>>
+                                    <?php echo e($provider->providerTypes->first()->name ?? 'N/A'); ?> - <?php echo e($provider->name ?? $provider->phone); ?>
+
+                                </option>
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label for="transaction_type"><?php echo e(__('messages.Transaction_Type')); ?></label>
+                            <select class="form-control" id="transaction_type" name="transaction_type">
+                                <option value="all" <?php echo e(request('transaction_type') == 'all' ? 'selected' : ''); ?>><?php echo e(__('messages.All_Types')); ?></option>
+                                <option value="1" <?php echo e(request('transaction_type') == '1' ? 'selected' : ''); ?>><?php echo e(__('messages.Deposit')); ?></option>
+                                <option value="2" <?php echo e(request('transaction_type') == '2' ? 'selected' : ''); ?>><?php echo e(__('messages.Withdrawal')); ?></option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="date_from"><?php echo e(__('messages.Date_From')); ?></label>
+                            <input type="date" class="form-control" id="date_from" name="date_from" value="<?php echo e(request('date_from')); ?>">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="date_to"><?php echo e(__('messages.Date_To')); ?></label>
+                            <input type="date" class="form-control" id="date_to" name="date_to" value="<?php echo e(request('date_to')); ?>">
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-12 text-center">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter"></i> <?php echo e(__('messages.Filter')); ?>
+
+                        </button>
+                        <a href="<?php echo e(route('wallet_transactions.index')); ?>" class="btn btn-secondary">
+                            <i class="fas fa-sync"></i> <?php echo e(__('messages.Reset')); ?>
+
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transactions Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary"><?php echo e(__('messages.Wallet_Transactions_List')); ?></h6>
+            <div>
+                <span class="badge badge-success px-3 py-2 mr-2">
+                    <?php echo e(__('messages.Total_Deposits')); ?>: 
+                    <?php echo e($transactions->where('type_of_transaction', 1)->sum('amount')); ?>
+
+                </span>
+                <span class="badge badge-danger px-3 py-2">
+                    <?php echo e(__('messages.Total_Withdrawals')); ?>: 
+                    <?php echo e($transactions->where('type_of_transaction', 2)->sum('amount')); ?>
+
+                </span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th><?php echo e(__('messages.ID')); ?></th>
+                            <th><?php echo e(__('messages.Date')); ?></th>
+                            <th><?php echo e(__('messages.Entity')); ?></th>
+                            <th><?php echo e(__('messages.Amount')); ?></th>
+                            <th><?php echo e(__('messages.Type')); ?></th>
+                            <th><?php echo e(__('messages.Note')); ?></th>
+                            <th><?php echo e(__('messages.Created_By')); ?></th>
+                            <th><?php echo e(__('messages.Actions')); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php $__currentLoopData = $transactions; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $transaction): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                        <tr>
+                            <td><?php echo e($transaction->id); ?></td>
+                            <td><?php echo e($transaction->created_at->format('Y-m-d H:i')); ?></td>
+                            <td>
+                                <?php if($transaction->user_id): ?>
+                                    <span class="badge badge-info"><?php echo e(__('messages.User')); ?></span>
+                                    <a href="<?php echo e(route('users.show', $transaction->user_id)); ?>">
+                                        <?php echo e($transaction->user->name ?? 'N/A'); ?>
+
+                                    </a>
+                                <?php elseif($transaction->provider_id): ?>
+                                    <span class="badge badge-primary"><?php echo e(__('messages.provider')); ?></span>
+                                    <a href="<?php echo e(route('admin.providerDetails.index', $transaction->provider_id)); ?>">
+                                        <?php echo e($transaction->provider->providerTypes->first()->name ?? 'N/A'); ?>
+
+                                    </a>
+                                <?php else: ?>
+                                    <?php echo e(__('messages.Unknown')); ?>
+
+                                <?php endif; ?>
+                            </td>
+                            <td class="<?php echo e($transaction->type_of_transaction == 1 ? 'text-success' : 'text-danger'); ?> font-weight-bold">
+                                <?php echo e($transaction->getFormattedAmount()); ?>
+
+                            </td>
+                            <td>
+                                <span class="badge badge-<?php echo e($transaction->type_of_transaction == 1 ? 'success' : 'danger'); ?>">
+                                    <?php echo e($transaction->getTransactionTypeText()); ?>
+
+                                </span>
+                            </td>
+                            <td>
+                                <small><?php echo e($transaction->note ?? __('messages.No_Note')); ?></small>
+                            </td>
+                            <td>
+                                <?php echo e($transaction->admin->name ?? __('messages.System')); ?>
+
+                            </td>
+                            <td>
+                                <a href="<?php echo e(route('wallet_transactions.show', $transaction->id)); ?>" class="btn btn-info btn-sm">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<?php $__env->stopSection(); ?>
+
+
+
+<?php $__env->startSection('script'); ?>
+<!-- DataTables JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/jquery.dataTables.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.21/js/dataTables.bootstrap4.min.js"></script>
+<!-- Select2 JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        // Initialize DataTable
+        $('#dataTable').DataTable({
+            "order": [[1, "desc"]],
+            "pageLength": 25,
+            "responsive": true,
+            "language": {
+                "search": "<?php echo e(__('messages.Search') ?? 'Search'); ?>:",
+                "lengthMenu": "<?php echo e(__('messages.Show') ?? 'Show'); ?> _MENU_ <?php echo e(__('messages.entries') ?? 'entries'); ?>",
+                "info": "<?php echo e(__('messages.Showing') ?? 'Showing'); ?> _START_ <?php echo e(__('messages.to') ?? 'to'); ?> _END_ <?php echo e(__('messages.of') ?? 'of'); ?> _TOTAL_ <?php echo e(__('messages.entries') ?? 'entries'); ?>",
+                "paginate": {
+                    "first": "<?php echo e(__('messages.First') ?? 'First'); ?>",
+                    "last": "<?php echo e(__('messages.Last') ?? 'Last'); ?>",
+                    "next": "<?php echo e(__('messages.Next') ?? 'Next'); ?>",
+                    "previous": "<?php echo e(__('messages.Previous') ?? 'Previous'); ?>"
+                }
+            }
+        });
+        
+        // Initialize Select2
+        $('.select2').select2({
+            theme: 'bootstrap',
+            placeholder: 'Search and select...',
+            allowClear: true,
+            width: '100%'
+        });
+        
+        // Handle entity type selection
+        $('#entity_type').on('change', function() {
+            $('.entity-select').hide();
+            $('.select2').val(null).trigger('change'); // Clear all select2 values
+            
+            if ($(this).val() == 'user') {
+                $('.user-select').show();
+                $('#provider_id, #provider_type_id').val('').trigger('change');
+            } else if ($(this).val() == 'provider') {
+                $('.provider-select, .provider-type-select').show();
+                $('#user_id').val('').trigger('change');
+            } else {
+                // All selected, clear everything
+                $('#user_id, #provider_id, #provider_type_id').val('').trigger('change');
+            }
+        });
+        
+        // Handle provider type filter
+        $('#provider_type_id').on('change', function() {
+            var selectedProviderType = $(this).val();
+            var $providerSelect = $('#provider_id');
+            
+            if (selectedProviderType) {
+                // Show only providers of selected type
+                $providerSelect.find('option').each(function() {
+                    var $option = $(this);
+                    if ($option.val() === '') {
+                        $option.show(); // Always show "All providers" option
+                    } else if ($option.data('provider-type') == selectedProviderType) {
+                        $option.show();
+                    } else {
+                        $option.hide();
+                    }
+                });
+            } else {
+                // Show all providers
+                $providerSelect.find('option').show();
+            }
+            
+            // Reset provider selection and refresh select2
+            $providerSelect.val('').trigger('change');
+        });
+        
+        // Date validation
+        $('#date_to').on('change', function() {
+            var startDate = $('#date_from').val();
+            var endDate = $(this).val();
+            
+            if (startDate && endDate && startDate > endDate) {
+                alert("<?php echo e(__('messages.Date_Range_Error') ?? 'End date must be after start date'); ?>");
+                $(this).val('');
+            }
+        });
+        
+        // Trigger change on page load to show correct filters
+        $('#entity_type').trigger('change');
+    });
+</script>
+<?php $__env->stopSection(); ?>
+<?php echo $__env->make('layouts.admin', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH C:\xampp\htdocs\glovana\resources\views/admin/wallet_transactions/index.blade.php ENDPATH**/ ?>

@@ -69,12 +69,24 @@ class ProductController extends Controller
         }
     }
 
-     public function productDetails($id)
-     {
-         
-         $products = Product::with('images','ratings')->where('id',$id)->get();
-         
-         return $this->success_response('Product retrieved successfully', $products);
-     }
+    public function productDetails($id)
+    {
+        // Get the product with relations
+        $product = Product::with(['images', 'ratings'])->findOrFail($id);
+
+        // Get similar products (same category, excluding current product)
+        $similarProducts = Product::with('images')
+            ->where('category_id', $product->category_id)
+            ->where('id', '!=', $product->id)
+            ->limit(10)
+            ->get();
+
+        // Return both in one response
+        return $this->success_response('Product retrieved successfully', [
+            'product' => $product,
+            'similar_products' => $similarProducts
+        ]);
+    }
+
    
 }

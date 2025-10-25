@@ -76,6 +76,13 @@ class AuthController extends Controller
         } else {
             $user = \App\Models\User::where('phone', $credentials['phone'])->first();
         }
+          
+        if (!$user || $user->activate != 1) {
+            return response()->json([
+                'status' => false,
+                'message' => 'User not found or not active'
+            ], 401);
+        }
 
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             return $this->error_response('Invalid phone or password', []);

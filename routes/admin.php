@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\LoginController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DeliveryController;
+use App\Http\Controllers\Admin\DiscountController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\FinesDiscountsController;
 use App\Http\Controllers\Admin\NoteVoucherController;
@@ -16,8 +17,11 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\PageController;
+use App\Http\Controllers\Admin\PointsController;
+use App\Http\Controllers\Reports\PointsReportController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProviderController;
+use App\Http\Controllers\Admin\ProviderDeleteRequestController;
 use App\Http\Controllers\Admin\ProviderDetailsController;
 use App\Http\Controllers\Admin\RatingController;
 use App\Http\Controllers\Admin\ServiceController;
@@ -125,6 +129,8 @@ Route::group(['prefix' => LaravelLocalization::setLocale(), 'middleware' => ['lo
 
 
         // Report
+        Route::get('/reports/points', [PointsReportController::class, 'index'])->name('reports.points');
+
         Route::get('/admin/payment-report', [PaymentReportController::class, 'paymentReport'])->name('admin.payment.report');
         Route::prefix('providers/report')->group(function () {
             Route::get('/', [ProviderReportController::class, 'index'])->name('admin.providers.report.index');
@@ -201,6 +207,40 @@ Route::group(['prefix' => LaravelLocalization::setLocale(), 'middleware' => ['lo
     
         Route::get('/usedCoupons', [CouponController::class, 'displayCouponUsed'])->name('usedCoupons.index');
     
+        Route::name('admin.')->group(function () {
+    
+                // Provider Delete Requests Management
+                Route::get('provider-delete-requests', [ProviderDeleteRequestController::class, 'index'])
+                    ->name('provider-delete-requests.index');
+                
+                Route::get('provider-delete-requests/{id}', [ProviderDeleteRequestController::class, 'show'])
+                    ->name('provider-delete-requests.show');
+                
+                Route::post('provider-delete-requests/{id}/approve', [ProviderDeleteRequestController::class, 'approve'])
+                    ->name('provider-delete-requests.approve');
+                
+                Route::post('provider-delete-requests/{id}/reject', [ProviderDeleteRequestController::class, 'reject'])
+                    ->name('provider-delete-requests.reject');
+                
+                Route::get('provider-delete-requests/statistics', [ProviderDeleteRequestController::class, 'getStatistics'])
+                    ->name('provider-delete-requests.statistics');
+        });
+
+        Route::prefix('provider/{providerId}/types/{providerTypeId}/discounts')->name('discounts.')->group(function () {
+            Route::get('/', [DiscountController::class, 'index'])->name('index');
+            Route::get('/create', [DiscountController::class, 'create'])->name('create');
+            Route::post('/', [DiscountController::class, 'store'])->name('store');
+            Route::get('/{discountId}/edit', [DiscountController::class, 'edit'])->name('edit');
+            Route::put('/{discountId}', [DiscountController::class, 'update'])->name('update');
+            Route::delete('/{discountId}', [DiscountController::class, 'destroy'])->name('destroy');
+            Route::patch('/{discountId}/toggle-status', [DiscountController::class, 'toggleStatus'])->name('toggleStatus');
+        });
+
+            Route::post('/wallet/update', [UserController::class, 'updateWallet'])->name('wallet.update');
+            Route::post('/provider/wallet/update', [ProviderController::class, 'updateProviderWallet'])->name('provider.wallet.update');
+
+             Route::get('/user/{user}/points/history', [PointsController::class, 'history'])->name('users.points.history');
+             Route::post('/points/update', [PointsController::class, 'update'])->name('points.update');
     });
 });
 

@@ -211,12 +211,12 @@
                                             </td>
                                             <td>{{ $order->date->format('Y-m-d H:i') }}</td>
                                             <td>
-                                                <div class="btn-group" role="group">
-                                                    <a href="{{ route('orders.show', $order->id) }}" class="btn btn-sm btn-info">
-                                                        <i class="ri-eye-line"></i>
+                                                <div class="btn-group">
+                                                   <a href="{{ route('orders.show', $order->id) }}" class="btn btn-info btn-sm" title="{{ __('messages.View') }}">
+                                                        <i class="fas fa-eye"></i>
                                                     </a>
-                                                    <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-sm btn-primary">
-                                                        <i class="ri-edit-line"></i>
+                                                    <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-primary btn-sm" title="{{ __('messages.Edit') }}">
+                                                        <i class="fas fa-edit"></i>
                                                     </a>
                                                 </div>
                                             </td>

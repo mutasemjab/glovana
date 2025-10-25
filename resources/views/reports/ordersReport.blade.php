@@ -101,6 +101,21 @@
                             </select>
                         </div>
 
+                        <!-- Delivery Filter -->
+                        <div class="col-md-3">
+                            <label class="form-label">{{ __('messages.Delivery') }}</label>
+                            <select name="delivery_id" class="form-control">
+                                <option value="">{{ __('messages.All_Deliveries') }}</option>
+                                @if(isset($deliveries))
+                                    @foreach($deliveries as $delivery)
+                                        <option value="{{ $delivery->id }}" {{ request('delivery_id') == $delivery->id ? 'selected' : '' }}>
+                                            {{ $delivery->place }}
+                                        </option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+
                         <!-- Report Type -->
                         <div class="col-md-3">
                             <label class="form-label">{{ __('messages.Report_Type') }}</label>
@@ -356,6 +371,9 @@
                                     @if(request('user_id'))
                                         <input type="hidden" name="user_id" value="{{ request('user_id') }}">
                                     @endif
+                                    @if(request('delivery_id'))
+                                        <input type="hidden" name="delivery_id" value="{{ request('delivery_id') }}">
+                                    @endif
                                     <button type="submit" class="btn btn-success">
                                         <i class="fas fa-download"></i> {{ __('messages.Export_CSV') }}
                                     </button>
@@ -378,6 +396,7 @@
                                         <th>{{ __('messages.Customer') }}</th>
                                         <th>{{ __('messages.Status') }}</th>
                                         <th>{{ __('messages.Payment') }}</th>
+                                        <th>{{ __('messages.Delivery') }}</th>
                                         <th>{{ __('messages.Total') }}</th>
                                         <th>{{ __('messages.Actions') }}</th>
                                     </tr>
@@ -429,6 +448,13 @@
                                                     @endif
                                                     <br><small class="text-muted">{{ ucfirst($order->payment_type) }}</small>
                                                 </div>
+                                            </td>
+                                            <td>
+                                                @if($order->delivery_place)
+                                                    <span class="badge bg-info">{{ $order->delivery_place }}</span>
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
                                             </td>
                                             <td>
                                                 <div>

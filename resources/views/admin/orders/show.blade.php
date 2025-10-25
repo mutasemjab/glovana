@@ -12,7 +12,7 @@
                 <div class="page-title-right">
                     <ol class="breadcrumb m-0">
                         <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}">{{ __('messages.dashboard') }}</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('admin.orders.index') }}">{{ __('messages.orders') }}</a></li>
+                        <li class="breadcrumb-item"><a href="{{ route('orders.index') }}">{{ __('messages.orders') }}</a></li>
                         <li class="breadcrumb-item active">{{ __('messages.order_details') }}</li>
                     </ol>
                 </div>
@@ -252,10 +252,10 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{{ route('admin.orders.edit', $order->id) }}" class="btn btn-primary">
+                        <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-primary">
                             <i class="ri-edit-line"></i> {{ __('messages.edit_order') }}
                         </a>
-                        <a href="{{ route('admin.orders.index') }}" class="btn btn-secondary">
+                        <a href="{{ route('orders.index') }}" class="btn btn-secondary">
                             <i class="ri-arrow-left-line"></i> {{ __('messages.back_to_orders') }}
                         </a>
                     </div>

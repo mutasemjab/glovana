@@ -51,6 +51,7 @@
 
     <?php echo $__env->yieldContent('script'); ?>
     <?php echo $__env->yieldContent('js'); ?>
+    <?php echo $__env->yieldPushContent('scripts'); ?>
 </body>
 </html>
 <?php /**PATH C:\xampp\htdocs\glovana\resources\views/layouts/admin.blade.php ENDPATH**/ ?>
