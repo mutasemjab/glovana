@@ -14,10 +14,26 @@ class CartController extends Controller
 {
     use Responses;
 
-  public function index(Request $request)
+    public function index(Request $request)
     {
-        $cart = Cart::with('product','product.images')->where('user_id', $request->user()->id)->where('status', 1)->get();
-        return $this->success_response('Cart retrieved successfully', $cart);
+        $cart = Cart::with('product', 'product.images')
+            ->where('user_id', $request->user()->id)
+            ->where('status', 1)
+            ->get();
+
+        // Calculate cart summary
+        $summary = [
+            'total_items' => $cart->count(),
+            'total_quantity' => $cart->sum('quantity'),
+            'subtotal' => $cart->sum('total_price_product'),
+            'total_discount' => $cart->sum('discount_coupon'),
+            'total' => $cart->sum('total_price_product') - $cart->sum('discount_coupon'),
+        ];
+
+        return $this->success_response('Cart retrieved successfully', [
+            'cart_items' => $cart,
+            'summary' => $summary
+        ]);
     }
 
    public function store(Request $request)

@@ -14,6 +14,23 @@ class Product extends Model
       
     protected $guarded = [];
 
+    protected $appends = ['name', 'description', 'specification','is_favourite','avg_rating', 'total_ratings'];
+
+    public function ratings()
+    {
+        return $this->hasMany(ProductRating::class);
+    }
+
+    public function getAvgRatingAttribute()
+    {
+        return round($this->ratings()->avg('rating') ?? 0, 2);
+    }
+
+    public function getTotalRatingsAttribute()
+    {
+        return $this->ratings()->count();
+    }
+
      public function category()
     {
         return $this->belongsTo(Category::class);
@@ -28,14 +45,6 @@ class Product extends Model
     {
         return $this->hasMany(ProductImage::class);
     }
-
-    public function ratings()
-    {
-        return $this->hasMany(ProductRating::class);
-    }
-
-    protected $appends = ['name', 'description', 'specification','is_favourite'];
-
 
       public function getActivitylogOptions(): LogOptions
     {

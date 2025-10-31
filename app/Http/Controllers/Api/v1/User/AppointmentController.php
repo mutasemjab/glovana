@@ -274,6 +274,127 @@ class AppointmentController extends Controller
         }
     }
 
+    /**
+     * Update appointment
+     */
+    public function update(Request $request, $appointmentId)
+    {
+        try {
+            $user = auth()->user();
+            
+            // Find the appointment
+            $appointment = Appointment::where('user_id', $user->id)->find($appointmentId);
+            
+            if (!$appointment) {
+                return $this->error_response('Not found', 'Appointment not found or unauthorized');
+            }
+            
+            // Check if appointment can be edited (only pending or accepted appointments)
+            if (!in_array($appointment->appointment_status, [1, 2])) {
+                return $this->error_response('Invalid operation', 'Cannot edit appointment in current status');
+            }
+            
+            $validator = Validator::make($request->all(), [
+                'date' => 'nullable|date|after:today',
+                'services' => 'nullable|array',
+                'services.*.service_id' => 'required_with:services|exists:services,id',
+                'services.*.customer_count' => 'required_with:services|integer|min:1',
+                'services.*.person_number' => 'nullable|integer|min:1',
+                'address_id' => 'nullable|exists:user_addresses,id',
+                'note' => 'nullable|string|max:1000',
+                'payment_type' => 'nullable|in:cash,visa,wallet'
+            ]);
+
+            if ($validator->fails()) {
+                return $this->error_response('Validation error', $validator->errors());
+            }
+
+            DB::beginTransaction();
+
+            try {
+                // Update basic fields if provided
+                if ($request->filled('date')) {
+                    $appointment->date = $request->date;
+                }
+                
+                if ($request->filled('address_id')) {
+                    $appointment->address_id = $request->address_id;
+                }
+                
+                if ($request->filled('note')) {
+                    $appointment->note = $request->note;
+                }
+                
+                if ($request->filled('payment_type')) {
+                    $appointment->payment_type = $request->payment_type;
+                }
+
+                // Update services if provided
+                if ($request->filled('services')) {
+                    $providerType = ProviderType::with(['type', 'provider'])->find($appointment->provider_type_id);
+                    
+                    // Delete old services
+                    AppointmentService::where('appointment_id', $appointment->id)->delete();
+                    
+                    // Recalculate pricing with new services
+                    $pricingData = $this->calculateAppointmentPricing($providerType, $request);
+                    
+                    // Update pricing fields
+                    $appointment->total_prices = $pricingData['final_total'];
+                    $appointment->total_discounts = $pricingData['discount_amount'];
+                    $appointment->original_total_price = $pricingData['original_total'];
+                    $appointment->discount_id = $pricingData['discount_id'];
+                    $appointment->discount_percentage = $pricingData['discount_percentage'];
+                    $appointment->discount_amount = $pricingData['discount_amount'];
+                    $appointment->has_discount = $pricingData['has_discount'] ? 1 : 2;
+                    
+                    // Create new appointment services
+                    foreach ($request->services as $serviceData) {
+                        $serviceInfo = $this->getServicePricingInfoForBooking($providerType->id, $serviceData['service_id']);
+                        
+                        AppointmentService::create([
+                            'appointment_id' => $appointment->id,
+                            'service_id' => $serviceData['service_id'],
+                            'customer_count' => $serviceData['customer_count'],
+                            'person_number' => $serviceData['person_number'] ?? 1,
+                            'service_price' => $serviceInfo['current_price'],
+                            'total_price' => $serviceInfo['current_price'] * $serviceData['customer_count'],
+                            'original_service_price' => $serviceInfo['original_price'],
+                            'service_discount_percentage' => $serviceInfo['discount_percentage'] ?? 0,
+                            'service_discount_amount' => $serviceInfo['discount_amount_per_service'] ?? 0,
+                            'has_service_discount' => $serviceInfo['has_discount'] ? 1 : 2,
+                        ]);
+                    }
+                }
+                
+                $appointment->save();
+                
+                DB::commit();
+
+                // Load the complete appointment data
+                $appointment->load(['appointmentServices.service', 'address', 'providerType.provider', 'discount']);
+
+                return $this->success_response('Appointment updated successfully', [
+                    'appointment' => $appointment,
+                    'pricing_breakdown' => $request->filled('services') ? [
+                        'original_total' => $appointment->original_total_price,
+                        'discount_applied' => $appointment->has_discount == 1,
+                        'discount_percentage' => $appointment->discount_percentage,
+                        'amount_saved' => $appointment->discount_amount,
+                        'final_total' => $appointment->total_prices,
+                    ] : null
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollback();
+                throw $e;
+            }
+
+        } catch (\Exception $e) {
+            return $this->error_response('Failed to update appointment', ['error' => $e->getMessage()]);
+        }
+    }
+
 
     public function updateAppointmentStatus(Request $request, $appointmentId)
     {

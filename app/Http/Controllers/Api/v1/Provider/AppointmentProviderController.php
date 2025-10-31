@@ -661,6 +661,11 @@ class AppointmentProviderController extends Controller
             $title = "Appointment Status Update";
             $body = $statusMessages[$newStatus] ?? "Your appointment status has been updated";
             $body .= " - Appointment #{$appointment->number}";
+            
+            // Add cancellation reason if status is 5 and reason exists
+            if ($newStatus == 5 && !empty($appointment->reason_of_cancel)) {
+                $body .= ". Reason: {$appointment->reason_of_cancel}";
+            }
 
             FCMController::sendMessageToUser($title, $body, $appointment->user_id);
             \Log::info("Appointment status notification sent to user ID: {$appointment->user_id}");
@@ -668,7 +673,6 @@ class AppointmentProviderController extends Controller
             \Log::error("Failed to send appointment status notification to user: " . $e->getMessage());
         }
     }
-
     // Helper Methods
     private function getAppointmentStatusText($status)
     {

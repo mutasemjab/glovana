@@ -5,7 +5,12 @@ namespace App\Services;
 use App\Models\Appointment;
 use App\Models\FineDiscount;
 use App\Models\FineSetting;
+use App\Models\Provider;
+use App\Models\User;
+use App\Models\WalletTransaction;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
 
 class AppointmentService
 {
@@ -14,7 +19,7 @@ class AppointmentService
      */
     public function cancelAppointment(Appointment $appointment, $reason, $canceledBy = 'user')
     {
-        \DB::beginTransaction();
+        DB::beginTransaction();
         try {
             $now = Carbon::now();
             
@@ -29,36 +34,56 @@ class AppointmentService
             if ($canceledBy === 'user' && $appointment->user_id) {
                 $this->checkAndApplyLateCancellationFine($appointment, $now);
             }
+            
+            // Check if fine should be applied (only for provider cancellations)
+            if ($canceledBy === 'provider' && $appointment->provider_id) {
+                $this->checkAndApplyProviderCancellationFine($appointment, $now);
+            }
 
-            \DB::commit();
+            DB::commit();
             return true;
         } catch (\Exception $e) {
-            \DB::rollback();
+            DB::rollback();
             throw $e;
         }
     }
 
     /**
-     * Check if late cancellation fine should be applied
+     * Check if late cancellation fine should be applied for users
      */
     protected function checkAndApplyLateCancellationFine(Appointment $appointment, Carbon $canceledAt)
     {
         $settings = FineSetting::getAllSettings();
         $lateCancellationHours = (int) ($settings['late_cancellation_hours'] ?? 24);
         $autoApplyFines = (int) ($settings['auto_apply_fines'] ?? 1);
+        $finePercentage = (float) ($settings['fine_percentage'] ?? 10);
 
         // Calculate time difference
         $appointmentTime = Carbon::parse($appointment->date);
         $hoursUntilAppointment = $canceledAt->diffInHours($appointmentTime, false);
 
-        // If cancellation is within the restricted time frame
-        if ($hoursUntilAppointment <= $lateCancellationHours && $hoursUntilAppointment >= 0) {
-            // Create the fine
-            $fine = Fine::createLateCancellationFine($appointment);
+        // If cancellation is within the late cancellation window
+        if ($hoursUntilAppointment > 0 && $hoursUntilAppointment <= $lateCancellationHours) {
+            $originalAmount = $appointment->total_amount ?? 0;
+            $fineAmount = ($originalAmount * $finePercentage) / 100;
 
-            // Auto-apply if enabled
-            if ($autoApplyFines == 1) {
-                $fine->apply();
+            // Create fine record
+            $fine = FineDiscount::create([
+                'user_id' => $appointment->user_id,
+                'appointment_id' => $appointment->id,
+                'category' => 1, // Automatic
+                'amount' => $fineAmount,
+                'percentage' => $finePercentage,
+                'original_amount' => $originalAmount,
+                'status' => $autoApplyFines ? 2 : 1, // Applied or Pending
+                'reason' => "Late cancellation fine - canceled {$hoursUntilAppointment} hours before appointment",
+                'applied_at' => $autoApplyFines ? $canceledAt : null,
+                'due_date' => $autoApplyFines ? null : $canceledAt
+            ]);
+
+            // If auto-apply is enabled, deduct from user balance
+            if ($autoApplyFines && $appointment->user) {
+                $this->applyFineToUserBalance($appointment->user, $fine);
             }
 
             return $fine;
@@ -68,36 +93,91 @@ class AppointmentService
     }
 
     /**
-     * Get cancellation info for an appointment
+     * Check if cancellation fine should be applied for providers
      */
-    public function getCancellationInfo(Appointment $appointment)
+    protected function checkAndApplyProviderCancellationFine(Appointment $appointment, Carbon $canceledAt)
     {
         $settings = FineSetting::getAllSettings();
-        $lateCancellationHours = (int) ($settings['late_cancellation_hours'] ?? 24);
-        $finePercentage = (float) ($settings['fine_percentage'] ?? 25);
-        $minimumFine = (float) ($settings['minimum_fine_amount'] ?? 5);
-        $maximumFine = (float) ($settings['maximum_fine_amount'] ?? 100);
+        $providerCancellationHours = (int) ($settings['provider_cancellation_hours'] ?? 2);
+        $autoApplyFines = (int) ($settings['auto_apply_fines'] ?? 1);
+        $providerFinePercentage = (float) ($settings['provider_fine_percentage'] ?? 15);
 
-        $now = Carbon::now();
+        // Calculate time difference
         $appointmentTime = Carbon::parse($appointment->date);
-        $hoursUntilAppointment = $now->diffInHours($appointmentTime, false);
+        $hoursUntilAppointment = $canceledAt->diffInHours($appointmentTime, false);
 
-        $willIncurFine = $hoursUntilAppointment <= $lateCancellationHours && $hoursUntilAppointment >= 0;
-        
-        $fineAmount = 0;
-        if ($willIncurFine) {
-            $fineAmount = ($appointment->total_prices * $finePercentage) / 100;
-            $fineAmount = max($minimumFine, min($maximumFine, $fineAmount));
+        // If provider cancellation is within the cancellation window
+        if ($hoursUntilAppointment > 0 && $hoursUntilAppointment <= $providerCancellationHours) {
+            $originalAmount = $appointment->total_amount ?? 0;
+            $fineAmount = ($originalAmount * $providerFinePercentage) / 100;
+
+            // Create fine record for provider
+            $fine = FineDiscount::create([
+                'provider_id' => $appointment->provider_id,
+                'appointment_id' => $appointment->id,
+                'category' => 1, // Automatic
+                'amount' => $fineAmount,
+                'percentage' => $providerFinePercentage,
+                'original_amount' => $originalAmount,
+                'status' => $autoApplyFines ? 2 : 1, // Applied or Pending
+                'reason' => "Provider late cancellation fine - canceled {$hoursUntilAppointment} hours before appointment",
+                'applied_at' => $autoApplyFines ? $canceledAt : null,
+                'due_date' => $autoApplyFines ? null : $canceledAt
+            ]);
+
+            // If auto-apply is enabled, deduct from provider balance
+            if ($autoApplyFines && $appointment->provider) {
+                $this->applyFineToProviderBalance($appointment->provider, $fine);
+            }
+
+            return $fine;
         }
 
-        return [
-            'will_incur_fine' => $willIncurFine,
-            'hours_until_appointment' => max(0, $hoursUntilAppointment),
-            'late_cancellation_threshold' => $lateCancellationHours,
-            'fine_amount' => $fineAmount,
-            'fine_percentage' => $finePercentage,
-            'can_cancel_free' => $hoursUntilAppointment > $lateCancellationHours
-        ];
+        return null;
+    }
+
+    /**
+     * Apply fine to user balance
+     */
+    protected function applyFineToUserBalance($user, $fine)
+    {
+        // Deduct fine amount from user balance
+        $user->decrement('balance', $fine->amount);
+
+        // Create wallet transaction record
+        $transaction = WalletTransaction::create([
+            'user_id' => $user->id,
+            'amount' => $fine->amount,
+            'type_of_transaction' => 2, // 2 = withdrawal
+            'note' => 'Late cancellation fine - Appointment ID: ' . $fine->appointment_id
+        ]);
+
+        // Update fine with transaction reference
+        $fine->update(['wallet_transaction_id' => $transaction->id]);
+
+        return $transaction;
+    }
+
+    /**
+     * Apply fine to provider balance
+     */
+    protected function applyFineToProviderBalance($provider, $fine)
+    {
+        // Deduct fine amount from provider balance
+        $provider->decrement('balance', $fine->amount);
+
+        // Create wallet transaction record
+        $transaction = WalletTransaction::create([
+            'provider_id' => $provider->id,
+            'amount' => $fine->amount,
+            'type_of_transaction' => 2, // 2 = withdrawal
+            'note' => 'Provider late cancellation fine - Appointment ID: ' . $fine->appointment_id
+        ]);
+
+        // Update fine with transaction reference
+        $fine->update(['wallet_transaction_id' => $transaction->id]);
+
+        return $transaction;
     }
 
     /**
@@ -105,14 +185,49 @@ class AppointmentService
      */
     public static function processPendingFines()
     {
-        $pendingFines = FineDiscount::due()->get();
+        $pendingFines = FineDiscount::where('status', 1)
+            ->where('due_date', '<=', Carbon::now())
+            ->get();
+            
         $processed = 0;
         $failed = 0;
 
         foreach ($pendingFines as $fine) {
-            if ($fine->apply()) {
-                $processed++;
-            } else {
+            try {
+                DB::beginTransaction();
+                
+                if ($fine->user_id) {
+                    $user = User::find($fine->user_id);
+                    if ($user) {
+                        (new self())->applyFineToUserBalance($user, $fine);
+                        $fine->update([
+                            'status' => 2, // Applied
+                            'applied_at' => Carbon::now()
+                        ]);
+                        $processed++;
+                    } else {
+                        $fine->update(['status' => 4]); // Failed
+                        $failed++;
+                    }
+                } elseif ($fine->provider_id) {
+                    $provider = Provider::find($fine->provider_id);
+                    if ($provider) {
+                        (new self())->applyFineToProviderBalance($provider, $fine);
+                        $fine->update([
+                            'status' => 2, // Applied
+                            'applied_at' => Carbon::now()
+                        ]);
+                        $processed++;
+                    } else {
+                        $fine->update(['status' => 4]); // Failed
+                        $failed++;
+                    }
+                }
+                
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollback();
+                $fine->update(['status' => 4]); // Failed
                 $failed++;
             }
         }
@@ -122,43 +237,5 @@ class AppointmentService
             'failed' => $failed,
             'total' => $pendingFines->count()
         ];
-    }
-
-    /**
-     * Calculate potential fine for appointment
-     */
-    public static function calculatePotentialFine($totalAmount)
-    {
-        $settings = FineSetting::getAllSettings();
-        $finePercentage = (float) ($settings['fine_percentage'] ?? 25);
-        $minimumFine = (float) ($settings['minimum_fine_amount'] ?? 5);
-        $maximumFine = (float) ($settings['maximum_fine_amount'] ?? 100);
-        
-        $fineAmount = ($totalAmount * $finePercentage) / 100;
-        return max($minimumFine, min($maximumFine, $fineAmount));
-    }
-
-    /**
-     * Get user's fine history
-     */
-    public static function getUserFineHistory($userId, $limit = 10)
-    {
-        return FineDiscount::where('user_id', $userId)
-                          ->with(['appointment'])
-                          ->orderBy('created_at', 'desc')
-                          ->limit($limit)
-                          ->get();
-    }
-
-    /**
-     * Get provider's fine history
-     */
-    public static function getProviderFineHistory($providerId, $limit = 10)
-    {
-        return FineDiscount::where('provider_id', $providerId)
-                          ->with(['appointment'])
-                          ->orderBy('created_at', 'desc')
-                          ->limit($limit)
-                          ->get();
     }
 }

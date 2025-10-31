@@ -117,6 +117,7 @@ Route::group(['prefix' => 'v1/user'], function () {
          Route::prefix('appointments')->group(function () {
             Route::get('/', [AppointmentController::class, 'index']); // GET /api/appointments
             Route::post('/', [AppointmentController::class, 'store']); // POST /api/appointments
+            Route::put('/{appointmentId}', [AppointmentController::class, 'update']); 
             Route::post('/{appointmentId}/select-payment-method', [AppointmentController::class, 'selectPaymentMethod']);
             Route::post('/{appointmentId}/status', [AppointmentController::class, 'updateAppointmentStatus']);
 
