@@ -37,6 +37,10 @@ class Appointment extends Model
     }
 
     // Relationships
+    public function discount()
+    {
+        return $this->belongsTo(Discount::class);
+    }
     public function user()
     {
         return $this->belongsTo(User::class);
