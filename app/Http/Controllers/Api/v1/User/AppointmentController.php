@@ -155,40 +155,62 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Create appointment with discount preservation
+     * FIXED: Store method now supports both 'service' and 'hourly' booking types
+     * 
+     * Changes made:
+     * 1. Moved provider type fetch before validation
+     * 2. Dynamic validation rules based on booking_type
+     * 3. Conditional processing for service vs hourly bookings
      */
     public function store(Request $request)
     {
         try {
             $user = auth()->user();
             
-            $validator = Validator::make($request->all(), [
+            // First, get provider type to determine booking type
+            $providerType = ProviderType::with(['type', 'provider'])->find($request->provider_type_id);
+            
+            if (!$providerType) {
+                return $this->error_response('Invalid provider type', null);
+            }
+
+            $bookingType = $providerType->type->booking_type;
+            
+            // Dynamic validation based on booking type
+            $rules = [
                 'provider_type_id' => 'required|exists:provider_types,id',
                 'date' => 'required|date|after:today',
-                'services' => 'required|array',
-                'services.*.service_id' => 'required|exists:services,id',
-                'services.*.customer_count' => 'required|integer|min:1',
-                'services.*.person_number' => 'nullable|integer|min:1',
                 'address_id' => 'required|exists:user_addresses,id',
                 'note' => 'nullable|string|max:1000',
                 'payment_type' => 'required|in:cash,visa,wallet'
-            ]);
+            ];
+
+            // Add booking type specific validation
+            if ($bookingType === 'service') {
+                $rules['services'] = 'required|array';
+                $rules['services.*.service_id'] = 'required|exists:services,id';
+                $rules['services.*.customer_count'] = 'required|integer|min:1';
+                $rules['services.*.person_number'] = 'nullable|integer|min:1';
+            } elseif ($bookingType === 'hourly') {
+                $rules['number_of_hours'] = 'required|integer|min:1';
+            }
+            
+            $validator = Validator::make($request->all(), $rules);
 
             if ($validator->fails()) {
                 return $this->error_response('Validation error', $validator->errors());
             }
 
-            $providerType = ProviderType::with(['type', 'provider'])->find($request->provider_type_id);
-            
-            if (!$providerType || $providerType->type->booking_type !== 'service') {
-                return $this->error_response('Invalid provider type or booking type', null);
-            }
-
             DB::beginTransaction();
 
             try {
-                // Calculate pricing with discount
-                $pricingData = $this->calculateAppointmentPricing($providerType, $request);
+                // Calculate pricing based on booking type
+                if ($bookingType === 'service') {
+                    $pricingData = $this->calculateAppointmentPricing($providerType, $request);
+                } else {
+                    // For hourly bookings - calculate based on hourly rate
+                    $pricingData = $this->calculateHourlyPricing($providerType, $request);
+                }
                 
                 // Generate appointment number
                 $appointmentNumber = $this->generateAppointmentNumber();
@@ -223,27 +245,31 @@ class AppointmentController extends Controller
                     'fine_applied' => 2 // No fine
                 ]);
 
-                // Create appointment services with discount info
-                foreach ($request->services as $serviceData) {
-                    $serviceInfo = $this->getServicePricingInfoForBooking($providerType->id, $serviceData['service_id']);
-                    
-                    AppointmentService::create([
-                        'appointment_id' => $appointment->id,
-                        'service_id' => $serviceData['service_id'],
-                        'customer_count' => $serviceData['customer_count'],
-                        'person_number' => $serviceData['person_number'] ?? 1,
+                // Create appointment services only for service-based bookings
+                if ($bookingType === 'service') {
+                    foreach ($request->services as $serviceData) {
+                        $serviceInfo = $this->getServicePricingInfoForBooking($providerType->id, $serviceData['service_id']);
                         
-                        // Existing pricing fields
-                        'service_price' => $serviceInfo['current_price'],
-                        'total_price' => $serviceInfo['current_price'] * $serviceData['customer_count'],
-                        
-                        // New discount fields for services
-                        'original_service_price' => $serviceInfo['original_price'],
-                        'service_discount_percentage' => $serviceInfo['discount_percentage'] ?? 0,
-                        'service_discount_amount' => $serviceInfo['discount_amount_per_service'] ?? 0,
-                        'has_service_discount' => $serviceInfo['has_discount'] ? 1 : 2,
-                    ]);
+                        AppointmentService::create([
+                            'appointment_id' => $appointment->id,
+                            'service_id' => $serviceData['service_id'],
+                            'customer_count' => $serviceData['customer_count'],
+                            'person_number' => $serviceData['person_number'] ?? 1,
+                            
+                            // Existing pricing fields
+                            'service_price' => $serviceInfo['current_price'],
+                            'total_price' => $serviceInfo['current_price'] * $serviceData['customer_count'],
+                            
+                            // New discount fields for services
+                            'original_service_price' => $serviceInfo['original_price'],
+                            'service_discount_percentage' => $serviceInfo['discount_percentage'] ?? 0,
+                            'service_discount_amount' => $serviceInfo['discount_amount_per_service'] ?? 0,
+                            'has_service_discount' => $serviceInfo['has_discount'] ? 1 : 2,
+                        ]);
+                    }
                 }
+                // For hourly bookings, you might want to store number_of_hours in a separate table or field
+                // This depends on your database schema
 
                 DB::commit();
 
@@ -275,7 +301,57 @@ class AppointmentController extends Controller
     }
 
     /**
-     * Update appointment
+     * NEW METHOD: Calculate pricing for hourly bookings
+     */
+    private function calculateHourlyPricing($providerType, $request)
+    {
+        $numberOfHours = $request->number_of_hours;
+        
+        // Get the hourly rate from provider_type
+        $originalHourlyRate = $providerType->price_per_hour ?? 0;
+        $currentHourlyRate = $originalHourlyRate;
+        
+        $discountId = null;
+        $discountPercentage = 0;
+        $discountName = null;
+        $hasDiscount = false;
+        
+        // Check for active hourly discount
+        $activeDiscount = Discount::where('provider_type_id', $providerType->id)
+            ->where('discount_type', 'hourly')
+            ->where('is_active', 1)
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
+            ->first();
+        
+        if ($activeDiscount) {
+            $hasDiscount = true;
+            $discountId = $activeDiscount->id;
+            $discountPercentage = $activeDiscount->percentage;
+            $discountName = $activeDiscount->name;
+            
+            // Apply discount to hourly rate
+            $discountAmount = ($originalHourlyRate * $activeDiscount->percentage) / 100;
+            $currentHourlyRate = $originalHourlyRate - $discountAmount;
+        }
+        
+        $originalTotal = $originalHourlyRate * $numberOfHours;
+        $finalTotal = $currentHourlyRate * $numberOfHours;
+        $totalDiscountAmount = $originalTotal - $finalTotal;
+        
+        return [
+            'original_total' => $originalTotal,
+            'final_total' => $finalTotal,
+            'discount_amount' => $totalDiscountAmount,
+            'discount_id' => $discountId,
+            'discount_percentage' => $discountPercentage,
+            'discount_name' => $discountName,
+            'has_discount' => $hasDiscount,
+        ];
+    }
+
+    /**
+     * FIXED: Update method now supports both booking types
      */
     public function update(Request $request, $appointmentId)
     {
@@ -294,16 +370,28 @@ class AppointmentController extends Controller
                 return $this->error_response('Invalid operation', 'Cannot edit appointment in current status');
             }
             
-            $validator = Validator::make($request->all(), [
+            // Get provider type to determine booking type
+            $providerType = ProviderType::with(['type', 'provider'])->find($appointment->provider_type_id);
+            $bookingType = $providerType->type->booking_type;
+            
+            // Dynamic validation based on booking type
+            $rules = [
                 'date' => 'nullable|date|after:today',
-                'services' => 'nullable|array',
-                'services.*.service_id' => 'required_with:services|exists:services,id',
-                'services.*.customer_count' => 'required_with:services|integer|min:1',
-                'services.*.person_number' => 'nullable|integer|min:1',
                 'address_id' => 'nullable|exists:user_addresses,id',
                 'note' => 'nullable|string|max:1000',
                 'payment_type' => 'nullable|in:cash,visa,wallet'
-            ]);
+            ];
+            
+            if ($bookingType === 'service') {
+                $rules['services'] = 'nullable|array';
+                $rules['services.*.service_id'] = 'required_with:services|exists:services,id';
+                $rules['services.*.customer_count'] = 'required_with:services|integer|min:1';
+                $rules['services.*.person_number'] = 'nullable|integer|min:1';
+            } elseif ($bookingType === 'hourly') {
+                $rules['number_of_hours'] = 'nullable|integer|min:1';
+            }
+            
+            $validator = Validator::make($request->all(), $rules);
 
             if ($validator->fails()) {
                 return $this->error_response('Validation error', $validator->errors());
@@ -329,10 +417,8 @@ class AppointmentController extends Controller
                     $appointment->payment_type = $request->payment_type;
                 }
 
-                // Update services if provided
-                if ($request->filled('services')) {
-                    $providerType = ProviderType::with(['type', 'provider'])->find($appointment->provider_type_id);
-                    
+                // Update services/hours based on booking type
+                if ($bookingType === 'service' && $request->filled('services')) {
                     // Delete old services
                     AppointmentService::where('appointment_id', $appointment->id)->delete();
                     
@@ -365,6 +451,18 @@ class AppointmentController extends Controller
                             'has_service_discount' => $serviceInfo['has_discount'] ? 1 : 2,
                         ]);
                     }
+                } elseif ($bookingType === 'hourly' && $request->filled('number_of_hours')) {
+                    // Recalculate pricing for hourly booking
+                    $pricingData = $this->calculateHourlyPricing($providerType, $request);
+                    
+                    // Update pricing fields
+                    $appointment->total_prices = $pricingData['final_total'];
+                    $appointment->total_discounts = $pricingData['discount_amount'];
+                    $appointment->original_total_price = $pricingData['original_total'];
+                    $appointment->discount_id = $pricingData['discount_id'];
+                    $appointment->discount_percentage = $pricingData['discount_percentage'];
+                    $appointment->discount_amount = $pricingData['discount_amount'];
+                    $appointment->has_discount = $pricingData['has_discount'] ? 1 : 2;
                 }
                 
                 $appointment->save();
@@ -376,7 +474,7 @@ class AppointmentController extends Controller
 
                 return $this->success_response('Appointment updated successfully', [
                     'appointment' => $appointment,
-                    'pricing_breakdown' => $request->filled('services') ? [
+                    'pricing_breakdown' => ($request->filled('services') || $request->filled('number_of_hours')) ? [
                         'original_total' => $appointment->original_total_price,
                         'discount_applied' => $appointment->has_discount == 1,
                         'discount_percentage' => $appointment->discount_percentage,
