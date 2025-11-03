@@ -340,15 +340,21 @@ class ProviderController extends Controller
     {
         try {
             $providers = Provider::where('activate', 1)
-                ->whereHas('providerTypes', function ($query) {
-                    $query->where('activate', 1);
+                ->whereHas('providerTypes', function ($q) {
+                    $q->where('activate', 1)
+                    ->whereHas('type', function ($t) {
+                        $t->where('booking_type', 'service');
+                    });
                 })
                 ->with([
                     'providerTypes' => function ($query) {
                         $query->where('activate', 1)
+                            ->whereHas('type', function ($t) {
+                                $t->where('booking_type', 'service');
+                            })
                             ->with([
                                 'type',
-                                 'discounts' => function ($query) {
+                                'discounts' => function ($query) {
                                     $query->active()->current()->with('services');
                                 },
                                 'services.service',
