@@ -285,7 +285,7 @@ class AuthProviderController extends Controller
                     'practice_license' => $practice_license_path,
                     'identity_photo' =>  $identity_photo_path,
                     'address' => $providerTypeData['address'] ?? null,
-                    'price_per_hour' => $type->booking_type === 'hourly' ? $providerTypeData['price_per_hour'] : null,
+                    'price_per_hour' => $type->booking_type === 'hourly' ? $providerTypeData['price_per_hour'] : 0,
                     'is_vip' => $providerTypeData['is_vip'] ?? 2,
                     'activate' => 1,
                     'status' => 1,
