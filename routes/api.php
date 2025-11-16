@@ -49,22 +49,26 @@ Route::group(['prefix' => 'v1/user'], function () {
     Route::get('/pages/{type}', [PageController::class, 'index']);
     Route::get('/getServices',  [ServiceController::class, 'index']);
 
-    Route::get('/categories', [CategoryController::class, 'index']);
-    Route::get('/categories/{id}', [CategoryController::class, 'getProductsFromCategory']);
-
-    Route::get('/products/{id}', [ProductController::class, 'productDetails']);
-    Route::get('product/search', [ProductController::class, 'searchProduct']);
-    Route::get('/getTypes',[TypeController::class,'index']);
-    Route::get('/providers/type/{typeId}', [ProviderController::class, 'getProvidersByType']);
-    Route::get('/providers/{providerId}', [ProviderController::class, 'getProviderDetails']);
-    Route::get('/allProviders', [ProviderController::class, 'getMapLocations']);
-    Route::get('provider/search', [ProviderController::class, 'searchProviders']);
-    Route::get('provider/vip', [ProviderController::class, 'getVipProviders']);
+  
 
 
 
     // Auth Route
     Route::group(['middleware' => ['auth:user-api']], function () {
+
+        // هدول كانو برة الauth بس دخلتهم جوا عشان favourite
+        Route::get('/categories', [CategoryController::class, 'index']);
+        Route::get('/categories/{id}', [CategoryController::class, 'getProductsFromCategory']);
+
+        Route::get('/products/{id}', [ProductController::class, 'productDetails']);
+        Route::get('product/search', [ProductController::class, 'searchProduct']);
+        Route::get('/getTypes',[TypeController::class,'index']);
+        Route::get('/providers/type/{typeId}', [ProviderController::class, 'getProvidersByType']);
+        Route::get('/providers/{providerId}', [ProviderController::class, 'getProviderDetails']);
+        Route::get('/allProviders', [ProviderController::class, 'getMapLocations']);
+        Route::get('provider/search', [ProviderController::class, 'searchProviders']);
+        Route::get('provider/vip', [ProviderController::class, 'getVipProviders']);
+        // end
 
         Route::get('/active', [AuthController::class, 'active']);
 
