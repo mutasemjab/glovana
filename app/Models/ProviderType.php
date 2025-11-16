@@ -17,7 +17,7 @@ class ProviderType extends Model
         'lat' => 'float',
         'lng' => 'float',
         'price_per_hour' => 'float',
-         'is_vip' => 'boolean',
+        'is_vip' => 'boolean',
 
 
     ];
@@ -35,16 +35,18 @@ class ProviderType extends Model
             ->useLogName('ProviderType'); // Custom log name for filtering
     }
 
-     public function getIsFavouriteAttribute()
+    public function getIsFavouriteAttribute()
     {
         if (!auth()->check()) {
-            return 0;
+            return false;
         }
         
-        return DB::table('provider_favourites')
-            ->where('provider_type_id', $this->id)
-            ->where('user_id', auth()->id())
-            ->exists() ? 1 : 0;
+        return $this->favourites()->where('user_id', auth()->id())->exists();
+    }
+
+    public function favourites()
+    {
+        return $this->hasMany(ProviderFavourite::class, 'provider_type_id');
     }
 
     public function favouritedBy()
