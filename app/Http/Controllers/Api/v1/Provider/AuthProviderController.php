@@ -272,8 +272,14 @@ class AuthProviderController extends Controller
                     return $this->error_response('Validation error', 'Services with prices are required for service booking types');
                 }
 
-                 $practice_license_path = uploadImage('assets/admin/uploads', $providerTypeData['practice_license']);
-                 $identity_photo_path = uploadImage('assets/admin/uploads', $providerTypeData['identity_photo']);
+                $practice_license_path = isset($providerTypeData['practice_license'])
+                    ? uploadImage('assets/admin/uploads', $providerTypeData['practice_license'])
+                    : null;
+
+                $identity_photo_path = isset($providerTypeData['identity_photo'])
+                    ? uploadImage('assets/admin/uploads', $providerTypeData['identity_photo'])
+                    : null;
+
                 // Create provider type
                 $providerType = \App\Models\ProviderType::create([
                     'provider_id' => $provider->id,
