@@ -60,13 +60,15 @@ class Product extends Model
     public function getIsFavouriteAttribute()
     {
         if (!auth()->check()) {
-            return 0;
+            return false;
         }
         
-        return DB::table('product_favourites')
-            ->where('product_id', $this->id)
-            ->where('user_id', auth()->id())
-            ->exists() ? 1 : 0;
+        return $this->favourites()->where('user_id', auth()->id())->exists();
+    }
+
+    public function favourites()
+    {
+        return $this->hasMany(ProductFavourite::class, 'product_id');
     }
 
     // Add the relationship in Product model if not already exists
