@@ -17,6 +17,9 @@ class ProviderType extends Model
         'lat' => 'float',
         'lng' => 'float',
         'price_per_hour' => 'float',
+         'is_vip' => 'boolean',
+
+
     ];
 
     protected $appends = ['is_favourite','avg_rating'];
