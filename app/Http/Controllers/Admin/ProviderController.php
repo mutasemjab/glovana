@@ -15,6 +15,46 @@ use Illuminate\Support\Str;
 
 class ProviderController extends Controller
 {
+    
+    public function cancelProviderRequest(Request $request, $id)
+    {
+        $request->validate([
+            'reason' => 'required|string|max:500'
+        ]);
+    
+        DB::beginTransaction();
+    
+        try {
+            $provider = Provider::findOrFail($id);
+    
+            // Prepare notification data
+            $title = 'Request Cancelled';
+            $body = $request->reason;
+    
+            // Save notification to database
+            \App\Models\Notification::create([
+                'title' => $title,
+                'body' => $body,
+                'type' => 2, // provider type
+                'provider_id' => $provider->id,
+            ]);
+    
+            // Send FCM notification
+            \App\Http\Controllers\Admin\FCMController::sendMessageToProvider(
+                $title,
+                $body,
+                $provider->id
+            );
+    
+            DB::commit();
+    
+            return redirect()->back()->with('success', 'Provider request cancelled and notification sent successfully.');
+        } catch (\Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage());
+        }
+    }
+
 
     public function index(Request $request)
     {
@@ -92,7 +132,7 @@ class ProviderController extends Controller
             'fcm_token' => 'nullable|string',
             'password' => 'required',
             'balance' => 'nullable|numeric',
-            'activate' => 'nullable|in:1,2',
+            'activate' => 'nullable|in:1,2,3',
         ]);
 
         if ($validator->fails()) {
@@ -165,7 +205,7 @@ class ProviderController extends Controller
             'fcm_token' => 'nullable|string',
             'password' => 'nullable',
             'balance' => 'nullable|numeric',
-            'activate' => 'nullable|in:1,2',
+            'activate' => 'nullable|in:1,2,3',
         ]);
 
         if ($validator->fails()) {

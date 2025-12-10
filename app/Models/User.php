@@ -67,5 +67,9 @@ class User extends Authenticatable
         return $this->hasMany(PointTransaction::class);
     }
 
+    public function addresses()
+    {
+        return $this->hasMany(UserAddress::class);
+    }
 
 }

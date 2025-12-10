@@ -137,8 +137,10 @@
                             <td>
                                 @if($provider->activate == 1)
                                 <span class="badge badge-success">{{ __('messages.Active') }}</span>
-                                @else
+                                @elseif($provider->activate == 2)
                                 <span class="badge badge-danger">{{ __('messages.Inactive') }}</span>
+                                @else
+                                  <span class="badge badge-primary">{{ __('messages.Waiting Approved') }}</span>
                                 @endif
                             </td>
                             <td>
@@ -157,6 +159,14 @@
                                             title="Wallet Management">
                                         <i class="fas fa-wallet"></i>
                                     </button>
+                                    
+                                    @if($provider->activate == 3)
+                                    <button type="button" class="btn btn-danger btn-sm" 
+                                            onclick="openCancelModal('{{ $provider->id }}', '{{ addslashes($provider->name_of_manager) }}')"
+                                            title="Cancel Request">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -240,6 +250,53 @@
         </div>
     </div>
 </div>
+
+<!-- Cancel Request Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1" role="dialog" aria-labelledby="cancelModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="cancelModalLabel">
+                    <i class="fas fa-times-circle"></i> Cancel Provider Request
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form id="cancelForm" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <input type="hidden" id="cancelProviderId" name="provider_id" value="">
+                    
+                    <!-- Provider Info Display -->
+                    <div class="alert alert-warning">
+                        <strong>Provider Manager:</strong> <span id="cancelProviderName"></span><br>
+                        <small>This will cancel the provider's request and send them a notification.</small>
+                    </div>
+                    
+                    <!-- Reason -->
+                    <div class="form-group">
+                        <label for="reason">Reason for Cancellation <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="reason" name="reason" rows="4" 
+                                  placeholder="Enter the reason why this request is being cancelled. This will be sent to the provider."
+                                  required></textarea>
+                        <small class="form-text text-muted">
+                            The provider will receive this message as a notification.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                        <i class="fas fa-arrow-left"></i> Go Back
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-paper-plane"></i> Cancel Request & Send Notification
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('script')
@@ -267,7 +324,30 @@
         console.log('Provider Balance:', providerBalance);
     }
     
+    // Function to open cancel modal
+    function openCancelModal(providerId, providerName) {
+        // Set the values in the modal
+        $('#cancelProviderId').val(providerId);
+        $('#cancelProviderName').text(providerName);
+        
+        // Set form action with the correct route
+        $('#cancelForm').attr('action', '/admin/providers/' + providerId + '/cancel-request');
+        
+        // Reset form
+        $('#cancelForm')[0].reset();
+        $('#cancelProviderId').val(providerId); // Set again after reset
+        
+        // Show the modal
+        $('#cancelModal').modal('show');
+        
+        // Debug logs
+        console.log('Opening cancel modal for:');
+        console.log('Provider ID:', providerId);
+        console.log('Provider Name:', providerName);
+    }
+    
     $(document).ready(function() {
+        // ============ WALLET MODAL HANDLERS ============
         // Handle form changes for preview
         $('#transactionType, #amount').on('change input', function() {
             updatePreview();
@@ -315,7 +395,7 @@
             }
         }
         
-        // Handle form submission
+        // Handle wallet form submission
         $('#walletForm').on('submit', function(e) {
             var amount = parseFloat($('#amount').val());
             var type = $('#transactionType').val();
@@ -326,6 +406,41 @@
                     e.preventDefault();
                     return false;
                 }
+            }
+        });
+        
+        // ============ CANCEL MODAL HANDLERS ============
+        // Handle cancel form submission with validation
+        $('#cancelForm').on('submit', function(e) {
+            var reason = $('#reason').val().trim();
+            
+            // Validate reason length
+            if (reason.length < 10) {
+                e.preventDefault();
+                alert('Please provide a detailed reason (at least 10 characters).');
+                $('#reason').focus();
+                return false;
+            }
+            
+            // Confirmation before submission
+            if (!confirm('Are you sure you want to cancel this provider request? The provider will be notified with the reason you provided.')) {
+                e.preventDefault();
+                return false;
+            }
+            
+            // If all validations pass, allow form submission
+            return true;
+        });
+        
+        // Optional: Character counter for reason textarea
+        $('#reason').on('input', function() {
+            var length = $(this).val().length;
+            var minLength = 10;
+            
+            if (length < minLength) {
+                $(this).removeClass('is-valid').addClass('is-invalid');
+            } else {
+                $(this).removeClass('is-invalid').addClass('is-valid');
             }
         });
     });

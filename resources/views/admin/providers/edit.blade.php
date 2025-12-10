@@ -69,6 +69,7 @@
                             <select class="form-control" id="activate" name="activate">
                                 <option value="1" {{ old('activate', $provider->activate) == 1 ? 'selected' : '' }}>{{ __('messages.Active') }}</option>
                                 <option value="2" {{ old('activate', $provider->activate) == 2 ? 'selected' : '' }}>{{ __('messages.Inactive') }}</option>
+                                <option value="3" {{ old('activate', $provider->activate) == 3 ? 'selected' : '' }}>{{ __('messages.Waiting Approved') }}</option>
                             </select>
                         </div>
                         

@@ -2,11 +2,15 @@
 
 function uploadImage($folder, $image)
 {
-  $extension = strtolower($image->extension());
- // $filename = time() . rand(100, 999) . '.' . $extension;
-  $filename= $image->getClientOriginalName() ;
-  $image->move($folder, $filename);
-  return $filename;
+    $extension = strtolower($image->getClientOriginalExtension());
+    
+    // Generate unique filename with timestamp and random number
+    $filename = time() . '_' . rand(100000, 999999) . '.' . $extension;
+    
+    // Move the image to the folder
+    $image->move($folder, $filename);
+    
+    return $filename;
 }
 
 

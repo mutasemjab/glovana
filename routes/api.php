@@ -48,7 +48,12 @@ Route::group(['prefix' => 'v1/user'], function () {
     Route::get('/deliveries', [DeliveryController::class, 'index']);
     Route::get('/pages/{type}', [PageController::class, 'index']);
     Route::get('/getServices',  [ServiceController::class, 'index']);
+        Route::get('/getTypes',[TypeController::class,'index']);
 
+        Route::post('/check-phone', [ForgotPasswordController::class, 'checkPhone']);
+
+        // Update password
+        Route::post('/update-password', [ForgotPasswordController::class, 'updatePassword']);
   
 
 
@@ -56,13 +61,13 @@ Route::group(['prefix' => 'v1/user'], function () {
     // Auth Route
     Route::group(['middleware' => ['auth:user-api']], function () {
 
+
         // هدول كانو برة الauth بس دخلتهم جوا عشان favourite
         Route::get('/categories', [CategoryController::class, 'index']);
         Route::get('/categories/{id}', [CategoryController::class, 'getProductsFromCategory']);
 
         Route::get('/products/{id}', [ProductController::class, 'productDetails']);
         Route::get('product/search', [ProductController::class, 'searchProduct']);
-        Route::get('/getTypes',[TypeController::class,'index']);
         Route::get('/providers/type/{typeId}', [ProviderController::class, 'getProvidersByType']);
         Route::get('/providers/{providerId}', [ProviderController::class, 'getProviderDetails']);
         Route::get('/allProviders', [ProviderController::class, 'getMapLocations']);
@@ -146,6 +151,11 @@ Route::group(['prefix' => 'v1/user'], function () {
 
  Route::group(['prefix' => 'v1/provider'], function () {
 
+
+        Route::post('/check-phone', [ForgotPasswordProviderController::class, 'checkPhone']);
+
+        // Update password
+        Route::post('/update-password', [ForgotPasswordProviderController::class, 'updatePassword']);
 
      // Auth Route
      Route::group(['middleware' => ['auth:provider-api']], function () {

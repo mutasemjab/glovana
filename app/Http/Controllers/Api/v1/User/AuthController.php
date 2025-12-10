@@ -129,7 +129,11 @@ class AuthController extends Controller
         }
 
         if ($validator->fails()) {
-            return $this->error_response('Validation error', $validator->errors());
+            // Get all error messages as a flat array and join them
+            $errors = $validator->errors()->all();
+            $errorMessage = implode(' ', $errors);
+            
+            return $this->error_response($errorMessage, []);
         }
 
         // Prepare data for user creation
@@ -358,13 +362,13 @@ class AuthController extends Controller
         }
     }
 
-    public function updateProfile(Request $request)
+     public function updateProfile(Request $request)
     {
         try {
             // Check both authentication guards
             $userApi = auth('user-api')->user();
             $providerApi = auth('provider-api')->user();
-
+            
             // Determine which type of user is authenticated
             if ($userApi) {
                 $user = $userApi;
@@ -377,7 +381,7 @@ class AuthController extends Controller
             } else {
                 return $this->error_response('Unauthenticated', [], 401);
             }
-
+            
             // Base validation rules for both user types
             $validationRules = [
                 'name' => 'nullable|string|max:255',
@@ -385,66 +389,89 @@ class AuthController extends Controller
                 'phone' => 'nullable|string',
                 'fcm_token' => 'nullable|string',
                 'password' => 'nullable|string',
-                'photo' => 'nullable|image|max:2048',
+                'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             ];
-
+            
             // Add provider-specific validation rules if the user is a provider
             if ($userType == 'provider') {
                 $providerRules = [
-                    'photo_of_manager' => 'nullable|image|max:2048',
+                    'photo_of_manager' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
                     'name_of_manager' => 'nullable|string|max:255',
                 ];
-
-                // Merge driver-specific rules with base rules
                 $validationRules = array_merge($validationRules, $providerRules);
             }
-
+            
             // Validate input data
             $validator = Validator::make($request->all(), $validationRules);
-
             if ($validator->fails()) {
                 return $this->error_response('Validation error', $validator->errors());
             }
-
-            // Get basic fields for both user types
-            $data = $request->only(['name', 'email', 'phone', 'password','fcm_token']);
-
+            
+            // Initialize data array
+            $data = [];
+            
+            // Get basic fields for both user types (only filled fields)
+            if ($request->filled('name')) {
+                $data['name'] = $request->name;
+            }
+            
+            if ($request->filled('email')) {
+                $data['email'] = $request->email;
+            }
+            
+            if ($request->filled('phone')) {
+                $data['phone'] = $request->phone;
+            }
+            
+            if ($request->filled('fcm_token')) {
+                $data['fcm_token'] = $request->fcm_token;
+            }
+            
+            // Hash password if provided
+            if ($request->filled('password')) {
+                $data['password'] = bcrypt($request->password);
+            }
+            
             // Handle basic profile photo upload (for both user types)
             if ($request->hasFile('photo')) {
                 // Delete old photo if exists
-                if ($user->photo && file_exists('assets/admin/uploads/' . $user->photo)) {
-                    unlink('assets/admin/uploads/' . $user->photo);
+                if ($user->photo) {
+                    $oldPhotoPath = 'assets/admin/uploads/' . $user->photo;
+                    if (file_exists($oldPhotoPath)) {
+                        @unlink($oldPhotoPath);
+                    }
                 }
                 $data['photo'] = uploadImage('assets/admin/uploads', $request->file('photo'));
             }
-
+            
             // Handle provider-specific fields and photos if the user is a provider
             if ($userType == 'provider') {
-                // Add text fields
-                $data = array_merge($data, $request->only([
-                    'name_of_manager',
-                ]));
-
-                // Handle all provider-specific photo uploads
-                $photoFields = [
-                    'photo_of_manager' => 'assets/admin/uploads',
-                ];
-
-                foreach ($photoFields as $field => $path) {
-                    if ($request->hasFile($field)) {
-                        // Delete old photo if exists
-                        if ($user->$field && file_exists($path . '/' . $user->$field)) {
-                            unlink($path . '/' . $user->$field);
+                // Add text field (only if filled)
+                if ($request->filled('name_of_manager')) {
+                    $data['name_of_manager'] = $request->name_of_manager;
+                }
+                
+                // Handle provider photo upload
+                if ($request->hasFile('photo_of_manager')) {
+                    // Delete old photo if exists
+                    if ($user->photo_of_manager) {
+                        $oldPhotoPath = 'assets/admin/uploads/' . $user->photo_of_manager;
+                        if (file_exists($oldPhotoPath)) {
+                            @unlink($oldPhotoPath);
                         }
-                        $data[$field] = uploadImage($path, $request->file($field));
                     }
+                    $data['photo_of_manager'] = uploadImage('assets/admin/uploads', $request->file('photo_of_manager'));
                 }
             }
-
+            
             // Update user data
             $user->update($data);
-
+            
+            // Refresh user data to get updated values
+            $user->refresh();
+            
             return $this->success_response(ucfirst($userType) . ' profile updated successfully', $user);
+            
         } catch (\Throwable $th) {
             \Log::error('Profile update error: ' . $th->getMessage());
             return $this->error_response('Failed to update profile', ['message' => $th->getMessage()]);

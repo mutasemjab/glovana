@@ -26,42 +26,42 @@ class OrderController extends Controller
         return $this->success_response('Orders retrieved successfully', $orders);
     }
 
-   public function store(Request $request)
+     public function store(Request $request)
     {
         $request->validate([
             'address_id' => 'required|exists:user_addresses,id',
-            'payment_type' => 'required|in:cash,card',
+            'payment_type' => 'required|in:cash,card,wallet',
             'coupon_code' => 'nullable|string'
         ]);
-
+    
         DB::beginTransaction();
-
+    
         try {
             $user = $request->user();
             $cartItems = Cart::where('user_id', $user->id)->where('status', 1)->get();
-
+    
             if ($cartItems->isEmpty()) {
                 return $this->error_response('Cart is empty', []);
             }
-
+    
             $deliveryAddress = \App\Models\UserAddress::find($request->address_id);
             $deliveryFee = $deliveryAddress->delivery->price ?? 0;
-
+    
             $totalTax = 0;
             $totalBeforeTax = 0;
             $totalDiscount = 0;
             $orderProducts = [];
-
+    
             foreach ($cartItems as $item) {
                 $product = Product::find($item->product_id);
-
+    
                 $basePrice = $product->price_after_discount ?? $product->price;
                 $discountValue = $product->price - $basePrice;
                 $productSubtotal = $basePrice * $item->quantity;
-
+    
                 $taxRate = $product->tax ?? 10; // default 10%
                 $taxValue = $productSubtotal * ($taxRate / 100);
-
+    
                 $orderProducts[] = [
                     'order_id' => null,
                     'product_id' => $item->product_id,
@@ -76,30 +76,30 @@ class OrderController extends Controller
                     'created_at' => now(),
                     'updated_at' => now()
                 ];
-
+    
                 $totalBeforeTax += $productSubtotal;
                 $totalTax += $taxValue;
                 $totalDiscount += $discountValue * $item->quantity;
             }
-
+    
             $couponDiscount = 0;
             $couponId = null;
-
+    
             if ($request->coupon_code) {
                 $coupon = Coupon::where('code', $request->coupon_code)
                     ->whereDate('expired_at', '>=', today())
                     ->first();
-
+    
                 if ($coupon) {
                     $alreadyUsed = DB::table('user_coupons')
                         ->where('user_id', $user->id)
                         ->where('coupon_id', $coupon->id)
                         ->exists();
-
+    
                     if (!$alreadyUsed && $totalBeforeTax >= $coupon->minimum_total) {
                         $couponDiscount = $coupon->amount;
                         $couponId = $coupon->id;
-
+    
                         // Store user-coupon usage
                         DB::table('user_coupons')->insert([
                             'user_id' => $user->id,
@@ -110,9 +110,34 @@ class OrderController extends Controller
                     }
                 }
             }
-
+    
             $totalFinal = $totalBeforeTax + $totalTax + $deliveryFee - $couponDiscount;
-
+    
+            // Handle wallet payment
+            if ($request->payment_type === 'wallet') {
+                if ($user->balance < $totalFinal) {
+                    return $this->error_response('Insufficient wallet balance', [
+                        'required_amount' => $totalFinal,
+                        'current_balance' => $user->balance
+                    ]);
+                }
+    
+                // Deduct from user wallet
+                $user->balance -= $totalFinal;
+                $user->save();
+    
+                // Record wallet transaction
+                DB::table('wallet_transactions')->insert([
+                    'user_id' => $user->id,
+                    'admin_id' => 1,
+                    'amount' => $totalFinal,
+                    'type_of_transaction' => 2, // withdrawal
+                    'note' => 'Payment for order',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+    
             $order = Order::create([
                 'user_id' => $user->id,
                 'address_id' => $request->address_id,
@@ -122,23 +147,23 @@ class OrderController extends Controller
                 'total_discounts' => $totalDiscount,
                 'coupon_discount' => $couponDiscount,
                 'payment_type' => $request->payment_type,
-                'payment_status' => 2,
+                'payment_status' => $request->payment_type === 'wallet' ? 1 : 2, // 1 paid, 2 pending
                 'order_status' => 1,
                 'date' => now(),
                 'note' => $request->note
             ]);
-
-             $order->number = $order->id;
-             $order->save();
-
+    
+            $order->number = $order->id;
+            $order->save();
+    
             foreach ($orderProducts as &$op) {
                 $op['order_id'] = $order->id;
             }
-
+    
             OrderProduct::insert($orderProducts);
-
+    
             Cart::where('user_id', $user->id)->where('status', 1)->update(['status' => 2]);
-
+    
             DB::commit();
             return $this->success_response('Order created successfully', $order);
         } catch (\Exception $e) {
@@ -146,7 +171,6 @@ class OrderController extends Controller
             return $this->error_response('Failed to create order', $e->getMessage());
         }
     }
-
 
     public function details($id)
     {

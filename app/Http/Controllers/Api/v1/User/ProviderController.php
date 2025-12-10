@@ -493,14 +493,14 @@ class ProviderController extends Controller
         return $data;
     }
 
-    public function getProvidersByType($typeId)
+       public function getProvidersByType($typeId)
     {
         try {
             $type = Type::find($typeId);
             if (!$type) {
                 return $this->error_response('Type not found', null);
             }
-
+    
             $providers = Provider::whereHas('providerTypes', function ($query) use ($typeId) {
                 $query->where('type_id', $typeId)
                     ->where('activate', 1);
@@ -509,25 +509,31 @@ class ProviderController extends Controller
                     'providerTypes' => function ($query) use ($typeId) {
                         $query->where('type_id', $typeId)
                             ->where('activate', 1)
-
                             ->with([
                                 'type',
-                                 'discounts' => function ($query) {
-                                $query->active()->current()->with('services');
-                            },
+                                'discounts' => function ($query) {
+                                    $query->active()->current()->with('services');
+                                },
                                 'services.service',
                                 'providerServices.service',
                                 'images',
+                                'ratings' // Add this to load ratings
                             ]);
                     }
                 ])
                 ->where('activate', 1)
                 ->get();
-
+    
             $providersData = $providers->map(function ($provider) {
-                return $this->transformProviderData($provider, false);
+                $providerData = $this->transformProviderData($provider, false);
+                
+                /** ✅ Provider overall average rating (based on ProviderType accessors) */
+                $providerAvg = $provider->providerTypes->avg('avg_rating');
+                $providerData['avg_rating'] = round($providerAvg ?? 0, 1);
+                
+                return $providerData;
             });
-
+    
             return $this->success_response('Providers retrieved successfully', [
                 'type' => [
                     'id' => $type->id,
@@ -545,7 +551,7 @@ class ProviderController extends Controller
         }
     }
 
-     public function getProviderDetails($providerId)
+    public function getProviderDetails($providerId)
     {
         try {
             // Load provider with all needed relations
@@ -574,22 +580,49 @@ class ProviderController extends Controller
             ])
                 ->where('activate', 1)
                 ->find($providerId);
-
+    
             // If provider not found
             if (!$provider) {
                 return $this->error_response('Provider not found', null);
             }
-
+    
             // Transform provider data using your transformer method
             $providerData = $this->transformProviderData($provider, true);
-
+    
             /** ✅ Provider overall average rating (based on ProviderType accessors) */
             $providerAvg = $provider->providerTypes->avg('avg_rating');
             $providerData['avg_rating'] = round($providerAvg ?? 0, 1);
-
+    
+            /** ✅ Calculate distance based on user's first address */
+            $user = auth()->user();
+            if ($user) {
+                $userAddress = $user->addresses()->whereNotNull('lat')->whereNotNull('lng')->first();
+                
+                if ($userAddress && $userAddress->lat && $userAddress->lng) {
+                    // Get the first provider type with coordinates
+                    $providerType = $provider->providerTypes->first();
+                    
+                    if ($providerType && $providerType->lat && $providerType->lng) {
+                        $distance = $this->calculateDistance(
+                            $userAddress->lat,
+                            $userAddress->lng,
+                            $providerType->lat,
+                            $providerType->lng
+                        );
+                        $providerData['distance'] = round($distance, 2); // Distance in kilometers
+                    } else {
+                        $providerData['distance'] = null;
+                    }
+                } else {
+                    $providerData['distance'] = null;
+                }
+            } else {
+                $providerData['distance'] = null;
+            }
+    
             /** ✅ Find similar providers (same type_id as first providerType) */
             $firstTypeId = optional($provider->providerTypes->first())->type_id;
-
+    
             $similarProviders = collect();
             if ($firstTypeId) {
                 $similarProviders = Provider::whereHas('providerTypes', function ($query) use ($firstTypeId, $providerId) {
@@ -615,14 +648,36 @@ class ProviderController extends Controller
                         return $this->transformProviderData($similar, false);
                     });
             }
-
+    
             /** ✅ Add similar providers to response */
             $providerData['similar_providers'] = $similarProviders;
-
+    
             return $this->success_response('Provider details retrieved successfully', $providerData);
         } catch (\Exception $e) {
             return $this->error_response('Failed to retrieve provider details', $e->getMessage());
         }
+    }
+    
+    /**
+     * Calculate distance between two coordinates using Haversine formula
+     * Returns distance in kilometers
+     */
+    private function calculateDistance($lat1, $lon1, $lat2, $lon2)
+    {
+        $earthRadius = 6371; // Earth's radius in kilometers
+    
+        $latDiff = deg2rad($lat2 - $lat1);
+        $lonDiff = deg2rad($lon2 - $lon1);
+    
+        $a = sin($latDiff / 2) * sin($latDiff / 2) +
+             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+             sin($lonDiff / 2) * sin($lonDiff / 2);
+    
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+    
+        $distance = $earthRadius * $c;
+    
+        return $distance;
     }
 
 

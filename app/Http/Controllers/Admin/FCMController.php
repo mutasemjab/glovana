@@ -23,7 +23,7 @@ class FCMController extends BaseController
             return false;
         }
 
-        $credentialsFilePath = base_path('json/glovana-firebase-adminsdk-fbsvc-0ff9d27f99.json');
+        $credentialsFilePath = base_path('json/glovana-b5591639c45a.json');
 
         try {
             $client = new GoogleClient();

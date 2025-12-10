@@ -79,6 +79,9 @@ Route::group(['prefix' => LaravelLocalization::setLocale(), 'middleware' => ['lo
         });
 
 
+        Route::post('providers/{id}/cancel-request', [ProviderController::class, 'cancelProviderRequest'])
+            ->name('providers.cancel-request');
+    
         Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('admin.activity-logs.index');
         Route::get('/activity-logs/{activity}', [ActivityLogController::class, 'show'])->name('admin.activity-logs.show');
         

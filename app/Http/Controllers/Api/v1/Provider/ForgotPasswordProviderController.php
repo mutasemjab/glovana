@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Http\Controllers\Api\v1\User;
+namespace App\Http\Controllers\Api\v1\Provider;
 
 use App\Http\Controllers\Controller;
+use App\Models\Provider;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use App\Models\User;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
-class ForgotPasswordController extends Controller
+class ForgotPasswordProviderController extends Controller
 {
 
     use Responses;
@@ -28,7 +29,7 @@ class ForgotPasswordController extends Controller
             return $this->error_response("Validation error", $validator->errors());
         }
 
-        $exists = User::where('phone', $request->phone)->exists();
+        $exists = Provider::where('phone', $request->phone)->exists();
 
         if (! $exists) {
             return $this->error_response("This phone is not registered", []);
@@ -43,7 +44,7 @@ class ForgotPasswordController extends Controller
     public function updatePassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'phone' => 'required|exists:users,phone',
+            'phone' => 'required|exists:providers,phone',
             'password' => 'required|min:6'
         ]);
 
@@ -54,15 +55,15 @@ class ForgotPasswordController extends Controller
         DB::beginTransaction();
 
         try {
-            $user = User::where('phone', $request->phone)->first();
+            $provider = Provider::where('phone', $request->phone)->first();
 
-            $user->password = Hash::make($request->password);
-            $user->save();
+            $provider->password = Hash::make($request->password);
+            $provider->save();
 
             DB::commit();
 
             return $this->success_response("Password updated successfully", [
-                "user" => $user
+                "provider" => $provider
             ]);
 
         } catch (\Exception $e) {

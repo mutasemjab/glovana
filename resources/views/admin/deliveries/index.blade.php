@@ -29,7 +29,7 @@
                                     <tr>
                                         <td>{{ $delivery->id }}</td>
                                         <td>{{ $delivery->place }}</td>
-                                        <td>{{ number_format($delivery->price, 2) }} {{ __('messages.Currency') }}</td>
+                                        <td>{{ number_format($delivery->price, 2) }} JD</td>
                                         <td>{{ \Carbon\Carbon::parse($delivery->created_at)->format('Y-m-d H:i') }}</td>
                                         <td>
                                             <a href="{{ route('deliveries.edit', $delivery->id) }}" 
