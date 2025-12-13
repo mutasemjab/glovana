@@ -70,7 +70,7 @@ class AppointmentController extends Controller
             if ($request->filled('date_from')) {
                 $query->whereDate('date', '>=', $request->date_from);
             }
-            
+
             if ($request->filled('date_to')) {
                 $query->whereDate('date', '<=', $request->date_to);
             }
@@ -87,21 +87,21 @@ class AppointmentController extends Controller
                 // Status labels
                 $appointment->status_text = $this->getAppointmentStatusText($appointment->appointment_status);
                 $appointment->payment_status_text = $appointment->payment_status == 1 ? 'Paid' : 'Unpaid';
-                
+
                 // Provider info
                 $appointment->is_vip_label = $appointment->providerType->is_vip == 1 ? 'VIP' : 'Regular';
                 $appointment->booking_type = $appointment->providerType->type->booking_type ?? 'service';
-                
+
                 // Customer and service info
                 $appointment->total_customers = $this->getTotalCustomers($appointment);
-                
+
                 // Enhanced pricing info with discount details
                 $hasDiscountNew = isset($appointment->has_discount) && $appointment->has_discount == 1;
                 $hasDiscountOld = $appointment->total_discounts > 0;
                 $actualHasDiscount = $hasDiscountNew || $hasDiscountOld;
-                
+
                 $appointment->pricing_info = [
-                    'original_total' => $appointment->original_total_price ?? 
+                    'original_total' => $appointment->original_total_price ??
                         ($appointment->total_prices + $appointment->total_discounts),
                     'final_total' => $appointment->total_prices,
                     'delivery_fee' => $appointment->delivery_fee,
@@ -110,21 +110,20 @@ class AppointmentController extends Controller
                     'has_discount' => $actualHasDiscount,
                     'discount_info' => $actualHasDiscount ? [
                         'discount_name' => $appointment->discount?->name ?? 'Special Discount',
-                        'discount_percentage' => $appointment->discount_percentage ?? 
-                            ($appointment->total_discounts > 0 ? 
+                        'discount_percentage' => $appointment->discount_percentage ??
+                            ($appointment->total_discounts > 0 ?
                                 round(($appointment->total_discounts / ($appointment->total_prices + $appointment->total_discounts)) * 100, 2) : 0),
                         'amount_saved' => $appointment->discount_amount ?? $appointment->total_discounts,
-                        'savings_text' => $appointment->discount_amount > 0 ? 
-                            "You saved {$appointment->discount_amount}!" : 
-                            ($appointment->total_discounts > 0 ? "You saved {$appointment->total_discounts}!" : null)
+                        'savings_text' => $appointment->discount_amount > 0 ?
+                            "You saved {$appointment->discount_amount}!" : ($appointment->total_discounts > 0 ? "You saved {$appointment->total_discounts}!" : null)
                     ] : null
                 ];
-                
+
                 // User-specific flags
                 $appointment->can_cancel = in_array($appointment->appointment_status, [1, 2]); // Can cancel if Pending or Accepted
                 $appointment->can_rate = ($appointment->appointment_status == 4 && $appointment->payment_status == 1); // Can rate if delivered and paid
                 $appointment->requires_payment_selection = ($appointment->appointment_status == 4 && $appointment->payment_status == 2);
-                
+
                 // Add services summary for service-based appointments with discount info
                 if ($appointment->booking_type == 'service') {
                     $appointment->services_summary = $this->getServicesSummaryWithDiscount($appointment);
@@ -145,7 +144,6 @@ class AppointmentController extends Controller
             return $this->success_response('Appointments retrieved successfully', [
                 'appointments' => $appointments,
             ]);
-
         } catch (\Exception $e) {
             return $this->error_response(
                 'Failed to retrieve appointments',
@@ -166,16 +164,41 @@ class AppointmentController extends Controller
     {
         try {
             $user = auth()->user();
-            
+
             // First, get provider type to determine booking type
             $providerType = ProviderType::with(['type', 'provider'])->find($request->provider_type_id);
-            
+
             if (!$providerType) {
                 return $this->error_response('Invalid provider type', null);
             }
 
             $bookingType = $providerType->type->booking_type;
-            
+            // ===== NEW: Check for concurrent booking limit (only for service type) =====
+            if ($bookingType === 'service' && !is_null($providerType->number_of_work)) {
+                $requestedDate = $request->date;
+
+                // Count existing appointments for the same provider_type on the same date
+                // Only count appointments that are NOT canceled (status != 5)
+                $existingAppointmentsCount = Appointment::where('provider_type_id', $request->provider_type_id)
+                    ->whereDate('date', $requestedDate)
+                    ->whereNotIn('appointment_status', [5]) // Exclude canceled appointments
+                    ->count();
+
+                // Check if limit is reached
+                if ($existingAppointmentsCount >= $providerType->number_of_work) {
+                    return $this->error_response(
+                        'Provider is fully booked for this date',
+                        [
+                            'message' => 'This provider has reached the maximum number of concurrent bookings for the selected date.',
+                            'max_bookings' => $providerType->number_of_work,
+                            'current_bookings' => $existingAppointmentsCount,
+                            'requested_date' => $requestedDate,
+                            'suggestion' => 'Please choose a different date or time.'
+                        ]
+                    );
+                }
+            }
+            // ===== END OF NEW CODE =====
             // Dynamic validation based on booking type
             $rules = [
                 'provider_type_id' => 'required|exists:provider_types,id',
@@ -194,7 +217,7 @@ class AppointmentController extends Controller
             } elseif ($bookingType === 'hourly') {
                 $rules['number_of_hours'] = 'required|integer|min:1';
             }
-            
+
             $validator = Validator::make($request->all(), $rules);
 
             if ($validator->fails()) {
@@ -211,10 +234,10 @@ class AppointmentController extends Controller
                     // For hourly bookings - calculate based on hourly rate
                     $pricingData = $this->calculateHourlyPricing($providerType, $request);
                 }
-                
+
                 // Generate appointment number
                 $appointmentNumber = $this->generateAppointmentNumber();
-                
+
                 // Create appointment with existing + new discount fields
                 $appointment = Appointment::create([
                     'user_id' => $user->id,
@@ -224,20 +247,20 @@ class AppointmentController extends Controller
                     'note' => $request->note,
                     'payment_type' => $request->payment_type,
                     'number' => $appointmentNumber,
-                    
+
                     // Existing pricing fields
                     'delivery_fee' => 0,
                     'total_prices' => $pricingData['final_total'],
                     'total_discounts' => $pricingData['discount_amount'],
                     'coupon_discount' => null,
-                    
+
                     // New discount fields
                     'original_total_price' => $pricingData['original_total'],
                     'discount_id' => $pricingData['discount_id'],
                     'discount_percentage' => $pricingData['discount_percentage'],
                     'discount_amount' => $pricingData['discount_amount'],
                     'has_discount' => $pricingData['has_discount'] ? 1 : 2,
-                    
+
                     // Default values
                     'appointment_status' => 1, // Pending
                     'payment_status' => 2, // Unpaid
@@ -249,17 +272,17 @@ class AppointmentController extends Controller
                 if ($bookingType === 'service') {
                     foreach ($request->services as $serviceData) {
                         $serviceInfo = $this->getServicePricingInfoForBooking($providerType->id, $serviceData['service_id']);
-                        
+
                         AppointmentService::create([
                             'appointment_id' => $appointment->id,
                             'service_id' => $serviceData['service_id'],
                             'customer_count' => $serviceData['customer_count'],
                             'person_number' => $serviceData['person_number'] ?? 1,
-                            
+
                             // Existing pricing fields
                             'service_price' => $serviceInfo['current_price'],
                             'total_price' => $serviceInfo['current_price'] * $serviceData['customer_count'],
-                            
+
                             // New discount fields for services
                             'original_service_price' => $serviceInfo['original_price'],
                             'service_discount_percentage' => $serviceInfo['discount_percentage'] ?? 0,
@@ -285,16 +308,14 @@ class AppointmentController extends Controller
                         'discount_percentage' => $pricingData['discount_percentage'],
                         'amount_saved' => $pricingData['discount_amount'],
                         'final_total' => $pricingData['final_total'],
-                        'savings_message' => $pricingData['discount_amount'] > 0 ? 
+                        'savings_message' => $pricingData['discount_amount'] > 0 ?
                             "🎉 You saved {$pricingData['discount_amount']} with this booking!" : null
                     ]
                 ]);
-
             } catch (\Exception $e) {
                 DB::rollback();
                 throw $e;
             }
-
         } catch (\Exception $e) {
             return $this->error_response('Failed to create appointment', ['error' => $e->getMessage()]);
         }
@@ -306,16 +327,16 @@ class AppointmentController extends Controller
     private function calculateHourlyPricing($providerType, $request)
     {
         $numberOfHours = $request->number_of_hours;
-        
+
         // Get the hourly rate from provider_type
         $originalHourlyRate = $providerType->price_per_hour ?? 0;
         $currentHourlyRate = $originalHourlyRate;
-        
+
         $discountId = null;
         $discountPercentage = 0;
         $discountName = null;
         $hasDiscount = false;
-        
+
         // Check for active hourly discount
         $activeDiscount = Discount::where('provider_type_id', $providerType->id)
             ->where('discount_type', 'hourly')
@@ -323,22 +344,22 @@ class AppointmentController extends Controller
             ->where('start_date', '<=', now())
             ->where('end_date', '>=', now())
             ->first();
-        
+
         if ($activeDiscount) {
             $hasDiscount = true;
             $discountId = $activeDiscount->id;
             $discountPercentage = $activeDiscount->percentage;
             $discountName = $activeDiscount->name;
-            
+
             // Apply discount to hourly rate
             $discountAmount = ($originalHourlyRate * $activeDiscount->percentage) / 100;
             $currentHourlyRate = $originalHourlyRate - $discountAmount;
         }
-        
+
         $originalTotal = $originalHourlyRate * $numberOfHours;
         $finalTotal = $currentHourlyRate * $numberOfHours;
         $totalDiscountAmount = $originalTotal - $finalTotal;
-        
+
         return [
             'original_total' => $originalTotal,
             'final_total' => $finalTotal,
@@ -357,23 +378,23 @@ class AppointmentController extends Controller
     {
         try {
             $user = auth()->user();
-            
+
             // Find the appointment
             $appointment = Appointment::where('user_id', $user->id)->find($appointmentId);
-            
+
             if (!$appointment) {
                 return $this->error_response('Not found', 'Appointment not found or unauthorized');
             }
-            
+
             // Check if appointment can be edited (only pending or accepted appointments)
             if (!in_array($appointment->appointment_status, [1, 2])) {
                 return $this->error_response('Invalid operation', 'Cannot edit appointment in current status');
             }
-            
+
             // Get provider type to determine booking type
             $providerType = ProviderType::with(['type', 'provider'])->find($appointment->provider_type_id);
             $bookingType = $providerType->type->booking_type;
-            
+
             // Dynamic validation based on booking type
             $rules = [
                 'date' => 'nullable|date|after:today',
@@ -381,7 +402,7 @@ class AppointmentController extends Controller
                 'note' => 'nullable|string|max:1000',
                 'payment_type' => 'nullable|in:cash,visa,wallet'
             ];
-            
+
             if ($bookingType === 'service') {
                 $rules['services'] = 'nullable|array';
                 $rules['services.*.service_id'] = 'required_with:services|exists:services,id';
@@ -390,7 +411,7 @@ class AppointmentController extends Controller
             } elseif ($bookingType === 'hourly') {
                 $rules['number_of_hours'] = 'nullable|integer|min:1';
             }
-            
+
             $validator = Validator::make($request->all(), $rules);
 
             if ($validator->fails()) {
@@ -404,15 +425,15 @@ class AppointmentController extends Controller
                 if ($request->filled('date')) {
                     $appointment->date = $request->date;
                 }
-                
+
                 if ($request->filled('address_id')) {
                     $appointment->address_id = $request->address_id;
                 }
-                
+
                 if ($request->filled('note')) {
                     $appointment->note = $request->note;
                 }
-                
+
                 if ($request->filled('payment_type')) {
                     $appointment->payment_type = $request->payment_type;
                 }
@@ -421,10 +442,10 @@ class AppointmentController extends Controller
                 if ($bookingType === 'service' && $request->filled('services')) {
                     // Delete old services
                     AppointmentService::where('appointment_id', $appointment->id)->delete();
-                    
+
                     // Recalculate pricing with new services
                     $pricingData = $this->calculateAppointmentPricing($providerType, $request);
-                    
+
                     // Update pricing fields
                     $appointment->total_prices = $pricingData['final_total'];
                     $appointment->total_discounts = $pricingData['discount_amount'];
@@ -433,11 +454,11 @@ class AppointmentController extends Controller
                     $appointment->discount_percentage = $pricingData['discount_percentage'];
                     $appointment->discount_amount = $pricingData['discount_amount'];
                     $appointment->has_discount = $pricingData['has_discount'] ? 1 : 2;
-                    
+
                     // Create new appointment services
                     foreach ($request->services as $serviceData) {
                         $serviceInfo = $this->getServicePricingInfoForBooking($providerType->id, $serviceData['service_id']);
-                        
+
                         AppointmentService::create([
                             'appointment_id' => $appointment->id,
                             'service_id' => $serviceData['service_id'],
@@ -454,7 +475,7 @@ class AppointmentController extends Controller
                 } elseif ($bookingType === 'hourly' && $request->filled('number_of_hours')) {
                     // Recalculate pricing for hourly booking
                     $pricingData = $this->calculateHourlyPricing($providerType, $request);
-                    
+
                     // Update pricing fields
                     $appointment->total_prices = $pricingData['final_total'];
                     $appointment->total_discounts = $pricingData['discount_amount'];
@@ -464,9 +485,9 @@ class AppointmentController extends Controller
                     $appointment->discount_amount = $pricingData['discount_amount'];
                     $appointment->has_discount = $pricingData['has_discount'] ? 1 : 2;
                 }
-                
+
                 $appointment->save();
-                
+
                 DB::commit();
 
                 // Load the complete appointment data
@@ -482,12 +503,10 @@ class AppointmentController extends Controller
                         'final_total' => $appointment->total_prices,
                     ] : null
                 ]);
-
             } catch (\Exception $e) {
                 DB::rollback();
                 throw $e;
             }
-
         } catch (\Exception $e) {
             return $this->error_response('Failed to update appointment', ['error' => $e->getMessage()]);
         }
@@ -539,19 +558,19 @@ class AppointmentController extends Controller
         // Handle cancellation (status = 5) with fine checking
         if ($request->status == 5) {
             $reason = $request->reason_of_cancel ?? 'Canceled by user';
-            
+
             try {
                 // Use the appointment service to handle cancellation with fine logic
                 $appointmentService = new AppointmentServiceClass();
                 $result = $appointmentService->cancelAppointment($appointment, $reason, 'user');
-                
+
                 if (!$result) {
                     return $this->error_response('Failed', 'Failed to cancel appointment');
                 }
 
                 // Refresh appointment to get updated data
                 $appointment->refresh();
-                
+
                 // Check if fine was applied
                 $latestFine = $appointment->latestFine ?? null;
                 if ($latestFine) {
@@ -568,7 +587,7 @@ class AppointmentController extends Controller
                 }
 
                 $responseData['appointment'] = $appointment;
-                
+
                 // If fine was applied, include updated user balance
                 if ($latestFine && isset($latestFine->status) && $latestFine->status == 2) {
                     $user->refresh();
@@ -576,7 +595,6 @@ class AppointmentController extends Controller
                 }
 
                 return $this->success_response('Appointment canceled successfully', $responseData);
-
             } catch (\Exception $e) {
                 return $this->error_response('Failed to cancel appointment', ['error' => $e->getMessage()]);
             }
@@ -592,7 +610,6 @@ class AppointmentController extends Controller
                 $responseData['appointment'] = $appointment;
 
                 return $this->success_response('Appointment status updated successfully', $responseData);
-
             } catch (\Exception $e) {
                 return $this->error_response('Failed to update appointment status', ['error' => $e->getMessage()]);
             }
@@ -643,7 +660,6 @@ class AppointmentController extends Controller
                 'amount' => $appointment->total_prices,
                 'status' => 'pending_provider_confirmation'
             ]);
-
         } catch (\Exception $e) {
             return $this->error_response('Failed to select payment method', ['error' => $e->getMessage()]);
         }
@@ -663,11 +679,11 @@ class AppointmentController extends Controller
                 'providerType.type',
                 'appointmentServices.service'
             ])
-            ->where('user_id', $user->id)
-            ->where('appointment_status', 4) // Delivered
-            ->where('payment_status', 2) // Unpaid
-            ->orderBy('updated_at', 'desc')
-            ->get();
+                ->where('user_id', $user->id)
+                ->where('appointment_status', 4) // Delivered
+                ->where('payment_status', 2) // Unpaid
+                ->orderBy('updated_at', 'desc')
+                ->get();
 
             // Transform the data
             $appointments->transform(function ($appointment) {
@@ -675,7 +691,7 @@ class AppointmentController extends Controller
                 $appointment->payment_status_label = $this->getPaymentStatusLabel($appointment->payment_status);
                 $appointment->booking_type = $appointment->providerType->type->booking_type ?? 'service';
                 $appointment->total_customers = $this->getTotalCustomers($appointment);
-                
+
                 // Add payment options info
                 $appointment->payment_options = [
                     'can_pay_with_wallet' => auth()->user()->balance >= $appointment->total_prices,
@@ -690,7 +706,6 @@ class AppointmentController extends Controller
                 'appointments' => $appointments,
                 'count' => $appointments->count()
             ]);
-
         } catch (\Exception $e) {
             return $this->error_response('Failed to retrieve pending payment appointments', ['error' => $e->getMessage()]);
         }
@@ -715,13 +730,13 @@ class AppointmentController extends Controller
         foreach ($request->services as $serviceData) {
             $servicePricing = $this->getCurrentServicePrice($providerType->id, $serviceData['service_id']);
             $customerCount = $serviceData['customer_count'];
-            
+
             $originalServiceTotal = $servicePricing['original_price'] * $customerCount;
             $currentServiceTotal = $servicePricing['current_price'] * $customerCount;
-            
+
             $originalTotal += $originalServiceTotal;
             $finalTotal += $currentServiceTotal;
-            
+
             // If any service has discount, mark appointment as having discount
             if ($servicePricing['has_discount'] && !$hasDiscount) {
                 $hasDiscount = true;
@@ -730,7 +745,7 @@ class AppointmentController extends Controller
                 $discountName = $servicePricing['discount']['name'];
             }
         }
-        
+
         $discountAmount = $originalTotal - $finalTotal;
 
         return [
@@ -750,10 +765,10 @@ class AppointmentController extends Controller
     private function getServicePricingInfoForBooking($providerTypeId, $serviceId)
     {
         $servicePricing = $this->getCurrentServicePrice($providerTypeId, $serviceId);
-        
-        $discountAmountPerService = $servicePricing['has_discount'] ? 
+
+        $discountAmountPerService = $servicePricing['has_discount'] ?
             ($servicePricing['original_price'] - $servicePricing['current_price']) : 0;
-        
+
         return [
             'original_price' => $servicePricing['original_price'],
             'current_price' => $servicePricing['current_price'],
@@ -800,7 +815,7 @@ class AppointmentController extends Controller
 
         if ($activeDiscount) {
             $isEligible = false;
-            
+
             if ($activeDiscount->services->isEmpty()) {
                 $isEligible = true;
             } else {
@@ -845,11 +860,11 @@ class AppointmentController extends Controller
                     if ($this->isServiceEligibleForDiscount($appointmentService->service_id, $discount)) {
                         $serviceDiscount = ($appointmentService->total_price * $discount->percentage) / 100;
                         $totalSavings += $serviceDiscount;
-                        
+
                         $applicableServices[] = [
                             'service_id' => $appointmentService->service_id,
-                            'service_name' => app()->getLocale() == 'ar' ? 
-                                $appointmentService->service->name_ar : 
+                            'service_name' => app()->getLocale() == 'ar' ?
+                                $appointmentService->service->name_ar :
                                 $appointmentService->service->name_en,
                             'original_price' => $appointmentService->service_price,
                             'discount_amount' => $serviceDiscount / $appointmentService->customer_count,
@@ -881,7 +896,7 @@ class AppointmentController extends Controller
         if ($discount->services->isEmpty()) {
             return true;
         }
-        
+
         // Check if this service is specifically included
         return $discount->services->contains('id', $serviceId);
     }
@@ -892,13 +907,13 @@ class AppointmentController extends Controller
     private function generateAppointmentNumber()
     {
         $lastAppointment = Appointment::orderBy('id', 'desc')->first();
-        
+
         if ($lastAppointment && $lastAppointment->number) {
             $lastNumber = intval($lastAppointment->number);
         } else {
             $lastNumber = 0;
         }
-        
+
         return $lastNumber + 1;
     }
 
@@ -907,19 +922,21 @@ class AppointmentController extends Controller
      */
     private function getServicesSummaryWithDiscount($appointment)
     {
-        if (isset($appointment->providerType->type->booking_type) && 
-            $appointment->providerType->type->booking_type == 'service') {
-            
+        if (
+            isset($appointment->providerType->type->booking_type) &&
+            $appointment->providerType->type->booking_type == 'service'
+        ) {
+
             // Get aggregated services with discount info
-            $services = $appointment->appointmentServices->map(function($appointmentService) {
+            $services = $appointment->appointmentServices->map(function ($appointmentService) {
                 $hasServiceDiscount = isset($appointmentService->has_service_discount) && $appointmentService->has_service_discount == 1;
                 $originalPrice = $appointmentService->original_service_price ?? $appointmentService->service_price;
                 $discountPercentage = $appointmentService->service_discount_percentage ?? 0;
                 $discountAmount = $appointmentService->service_discount_amount ?? 0;
-                
+
                 return [
-                    'name' => app()->getLocale() == 'ar' ? 
-                        $appointmentService->service->name_ar : 
+                    'name' => app()->getLocale() == 'ar' ?
+                        $appointmentService->service->name_ar :
                         $appointmentService->service->name_en,
                     'customer_count' => $appointmentService->customer_count,
                     'original_service_price' => $originalPrice,
@@ -936,7 +953,7 @@ class AppointmentController extends Controller
             });
 
             // Calculate totals
-            $totalOriginal = $appointment->original_total_price ?? 
+            $totalOriginal = $appointment->original_total_price ??
                 ($appointment->total_prices + $appointment->total_discounts);
             $totalFinal = $appointment->total_prices;
             $totalSaved = $appointment->total_discounts ?? ($totalOriginal - $totalFinal);
@@ -947,13 +964,13 @@ class AppointmentController extends Controller
                 ->map(function ($services, $personNumber) {
                     $personOriginalTotal = 0;
                     $personFinalTotal = 0;
-                    
+
                     foreach ($services as $service) {
                         $originalPrice = $service->original_service_price ?? $service->service_price;
                         $personOriginalTotal += $originalPrice;
                         $personFinalTotal += $service->service_price;
                     }
-                    
+
                     return [
                         'person_number' => $personNumber ?? 1,
                         'total_services' => $services->count(),
@@ -964,8 +981,8 @@ class AppointmentController extends Controller
                             $hasServiceDiscount = isset($service->has_service_discount) && $service->has_service_discount == 1;
                             return [
                                 'service_id' => $service->service_id,
-                                'service_name' => app()->getLocale() == 'ar' ? 
-                                    $service->service->name_ar : 
+                                'service_name' => app()->getLocale() == 'ar' ?
+                                    $service->service->name_ar :
                                     $service->service->name_en,
                                 'original_price' => $service->original_service_price ?? $service->service_price,
                                 'final_price' => $service->service_price,
@@ -993,7 +1010,7 @@ class AppointmentController extends Controller
                 'customer_services' => $customerServices
             ];
         }
-        
+
         return null;
     }
 
@@ -1068,4 +1085,3 @@ class AppointmentController extends Controller
         }
     }
 }
-

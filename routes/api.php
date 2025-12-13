@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\v1\Provider\WithdrawalRequestProviderController;
 use App\Http\Controllers\Api\v1\Provider\RatingProviderController;
 use App\Http\Controllers\Api\v1\Provider\WalletProviderController;
 
+use App\Http\Controllers\Api\v1\Provider\ForgotPasswordProviderController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -40,7 +41,7 @@ Route::group(['prefix' => 'v1/user'], function () {
     //---------------- Auth --------------------//
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
-     Route::post('/google-login', [AuthController::class, 'googleLogin']);
+    Route::post('/google-login', [AuthController::class, 'googleLogin']);
     Route::post('/apple-login', [AuthController::class, 'appleLogin']);
     Route::get('/banners', [BannerController::class, 'index']);
 
@@ -48,13 +49,13 @@ Route::group(['prefix' => 'v1/user'], function () {
     Route::get('/deliveries', [DeliveryController::class, 'index']);
     Route::get('/pages/{type}', [PageController::class, 'index']);
     Route::get('/getServices',  [ServiceController::class, 'index']);
-        Route::get('/getTypes',[TypeController::class,'index']);
+    Route::get('/getTypes', [TypeController::class, 'index']);
 
-        Route::post('/check-phone', [ForgotPasswordController::class, 'checkPhone']);
+    Route::post('/check-phone', [ForgotPasswordController::class, 'checkPhone']);
 
-        // Update password
-        Route::post('/update-password', [ForgotPasswordController::class, 'updatePassword']);
-  
+    // Update password
+    Route::post('/update-password', [ForgotPasswordController::class, 'updatePassword']);
+
 
 
 
@@ -101,9 +102,9 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::get('/wallet/transactions', [WalletController::class, 'getTransactions']);
 
         //Ecommerce
-     
-        Route::get('/productFavourites', [FavouriteController::class,'index']); 
-        Route::post('/productFavourites', [FavouriteController::class,'store']);
+
+        Route::get('/productFavourites', [FavouriteController::class, 'index']);
+        Route::post('/productFavourites', [FavouriteController::class, 'store']);
 
         Route::get('/cart', [CartController::class, 'index']);
         Route::post('/cart', [CartController::class, 'store']);
@@ -118,15 +119,15 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::post('/coupons/validate', [CouponController::class, 'validateCoupon']);
         // End Ecommerce
 
-       //Provider Display in user app
-      
-        Route::get('/providerFavourites', [FavouriteController::class,'indexProvider']); 
-        Route::post('/providerFavourites', [FavouriteController::class,'storeProvider']);
+        //Provider Display in user app
 
-         Route::prefix('appointments')->group(function () {
+        Route::get('/providerFavourites', [FavouriteController::class, 'indexProvider']);
+        Route::post('/providerFavourites', [FavouriteController::class, 'storeProvider']);
+
+        Route::prefix('appointments')->group(function () {
             Route::get('/', [AppointmentController::class, 'index']); // GET /api/appointments
             Route::post('/', [AppointmentController::class, 'store']); // POST /api/appointments
-            Route::put('/{appointmentId}', [AppointmentController::class, 'update']); 
+            Route::put('/{appointmentId}', [AppointmentController::class, 'update']);
             Route::post('/{appointmentId}/select-payment-method', [AppointmentController::class, 'selectPaymentMethod']);
             Route::post('/{appointmentId}/status', [AppointmentController::class, 'updateAppointmentStatus']);
 
@@ -135,10 +136,10 @@ Route::group(['prefix' => 'v1/user'], function () {
         });
 
         Route::prefix('points')->group(function () {
-        // Get points transactions history
-        Route::get('/', [PointsController::class, 'index']); 
-        // Convert points to money
-        Route::post('/convert', [PointsController::class, 'convertPointsToMoney']);
+            // Get points transactions history
+            Route::get('/', [PointsController::class, 'index']);
+            // Convert points to money
+            Route::post('/convert', [PointsController::class, 'convertPointsToMoney']);
         });
         // End the Provider Display in user app
 
@@ -149,46 +150,46 @@ Route::group(['prefix' => 'v1/user'], function () {
 
 // provider
 
- Route::group(['prefix' => 'v1/provider'], function () {
+Route::group(['prefix' => 'v1/provider'], function () {
 
 
-        Route::post('/check-phone', [ForgotPasswordProviderController::class, 'checkPhone']);
+    Route::post('/check-phone', [ForgotPasswordProviderController::class, 'checkPhone']);
 
-        // Update password
-        Route::post('/update-password', [ForgotPasswordProviderController::class, 'updatePassword']);
+    // Update password
+    Route::post('/update-password', [ForgotPasswordProviderController::class, 'updatePassword']);
 
-     // Auth Route
-     Route::group(['middleware' => ['auth:provider-api']], function () {
+    // Auth Route
+    Route::group(['middleware' => ['auth:provider-api']], function () {
 
-         Route::get('/active', [AuthProviderController::class, 'active']);
-         Route::post('/updateStatus/{id}', [AuthProviderController::class, 'updateStatusOnOff']);
-         Route::post('/withdrawal/request',  [WithdrawalRequestProviderController::class, 'requestWithdrawal']);
-
-
-         // image for chat
-         Route::get('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'index']);
-         Route::post('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'store']);
-         Route::post('/update_profile', [AuthProviderController::class, 'updateProviderProfile']);
-         Route::post('/delete_account', [AuthProviderController::class, 'deleteAccount']);
-         Route::get('/providerProfile', [AuthProviderController::class, 'getProviderProfile']);
-         Route::post('/complete-profile', [AuthProviderController::class, 'completeProviderProfile']);
-         Route::post('/types/{providerTypeId}', [AuthProviderController::class, 'updateProviderType']);
-
-         //Notification
-         Route::get('/notifications', [AuthProviderController::class, 'notifications']);
-         Route::post('/notifications', [AuthProviderController::class, 'sendMessage']);
-
-         Route::get('/ratings', [RatingProviderController::class, 'index']);
-         Route::get('/wallet/transactions', [WalletProviderController::class, 'getTransactions']);
-
-   
-         // Additional utility routes
-         Route::delete('/images', [AuthProviderController::class, 'deleteProviderImages']);
-         Route::delete('/gallery', [AuthProviderController::class, 'deleteProviderGalleries']);
-         Route::get('/pending-payment-confirmation', [AppointmentProviderController::class, 'getPendingPaymentConfirmations']);
+        Route::get('/active', [AuthProviderController::class, 'active']);
+        Route::post('/updateStatus/{id}', [AuthProviderController::class, 'updateStatusOnOff']);
+        Route::post('/withdrawal/request',  [WithdrawalRequestProviderController::class, 'requestWithdrawal']);
 
 
-         Route::prefix('appointments')->group(function () {
+        // image for chat
+        Route::get('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'index']);
+        Route::post('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'store']);
+        Route::post('/update_profile', [AuthProviderController::class, 'updateProviderProfile']);
+        Route::post('/delete_account', [AuthProviderController::class, 'deleteAccount']);
+        Route::get('/providerProfile', [AuthProviderController::class, 'getProvi derProfile']);
+        Route::post('/complete-profile', [AuthProviderController::class, 'completeProviderProfile']);
+        Route::post('/types/{providerTypeId}', [AuthProviderController::class, 'updateProviderType']);
+
+        //Notification
+        Route::get('/notifications', [AuthProviderController::class, 'notifications']);
+        Route::post('/notifications', [AuthProviderController::class, 'sendMessage']);
+
+        Route::get('/ratings', [RatingProviderController::class, 'index']);
+        Route::get('/wallet/transactions', [WalletProviderController::class, 'getTransactions']);
+
+
+        // Additional utility routes
+        Route::delete('/images', [AuthProviderController::class, 'deleteProviderImages']);
+        Route::delete('/gallery', [AuthProviderController::class, 'deleteProviderGalleries']);
+        Route::get('/pending-payment-confirmation', [AppointmentProviderController::class, 'getPendingPaymentConfirmations']);
+
+
+        Route::prefix('appointments')->group(function () {
             // Get all appointments with filtering
             Route::get('/', [AppointmentProviderController::class, 'getProviderAppointments']);
             // Get appointment details
@@ -196,26 +197,25 @@ Route::group(['prefix' => 'v1/user'], function () {
             // Update appointment status
             Route::post('/{appointmentId}/status', [AppointmentProviderController::class, 'updateAppointmentStatus']);
             // New payment confirmation route
-             Route::post('/{appointmentId}/confirm-payment', [AppointmentProviderController::class, 'confirmPayment']);
-           
-             //Report
-             Route::get('/provider/payment-report', [AppointmentProviderController::class, 'paymentReport']);
+            Route::post('/{appointmentId}/confirm-payment', [AppointmentProviderController::class, 'confirmPayment']);
+
+            //Report
+            Route::get('/provider/payment-report', [AppointmentProviderController::class, 'paymentReport']);
         });
 
 
         Route::prefix('discounts')->group(function () {
             // Get discounts for a specific provider type
             Route::get('/provider-type/{providerTypeId}', [DiscountController::class, 'getByProviderType']);
-            
+
             // Create a new discount
             Route::post('/', [DiscountController::class, 'store']);
-            
+
             // Update an existing discount
             Route::put('/{discountId}', [DiscountController::class, 'update']);
-            
+
             // Delete a discount
             Route::delete('/{discountId}', [DiscountController::class, 'destroy']);
         });
-
-     });
+    });
 });

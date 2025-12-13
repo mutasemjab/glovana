@@ -403,6 +403,7 @@ class ProviderController extends Controller
             'address' => $providerType->address,
             'lat' => $providerType->lat,
             'lng' => $providerType->lng,
+            'number_of_work' => $providerType->number_of_work,
             'status' => $providerType->status,
             'is_vip' => $providerType->is_vip == 1,
             'is_favourite' => $providerType->is_favourite,

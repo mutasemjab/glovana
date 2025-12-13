@@ -147,6 +147,11 @@
                                               id="address" name="address" rows="3">{{ old('address') }}</textarea>
                                     @error('address')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>
+                                <div class="mb-3">
+                                    <label for="number_of_work" class="form-label">{{ __('messages.Number_of_work') }}</label>
+                                    <input type="number" class="form-control @error('number_of_work') is-invalid @enderror" id="number_of_work" name="number_of_work">
+                                    @error('number_of_work')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
 
                                 <div class="mb-3">
                                     <label for="activate" class="form-label">{{ __('messages.Activate') }}</label>
