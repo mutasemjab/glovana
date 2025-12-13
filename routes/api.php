@@ -171,7 +171,7 @@ Route::group(['prefix' => 'v1/provider'], function () {
         Route::post('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'store']);
         Route::post('/update_profile', [AuthProviderController::class, 'updateProviderProfile']);
         Route::post('/delete_account', [AuthProviderController::class, 'deleteAccount']);
-        Route::get('/providerProfile', [AuthProviderController::class, 'getProvi derProfile']);
+        Route::get('/providerProfile', [AuthProviderController::class, 'getProviderProfile']);
         Route::post('/complete-profile', [AuthProviderController::class, 'completeProviderProfile']);
         Route::post('/types/{providerTypeId}', [AuthProviderController::class, 'updateProviderType']);
 
