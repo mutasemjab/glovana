@@ -56,7 +56,7 @@ class AuthController extends Controller
 
 
 
-    public function login(Request $request)
+   public function login(Request $request)
     {
         $userType = $request->user_type ?? 'user';
 
@@ -76,7 +76,7 @@ class AuthController extends Controller
         } else {
             $user = \App\Models\User::where('phone', $credentials['phone'])->first();
         }
-          
+        
         if (!$user || $user->activate != 1) {
             return response()->json([
                 'status' => false,
@@ -96,10 +96,27 @@ class AuthController extends Controller
 
         $accessToken = $user->createToken('authToken')->accessToken;
 
-        return $this->success_response('Login successful', [
+        $responseData = [
             'token' => $accessToken,
             'user' => $user,
-        ]);
+        ];
+
+        // Add ban info for banned providers
+        if ($userType == 'provider' && $user->activate == 2) {
+            $activeBan = $user->activeBan;
+            if ($activeBan) {
+                $lang = $request->header('lang', 'en');
+                $responseData['ban_info'] = [
+                    'is_permanent' => $activeBan->is_permanent,
+                    'reason' => $activeBan->getReasonText($lang),
+                    'description' => $activeBan->ban_description,
+                    'banned_at' => $activeBan->banned_at->toDateTimeString(),
+                    'ban_until' => $activeBan->ban_until ? $activeBan->ban_until->toDateTimeString() : null,
+                ];
+            }
+        }
+
+        return $this->success_response('Login successful', $responseData);
     }
 
 

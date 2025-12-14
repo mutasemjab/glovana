@@ -227,6 +227,7 @@ class AuthProviderController extends Controller
             'provider_types.*.lat' => 'required|numeric|between:-90,90',
             'provider_types.*.lng' => 'required|numeric|between:-180,180',
             'provider_types.*.number_of_work' => 'required|numeric',
+            'provider_types.*.phone_number_of_provider_type' => 'required|numeric',
             'provider_types.*.address' => 'nullable|string',
             'provider_types.*.price_per_hour' => 'required_if:provider_types.*.booking_type,hourly|nullable|numeric|min:0',
             'provider_types.*.is_vip' => 'sometimes|in:1,2',
@@ -290,6 +291,7 @@ class AuthProviderController extends Controller
                     'lat' => $providerTypeData['lat'],
                     'lng' => $providerTypeData['lng'],
                     'number_of_work' => $providerTypeData['number_of_work'],
+                    'phone_number_of_provider_type' => $providerTypeData['phone_number_of_provider_type'],
                     'practice_license' => $practice_license_path,
                     'identity_photo' =>  $identity_photo_path,
                     'address' => $providerTypeData['address'] ?? null,
@@ -435,6 +437,7 @@ class AuthProviderController extends Controller
             'lat' => 'sometimes|numeric|between:-90,90',
             'lng' => 'sometimes|numeric|between:-180,180',
             'number_of_work' => 'sometimes|numeric',
+            'phone_number_of_provider_type' => 'sometimes|numeric',
             'practice_license' => 'sometimes',
             'identity_photo' => 'sometimes',
             'address' => 'nullable|string',
@@ -468,7 +471,7 @@ class AuthProviderController extends Controller
             DB::beginTransaction();
 
             // Update provider type basic info
-            $updateData = $request->only(['name', 'description', 'lat', 'lng', 'number_of_work','address', 'is_vip', 'status']);
+            $updateData = $request->only(['name', 'description', 'lat', 'lng', 'number_of_work','phone_number_of_provider_type','address', 'is_vip', 'status']);
             
             // Handle price_per_hour based on booking type
             if ($providerType->type->booking_type === 'hourly' && $request->has('price_per_hour')) {

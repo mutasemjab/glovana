@@ -378,6 +378,8 @@ class ProviderController extends Controller
 
             \App\Http\Controllers\Admin\FCMController::sendMessageToProvider($title, $body, $provider->id);
 
+            // Logout provider by revoking all tokens
+            $provider->tokens()->delete();
             DB::commit();
 
             return redirect()->back()->with('success', __('messages.provider_banned_successfully'));

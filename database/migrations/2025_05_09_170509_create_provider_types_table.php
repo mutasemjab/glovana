@@ -26,6 +26,7 @@ return new class extends Migration
             $table->double('lat');
             $table->double('lng');
             $table->integer('number_of_work')->nullable(); // عدد الحجوزات اللي بتقدر تستقبلها الصالون بنفس الوقت
+            $table->string('phone_number_of_provider_type')->nullable();
             $table->text('practice_license')->nullable();
             $table->text('identity_photo')->nullable();
             $table->text('address')->nullable();
