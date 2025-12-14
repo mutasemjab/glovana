@@ -1,14 +1,13 @@
-@extends('layouts.admin')
+<?php $__env->startSection('title', __('messages.providers')); ?>
 
-@section('title', __('messages.providers'))
-
-@section('content')
+<?php $__env->startSection('content'); ?>
 <div class="container-fluid">
     <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">{{ __('messages.providers') }}</h1>
-        <a href="{{ route('providers.create') }}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> {{ __('messages.Add_New_provider') }}
+        <h1 class="h3 mb-0 text-gray-800"><?php echo e(__('messages.providers')); ?></h1>
+        <a href="<?php echo e(route('providers.create')); ?>" class="btn btn-primary">
+            <i class="fas fa-plus"></i> <?php echo e(__('messages.Add_New_provider')); ?>
+
         </a>
     </div>
 
@@ -16,66 +15,69 @@
    <!-- Filter Form -->
 <div class="card shadow mb-4">
     <div class="card-header py-3">
-        <h6 class="m-0 font-weight-bold text-primary">{{ __('messages.Filters') }}</h6>
+        <h6 class="m-0 font-weight-bold text-primary"><?php echo e(__('messages.Filters')); ?></h6>
     </div>
     <div class="card-body">
-        <form method="GET" action="{{ route('providers.index') }}" class="row">
+        <form method="GET" action="<?php echo e(route('providers.index')); ?>" class="row">
             <div class="col-md-3 mb-3">
-                <label for="status">{{ __('messages.Status') }}</label>
+                <label for="status"><?php echo e(__('messages.Status')); ?></label>
                 <select name="status" id="status" class="form-control">
-                    <option value="">{{ __('messages.All_Status') }}</option>
-                    <option value="1" {{ request('status') == '1' ? 'selected' : '' }}>{{ __('messages.Active') }}</option>
-                    <option value="0" {{ request('status') == '0' ? 'selected' : '' }}>{{ __('messages.Inactive') }}</option>
+                    <option value=""><?php echo e(__('messages.All_Status')); ?></option>
+                    <option value="1" <?php echo e(request('status') == '1' ? 'selected' : ''); ?>><?php echo e(__('messages.Active')); ?></option>
+                    <option value="0" <?php echo e(request('status') == '0' ? 'selected' : ''); ?>><?php echo e(__('messages.Inactive')); ?></option>
                 </select>
             </div>
             
             <!-- NEW: Provider Type Filter -->
             <div class="col-md-3 mb-3">
-                <label for="type_id">{{ __('messages.Provider_Type') }}</label>
+                <label for="type_id"><?php echo e(__('messages.Provider_Type')); ?></label>
                 <select name="type_id" id="type_id" class="form-control">
-                    <option value="">{{ __('messages.All_Types') }}</option>
-                    @foreach($types as $type)
-                        <option value="{{ $type->id }}" {{ request('type_id') == $type->id ? 'selected' : '' }}>
-                            {{ $type->name }}
+                    <option value=""><?php echo e(__('messages.All_Types')); ?></option>
+                    <?php $__currentLoopData = $types; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $type): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                        <option value="<?php echo e($type->id); ?>" <?php echo e(request('type_id') == $type->id ? 'selected' : ''); ?>>
+                            <?php echo e($type->name); ?>
+
                         </option>
-                    @endforeach
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                 </select>
             </div>
             
             <div class="col-md-3 mb-3">
-                <label for="balance_type">{{ __('messages.Balance_Type') }}</label>
+                <label for="balance_type"><?php echo e(__('messages.Balance_Type')); ?></label>
                 <select name="balance_type" id="balance_type" class="form-control">
-                    <option value="">{{ __('messages.All_Balances') }}</option>
-                    <option value="positive" {{ request('balance_type') == 'positive' ? 'selected' : '' }}>{{ __('messages.Positive_Balance') }}</option>
-                    <option value="negative" {{ request('balance_type') == 'negative' ? 'selected' : '' }}>{{ __('messages.Negative_Balance') }}</option>
-                    <option value="zero" {{ request('balance_type') == 'zero' ? 'selected' : '' }}>{{ __('messages.Zero_Balance') }}</option>
+                    <option value=""><?php echo e(__('messages.All_Balances')); ?></option>
+                    <option value="positive" <?php echo e(request('balance_type') == 'positive' ? 'selected' : ''); ?>><?php echo e(__('messages.Positive_Balance')); ?></option>
+                    <option value="negative" <?php echo e(request('balance_type') == 'negative' ? 'selected' : ''); ?>><?php echo e(__('messages.Negative_Balance')); ?></option>
+                    <option value="zero" <?php echo e(request('balance_type') == 'zero' ? 'selected' : ''); ?>><?php echo e(__('messages.Zero_Balance')); ?></option>
                 </select>
             </div>
             
             <div class="col-md-3 mb-3">
-                <label for="min_balance">{{ __('messages.Min_Balance') }}</label>
+                <label for="min_balance"><?php echo e(__('messages.Min_Balance')); ?></label>
                 <input type="number" name="min_balance" id="min_balance" class="form-control" 
-                       value="{{ request('min_balance') }}" step="0.01" placeholder="0.00">
+                       value="<?php echo e(request('min_balance')); ?>" step="0.01" placeholder="0.00">
             </div>
             
             <div class="col-md-3 mb-3">
-                <label for="max_balance">{{ __('messages.Max_Balance') }}</label>
+                <label for="max_balance"><?php echo e(__('messages.Max_Balance')); ?></label>
                 <input type="number" name="max_balance" id="max_balance" class="form-control" 
-                       value="{{ request('max_balance') }}" step="0.01" placeholder="1000.00">
+                       value="<?php echo e(request('max_balance')); ?>" step="0.01" placeholder="1000.00">
             </div>
             
             <div class="col-md-3 mb-3">
-                <label for="search">{{ __('messages.Search_Name') }}</label>
+                <label for="search"><?php echo e(__('messages.Search_Name')); ?></label>
                 <input type="text" name="search" id="search" class="form-control" 
-                       value="{{ request('search') }}" placeholder="{{ __('messages.Manager_Name') }}">
+                       value="<?php echo e(request('search')); ?>" placeholder="<?php echo e(__('messages.Manager_Name')); ?>">
             </div>
             
             <div class="col-12">
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-search"></i> {{ __('messages.Filter') }}
+                    <i class="fas fa-search"></i> <?php echo e(__('messages.Filter')); ?>
+
                 </button>
-                <a href="{{ route('providers.index') }}" class="btn btn-secondary">
-                    <i class="fas fa-times"></i> {{ __('messages.Clear_Filters') }}
+                <a href="<?php echo e(route('providers.index')); ?>" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> <?php echo e(__('messages.Clear_Filters')); ?>
+
                 </a>
             </div>
         </form>
@@ -85,102 +87,102 @@
     <!-- DataTales Example -->
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">{{ __('messages.provider_List') }}</h6>
-            <span class="badge badge-info">{{ count($providers) }} {{ __('messages.Total_Providers') }}</span>
+            <h6 class="m-0 font-weight-bold text-primary"><?php echo e(__('messages.provider_List')); ?></h6>
+            <span class="badge badge-info"><?php echo e(count($providers)); ?> <?php echo e(__('messages.Total_Providers')); ?></span>
         </div>
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-bordered" width="100%" cellspacing="0">
                     <thead>
                         <tr>
-                            <th>{{ __('messages.ID') }}</th>
-                            <th>{{ __('messages.Photo') }}</th>
-                            <th>{{ __('messages.Name') }}</th>
-                            <th>{{ __('messages.Phone') }}</th>
-                            <th>{{ __('messages.Email') }}</th>
-                            <th>{{ __('messages.Created_At') }}</th>
-                            <th>{{ __('messages.Provider_Types') }}</th>
-                            <th>{{ __('messages.Balance') }}</th>
-                            <th>{{ __('messages.Status') }}</th>
-                            <th>{{ __('messages.Actions') }}</th>
+                            <th><?php echo e(__('messages.ID')); ?></th>
+                            <th><?php echo e(__('messages.Photo')); ?></th>
+                            <th><?php echo e(__('messages.Name')); ?></th>
+                            <th><?php echo e(__('messages.Phone')); ?></th>
+                            <th><?php echo e(__('messages.Email')); ?></th>
+                            <th><?php echo e(__('messages.Created_At')); ?></th>
+                            <th><?php echo e(__('messages.Provider_Types')); ?></th>
+                            <th><?php echo e(__('messages.Balance')); ?></th>
+                            <th><?php echo e(__('messages.Status')); ?></th>
+                            <th><?php echo e(__('messages.Actions')); ?></th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($providers as $provider)
+                        <?php $__empty_1 = true; $__currentLoopData = $providers; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $provider): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                         <tr>
-                            <td>{{ $provider->id }}</td>
+                            <td><?php echo e($provider->id); ?></td>
                             <td>
-                                @if($provider->photo_of_manager)
-                                <img src="{{ asset('assets/admin/uploads/' . $provider->photo_of_manager) }}" alt="{{ $provider->name }}" width="50" class="rounded">
-                                @else
-                                <img src="{{ asset('assets/admin/img/no-image.png') }}" alt="No Image" width="50" class="rounded">
-                                @endif
+                                <?php if($provider->photo_of_manager): ?>
+                                <img src="<?php echo e(asset('assets/admin/uploads/' . $provider->photo_of_manager)); ?>" alt="<?php echo e($provider->name); ?>" width="50" class="rounded">
+                                <?php else: ?>
+                                <img src="<?php echo e(asset('assets/admin/img/no-image.png')); ?>" alt="No Image" width="50" class="rounded">
+                                <?php endif; ?>
                             </td>
-                            <td>{{ $provider->name_of_manager }}</td>
-                            <td>{{ $provider->country_code }} {{ $provider->phone }}</td>
-                            <td>{{ $provider->email }}</td>
-                            <td>{{ $provider->created_at }}</td>
+                            <td><?php echo e($provider->name_of_manager); ?></td>
+                            <td><?php echo e($provider->country_code); ?> <?php echo e($provider->phone); ?></td>
+                            <td><?php echo e($provider->email); ?></td>
+                            <td><?php echo e($provider->created_at); ?></td>
                             <td>
-                                @if($provider->providerTypes->count() > 0)
-                                    @foreach($provider->providerTypes as $providerType)
-                                        <span class="badge badge-secondary">{{ $providerType->name }}</span>
-                                    @endforeach
-                                @else
+                                <?php if($provider->providerTypes->count() > 0): ?>
+                                    <?php $__currentLoopData = $provider->providerTypes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $providerType): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                        <span class="badge badge-secondary"><?php echo e($providerType->name); ?></span>
+                                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                                <?php else: ?>
                                     <span class="text-muted">No types assigned</span>
-                                @endif
+                                <?php endif; ?>
                             </td>
                             <td>
-                                <span class="badge {{ $provider->balance > 0 ? 'badge-success' : ($provider->balance < 0 ? 'badge-danger' : 'badge-warning') }}">
-                                    {{ number_format($provider->balance, 2) }} JD
+                                <span class="badge <?php echo e($provider->balance > 0 ? 'badge-success' : ($provider->balance < 0 ? 'badge-danger' : 'badge-warning')); ?>">
+                                    <?php echo e(number_format($provider->balance, 2)); ?> JD
                                 </span>
                             </td>
                             <td>
-                                @if($provider->activate == 1)
-                                <span class="badge badge-success">{{ __('messages.Active') }}</span>
-                                @elseif($provider->activate == 2)
-                                <span class="badge badge-danger">{{ __('messages.Inactive') }}</span>
-                                @else
-                                  <span class="badge badge-primary">{{ __('messages.Waiting Approved') }}</span>
-                                @endif
+                                <?php if($provider->activate == 1): ?>
+                                <span class="badge badge-success"><?php echo e(__('messages.Active')); ?></span>
+                                <?php elseif($provider->activate == 2): ?>
+                                <span class="badge badge-danger"><?php echo e(__('messages.Inactive')); ?></span>
+                                <?php else: ?>
+                                  <span class="badge badge-primary"><?php echo e(__('messages.Waiting Approved')); ?></span>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <div class="btn-group">
-                                    <a href="{{ route('admin.providerDetails.index', $provider->id) }}" class="btn btn-info btn-sm" title="{{ __('messages.View_Details') }}">
+                                    <a href="<?php echo e(route('admin.providerDetails.index', $provider->id)); ?>" class="btn btn-info btn-sm" title="<?php echo e(__('messages.View_Details')); ?>">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <a href="{{ route('providers.show', $provider->id) }}" class="btn btn-info btn-sm" title="{{ __('messages.View') }}">
+                                    <a href="<?php echo e(route('providers.show', $provider->id)); ?>" class="btn btn-info btn-sm" title="<?php echo e(__('messages.View')); ?>">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <a href="{{ route('providers.edit', $provider->id) }}" class="btn btn-primary btn-sm" title="{{ __('messages.Edit') }}">
+                                    <a href="<?php echo e(route('providers.edit', $provider->id)); ?>" class="btn btn-primary btn-sm" title="<?php echo e(__('messages.Edit')); ?>">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                     <button type="button" class="btn btn-success btn-sm wallet-btn" 
-                                            onclick="openWalletModal('{{ $provider->id }}', '{{ addslashes($provider->name_of_manager) }}', '{{ $provider->balance }}')"
+                                            onclick="openWalletModal('<?php echo e($provider->id); ?>', '<?php echo e(addslashes($provider->name_of_manager)); ?>', '<?php echo e($provider->balance); ?>')"
                                             title="Wallet Management">
                                         <i class="fas fa-wallet"></i>
                                     </button>
                                     
-                                    @if($provider->activate == 3)
+                                    <?php if($provider->activate == 3): ?>
                                     <button type="button" class="btn btn-danger btn-sm" 
-                                            onclick="openCancelModal('{{ $provider->id }}', '{{ addslashes($provider->name_of_manager) }}')"
+                                            onclick="openCancelModal('<?php echo e($provider->id); ?>', '<?php echo e(addslashes($provider->name_of_manager)); ?>')"
                                             title="Cancel Request">
                                         <i class="fas fa-times"></i>
                                     </button>
-                                    @endif
+                                    <?php endif; ?>
 
-                                    <a href="{{ route('providers.bans.history', $provider->id) }}" 
+                                    <a href="<?php echo e(route('providers.bans.history', $provider->id)); ?>" 
                                     class="btn btn-warning btn-sm" 
-                                    title="{{ __('messages.ban_history') }}">
+                                    title="<?php echo e(__('messages.ban_history')); ?>">
                                         <i class="fas fa-ban"></i>
                                     </a>
                                 </div>
                             </td>
                         </tr>
-                        @empty
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                         <tr>
-                            <td colspan="8" class="text-center">{{ __('messages.No_Providers_Found') }}</td>
+                            <td colspan="8" class="text-center"><?php echo e(__('messages.No_Providers_Found')); ?></td>
                         </tr>
-                        @endforelse
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>
@@ -200,8 +202,8 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form id="walletForm" action="{{ route('provider.wallet.update') }}" method="POST">
-                @csrf
+            <form id="walletForm" action="<?php echo e(route('provider.wallet.update')); ?>" method="POST">
+                <?php echo csrf_field(); ?>
                 <div class="modal-body">
                     <input type="hidden" id="providerId" name="provider_id" value="">
                     
@@ -270,7 +272,7 @@
                 </button>
             </div>
             <form id="cancelForm" method="POST">
-                @csrf
+                <?php echo csrf_field(); ?>
                 <div class="modal-body">
                     <input type="hidden" id="cancelProviderId" name="provider_id" value="">
                     
@@ -303,9 +305,9 @@
         </div>
     </div>
 </div>
-@endsection
+<?php $__env->stopSection(); ?>
 
-@section('script')
+<?php $__env->startSection('script'); ?>
 <script>
     // Function to open wallet modal with provider data
     function openWalletModal(providerId, providerName, providerBalance) {
@@ -451,4 +453,5 @@
         });
     });
 </script>
-@endsection
+<?php $__env->stopSection(); ?>
+<?php echo $__env->make('layouts.admin', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH C:\xampp\htdocs\glovana\resources\views/admin/providers/index.blade.php ENDPATH**/ ?>

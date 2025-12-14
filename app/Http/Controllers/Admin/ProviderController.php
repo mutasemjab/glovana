@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Driver;
 use App\Models\Option;
 use App\Models\Provider;
+use App\Models\ProviderBan;
 use App\Models\WalletTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -299,6 +300,138 @@ class ProviderController extends Controller
         } catch (\Exception $e) {
             DB::rollback();
             return redirect()->back()->with('error', 'An error occurred while updating the wallet: ' . $e->getMessage());
+        }
+    }
+
+    public function banHistory($id)
+    {
+        $provider = Provider::with(['bans' => function($query) {
+            $query->orderBy('created_at', 'desc');
+        }, 'bans.admin', 'bans.unbannedByAdmin'])->findOrFail($id);
+        
+        return view('admin.providers.bans.history', compact('provider'));
+    }
+
+    public function banProvider(Request $request, $id)
+    {
+        $request->validate([
+            'ban_reason' => 'required|string',
+            'ban_description' => 'nullable|string|max:1000',
+            'ban_type' => 'required|in:temporary,permanent',
+            'ban_duration' => 'required_if:ban_type,temporary|nullable|integer|min:1',
+            'ban_duration_unit' => 'required_if:ban_type,temporary|nullable|in:hours,days,weeks,months',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $provider = Provider::findOrFail($id);
+
+            // Deactivate any existing active bans
+            ProviderBan::where('provider_id', $provider->id)
+                ->where('is_active', true)
+                ->update(['is_active' => false]);
+
+            $banData = [
+                'provider_id' => $provider->id,
+                'admin_id' => auth()->id(),
+                'ban_reason' => $request->ban_reason,
+                'ban_description' => $request->ban_description,
+                'banned_at' => now(),
+                'is_permanent' => $request->ban_type === 'permanent',
+                'is_active' => true,
+            ];
+
+            // Calculate ban_until for temporary bans
+            if ($request->ban_type === 'temporary') {
+                $duration = $request->ban_duration;
+                $unit = $request->ban_duration_unit;
+                
+                $banData['ban_until'] = match($unit) {
+                    'hours' => now()->addHours($duration),
+                    'days' => now()->addDays($duration),
+                    'weeks' => now()->addWeeks($duration),
+                    'months' => now()->addMonths($duration),
+                };
+            }
+
+            $ban = ProviderBan::create($banData);
+
+            // Update provider activation status
+            $provider->update(['activate' => 2]); // Inactive
+
+            // Send notification to provider
+            $title = __('messages.account_banned');
+            $body = $ban->is_permanent 
+                ? __('messages.permanent_ban_notification', ['reason' => $ban->getReasonText(app()->getLocale())])
+                : __('messages.temporary_ban_notification', [
+                    'reason' => $ban->getReasonText(app()->getLocale()),
+                    'until' => $ban->ban_until->format('Y-m-d H:i')
+                ]);
+
+            \App\Models\Notification::create([
+                'title' => $title,
+                'body' => $body,
+                'type' => 2,
+                'provider_id' => $provider->id,
+            ]);
+
+            \App\Http\Controllers\Admin\FCMController::sendMessageToProvider($title, $body, $provider->id);
+
+            DB::commit();
+
+            return redirect()->back()->with('success', __('messages.provider_banned_successfully'));
+        } catch (\Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', __('messages.error_occurred') . ': ' . $e->getMessage());
+        }
+    }
+
+    public function unbanProvider(Request $request, $providerId, $banId)
+    {
+        $request->validate([
+            'unban_reason' => 'required|string|max:500'
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $provider = Provider::findOrFail($providerId);
+            $ban = ProviderBan::where('provider_id', $providerId)
+                ->where('id', $banId)
+                ->where('is_active', true)
+                ->firstOrFail();
+
+            // Update ban record
+            $ban->update([
+                'is_active' => false,
+                'unbanned_at' => now(),
+                'unbanned_by' => auth()->id(),
+                'unban_reason' => $request->unban_reason,
+            ]);
+
+            // Reactivate provider
+            $provider->update(['activate' => 1]); // Active
+
+            // Send notification
+            $title = __('messages.account_unbanned');
+            $body = __('messages.unban_notification', ['reason' => $request->unban_reason]);
+
+            \App\Models\Notification::create([
+                'title' => $title,
+                'body' => $body,
+                'type' => 2,
+                'provider_id' => $provider->id,
+            ]);
+
+            \App\Http\Controllers\Admin\FCMController::sendMessageToProvider($title, $body, $provider->id);
+
+            DB::commit();
+
+            return redirect()->back()->with('success', __('messages.provider_unbanned_successfully'));
+        } catch (\Exception $e) {
+            DB::rollback();
+            return redirect()->back()->with('error', __('messages.error_occurred') . ': ' . $e->getMessage());
         }
     }
 }

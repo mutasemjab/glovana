@@ -159,7 +159,7 @@ Route::group(['prefix' => 'v1/provider'], function () {
     Route::post('/update-password', [ForgotPasswordProviderController::class, 'updatePassword']);
 
     // Auth Route
-    Route::group(['middleware' => ['auth:provider-api']], function () {
+    Route::group(['middleware' => ['auth:provider-api','check.driver.activation']], function () {
 
         Route::get('/active', [AuthProviderController::class, 'active']);
         Route::post('/updateStatus/{id}', [AuthProviderController::class, 'updateStatusOnOff']);

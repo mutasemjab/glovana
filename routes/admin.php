@@ -81,10 +81,10 @@ Route::group(['prefix' => LaravelLocalization::setLocale(), 'middleware' => ['lo
 
         Route::post('providers/{id}/cancel-request', [ProviderController::class, 'cancelProviderRequest'])
             ->name('providers.cancel-request');
-    
+
         Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('admin.activity-logs.index');
         Route::get('/activity-logs/{activity}', [ActivityLogController::class, 'show'])->name('admin.activity-logs.show');
-        
+
         // Notification
         Route::get('/notifications/create', [NotificationController::class, 'create'])->name('notifications.create');
         Route::post('/notifications/send', [NotificationController::class, 'send'])->name('notifications.send');
@@ -139,7 +139,7 @@ Route::group(['prefix' => LaravelLocalization::setLocale(), 'middleware' => ['lo
             Route::get('/', [ProviderReportController::class, 'index'])->name('admin.providers.report.index');
             Route::get('/{provider}', [ProviderReportController::class, 'show'])->name('admin.providers.report.show');
         });
-        
+
         Route::prefix('reports')->as('reports.')->group(function () {
             // Order Reports
             Route::prefix('orders')->as('orders.')->group(function () {
@@ -147,7 +147,7 @@ Route::group(['prefix' => LaravelLocalization::setLocale(), 'middleware' => ['lo
                 Route::get('/generate', [OrderReportController::class, 'generate'])->name('generate');
                 Route::get('/export', [OrderReportController::class, 'export'])->name('export');
             });
-            
+
             // Inventory Reports  
             Route::prefix('inventory')->as('inventory.')->group(function () {
                 Route::get('/', [InventoryReportController::class, 'index'])->name('index');
@@ -155,7 +155,7 @@ Route::group(['prefix' => LaravelLocalization::setLocale(), 'middleware' => ['lo
                 Route::get('/export', [InventoryReportController::class, 'export'])->name('export');
             });
         });
- 
+
 
 
         // Resource Route
@@ -207,26 +207,26 @@ Route::group(['prefix' => LaravelLocalization::setLocale(), 'middleware' => ['lo
 
         // functionloty routes
         Route::delete('/products/images/{imageId}', [ProductController::class, 'deleteImage'])->name('products.deleteImage');
-    
+
         Route::get('/usedCoupons', [CouponController::class, 'displayCouponUsed'])->name('usedCoupons.index');
-    
+
         Route::name('admin.')->group(function () {
-    
-                // Provider Delete Requests Management
-                Route::get('provider-delete-requests', [ProviderDeleteRequestController::class, 'index'])
-                    ->name('provider-delete-requests.index');
-                
-                Route::get('provider-delete-requests/{id}', [ProviderDeleteRequestController::class, 'show'])
-                    ->name('provider-delete-requests.show');
-                
-                Route::post('provider-delete-requests/{id}/approve', [ProviderDeleteRequestController::class, 'approve'])
-                    ->name('provider-delete-requests.approve');
-                
-                Route::post('provider-delete-requests/{id}/reject', [ProviderDeleteRequestController::class, 'reject'])
-                    ->name('provider-delete-requests.reject');
-                
-                Route::get('provider-delete-requests/statistics', [ProviderDeleteRequestController::class, 'getStatistics'])
-                    ->name('provider-delete-requests.statistics');
+
+            // Provider Delete Requests Management
+            Route::get('provider-delete-requests', [ProviderDeleteRequestController::class, 'index'])
+                ->name('provider-delete-requests.index');
+
+            Route::get('provider-delete-requests/{id}', [ProviderDeleteRequestController::class, 'show'])
+                ->name('provider-delete-requests.show');
+
+            Route::post('provider-delete-requests/{id}/approve', [ProviderDeleteRequestController::class, 'approve'])
+                ->name('provider-delete-requests.approve');
+
+            Route::post('provider-delete-requests/{id}/reject', [ProviderDeleteRequestController::class, 'reject'])
+                ->name('provider-delete-requests.reject');
+
+            Route::get('provider-delete-requests/statistics', [ProviderDeleteRequestController::class, 'getStatistics'])
+                ->name('provider-delete-requests.statistics');
         });
 
         Route::prefix('provider/{providerId}/types/{providerTypeId}/discounts')->name('discounts.')->group(function () {
@@ -239,11 +239,16 @@ Route::group(['prefix' => LaravelLocalization::setLocale(), 'middleware' => ['lo
             Route::patch('/{discountId}/toggle-status', [DiscountController::class, 'toggleStatus'])->name('toggleStatus');
         });
 
-            Route::post('/wallet/update', [UserController::class, 'updateWallet'])->name('wallet.update');
-            Route::post('/provider/wallet/update', [ProviderController::class, 'updateProviderWallet'])->name('provider.wallet.update');
+        Route::post('/wallet/update', [UserController::class, 'updateWallet'])->name('wallet.update');
+        Route::post('/provider/wallet/update', [ProviderController::class, 'updateProviderWallet'])->name('provider.wallet.update');
 
-             Route::get('/user/{user}/points/history', [PointsController::class, 'history'])->name('users.points.history');
-             Route::post('/points/update', [PointsController::class, 'update'])->name('points.update');
+        Route::get('/user/{user}/points/history', [PointsController::class, 'history'])->name('users.points.history');
+        Route::post('/points/update', [PointsController::class, 'update'])->name('points.update');
+        Route::prefix('providers/{provider}')->group(function () {
+            Route::get('/bans', [ProviderController::class, 'banHistory'])->name('providers.bans.history');
+            Route::post('/ban', [ProviderController::class, 'banProvider'])->name('providers.ban');
+            Route::post('/unban/{ban}', [ProviderController::class, 'unbanProvider'])->name('providers.unban');
+        });
     });
 });
 

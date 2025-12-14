@@ -41,6 +41,21 @@ class Provider extends Authenticatable
         return $this->hasMany(ProviderType::class);
     }
     
+    public function bans()
+    {
+        return $this->hasMany(ProviderBan::class);
+    }
+
+    public function activeBan()
+    {
+        return $this->hasOne(ProviderBan::class)->where('is_active', true)->latest();
+    }
+
+    public function isBanned()
+    {
+        return $this->bans()->active()->exists();
+    }
+
     /**
      * Helper method to generate image URLs
      *
