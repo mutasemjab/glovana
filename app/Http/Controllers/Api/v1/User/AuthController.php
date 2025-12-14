@@ -77,7 +77,7 @@ class AuthController extends Controller
             $user = \App\Models\User::where('phone', $credentials['phone'])->first();
         }
         
-        if (!$user || $user->activate != 1) {
+        if (!$user) {
             return response()->json([
                 'status' => false,
                 'message' => 'User not found or not active'
