@@ -80,19 +80,58 @@
 
 @section('script')
 <script src="https://cdn.tiny.cloud/1/ffwdbcjhyfw4al7yr7y1e8shivh4g9nuipefj3gwz8y9s8h8/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+
 <script>
-    tinymce.init({
-        selector: '#content',
-        height: 400,
-        menubar: false,
-        plugins: [
-            'advlist autolink lists link image charmap preview anchor',
-            'searchreplace visualblocks code fullscreen',
-            'insertdatetime media table paste help wordcount'
-        ],
-        toolbar: 'undo redo | formatselect | bold italic backcolor | ' +
-                 'alignleft aligncenter alignright alignjustify | ' +
-                 'bullist numlist outdent indent | removeformat | help'
-    });
+tinymce.init({
+    selector: '#content',
+    height: 450,
+    menubar: true,
+
+    plugins: [
+        'advlist autolink lists link image media charmap preview anchor',
+        'searchreplace visualblocks code fullscreen',
+        'insertdatetime table paste help wordcount'
+    ],
+
+    toolbar: `
+        undo redo | blocks | bold italic underline strikethrough |
+        forecolor backcolor | alignleft aligncenter alignright alignjustify |
+        bullist numlist outdent indent |
+        link image media table |
+        removeformat code fullscreen help
+    `,
+
+    toolbar_mode: 'sliding',
+
+    branding: false,
+
+    image_title: true,
+    automatic_uploads: true,
+
+    file_picker_types: 'image media',
+    file_picker_callback: function (callback, value, meta) {
+        let input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', meta.filetype === 'image' ? 'image/*' : 'video/*');
+
+        input.onchange = function () {
+            let file = this.files[0];
+            let reader = new FileReader();
+            reader.onload = function () {
+                callback(reader.result, { title: file.name });
+            };
+            reader.readAsDataURL(file);
+        };
+        input.click();
+    },
+
+    content_style: `
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14px;
+        }
+    `
+});
 </script>
 @endsection
+
