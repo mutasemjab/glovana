@@ -1466,6 +1466,26 @@ return [
   'permanent_ban_notification' => 'Your account has been permanently banned. Reason: :reason',
   'temporary_ban_notification' => 'Your account has been temporarily banned until :until. Reason: :reason',
   'unban_notification' => 'Your account has been unbanned. Reason: :reason',
+   'Pages' => 'Pages',
+    'New' => 'New',
+    'Add_New' => 'Add New',
+    'Edit' => 'Edit',
+    'Update' => 'Update',
+    'Delete' => 'Delete',
+    'Submit' => 'Submit',
+    'Cancel' => 'Cancel',
+
+    'Title' => 'Title',
+    'Content' => 'Content',
+    'Type' => 'Type',
+
+    'No_data' => 'No data found',
+
+    // Page Types
+    'About_Us' => 'About Us',
+    'Terms_Conditions' => 'Terms & Conditions',
+    'Privacy_Policy' => 'Privacy Policy',
+    'Support' => 'Support',
   '' => '',
   '' => '',
   '' => '',

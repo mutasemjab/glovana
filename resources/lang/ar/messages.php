@@ -1591,6 +1591,26 @@ return [
   'permanent_ban_notification' => 'تم حظر حسابك بشكل دائم. السبب: :reason',
   'temporary_ban_notification' => 'تم حظر حسابك مؤقتاً حتى :until. السبب: :reason',
   'unban_notification' => 'تم إلغاء حظر حسابك. السبب: :reason',
+    'Pages' => 'الصفحات',
+    'New' => 'جديد',
+    'Add_New' => 'إضافة جديد',
+    'Edit' => 'تعديل',
+    'Update' => 'تحديث',
+    'Delete' => 'حذف',
+    'Submit' => 'حفظ',
+    'Cancel' => 'إلغاء',
+
+    'Title' => 'العنوان',
+    'Content' => 'المحتوى',
+    'Type' => 'النوع',
+
+    'No_data' => 'لا توجد بيانات',
+
+    // Page Types
+    'About_Us' => 'من نحن',
+    'Terms_Conditions' => 'الشروط والأحكام',
+    'Privacy_Policy' => 'سياسة الخصوصية',
+    'Support' => 'الدعم',
   "" => "",
   "" => "",
   "" => "",
