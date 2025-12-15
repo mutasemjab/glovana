@@ -35,6 +35,8 @@
                                      Terms and Conditions
                                      @elseif ($page->type ==3 )
                                      Privacy Policy
+                                     @elseif ($page->type ==4 )
+                                     Support
                                     @endif
                                 </td>
                                 <td>{{ $page->title }}</td>

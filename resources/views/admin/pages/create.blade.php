@@ -49,7 +49,7 @@
                                     Condition</option>
                                 <option @if (old('type') == 3 and old('type') != '') selected="selected" @endif value="3"> Privacy
                                     & Policy</option>
-                                <option @if (old('type') == 4 and old('type') != '') selected="selected" @endif value="4"> Help
+                                <option @if (old('type') == 4 and old('type') != '') selected="selected" @endif value="4"> Support
                                 </option>
                             </select>
                             @error('type')
