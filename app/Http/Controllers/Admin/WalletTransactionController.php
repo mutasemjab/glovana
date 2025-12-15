@@ -32,7 +32,7 @@ class WalletTransactionController extends Controller
     public function create()
     {
         $users = User::all();
-        $providers = Provider::all();
+        $providers = Provider::with('providerTypes')->get(); 
         return view('admin.wallet_transactions.create', compact('users', 'providers'));
     }
 
