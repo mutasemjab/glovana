@@ -253,7 +253,11 @@ class AuthProviderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->error_response('Validation error', $validator->errors());
+            // Get all error messages as a flat array and join them
+            $errors = $validator->errors()->all();
+            $errorMessage = implode(' ', $errors);
+            
+            return $this->error_response($errorMessage, []);
         }
 
         try {
@@ -464,7 +468,11 @@ class AuthProviderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return $this->error_response('Validation error', $validator->errors());
+            // Get all error messages as a flat array and join them
+            $errors = $validator->errors()->all();
+            $errorMessage = implode(' ', $errors);
+            
+            return $this->error_response($errorMessage, []);
         }
 
         try {
