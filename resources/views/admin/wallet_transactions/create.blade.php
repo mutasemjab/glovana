@@ -69,10 +69,12 @@
                             <label for="provider_entity_id">{{ __('messages.Select_provider') }} <span class="text-danger">*</span></label>
                             <select class="form-control" id="provider_entity_id" name="entity_id">
                                 <option value="">{{ __('messages.Select_provider') }}</option>
-                                @foreach($providers as $provider)
-                                <option value="{{ $provider->id }}" {{ old('entity_id') == $provider->id && old('entity_type') == 'provider' ? 'selected' : '' }} data-balance="{{ $provider->balance }}">
-                                    {{ $provider->providerTypes->first()->name }}  ({{ $provider->phone }}) - {{ __('messages.Balance') }}: {{ $provider->balance }}
-                                </option>
+                               @foreach($providers as $provider)
+                                    <option value="{{ $provider->id }}" 
+                                            {{ old('entity_id') == $provider->id && old('entity_type') == 'provider' ? 'selected' : '' }} 
+                                            data-balance="{{ $provider->balance }}">
+                                        {{ $provider->providerTypes->first()?->name ?? 'N/A' }} ({{ $provider->phone }}) - {{ __('messages.Balance') }}: {{ $provider->balance }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
