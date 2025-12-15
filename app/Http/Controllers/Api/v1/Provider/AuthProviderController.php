@@ -226,7 +226,7 @@ class AuthProviderController extends Controller
             'provider_types.*.description' => 'required|string',
             'provider_types.*.lat' => 'required|numeric|between:-90,90',
             'provider_types.*.lng' => 'required|numeric|between:-180,180',
-            'provider_types.*.number_of_work' => 'required|numeric',
+            'provider_types.*.number_of_work' => 'nullable|numeric',
             'provider_types.*.phone_number_of_provider_type' => 'required',
             'provider_types.*.address' => 'nullable|string',
             'provider_types.*.price_per_hour' => 'required_if:provider_types.*.booking_type,hourly|nullable|numeric|min:0',
