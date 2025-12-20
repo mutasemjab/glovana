@@ -210,7 +210,7 @@ class ProviderDetailsController extends Controller
             'price_per_hour' => $request->price_per_hour ?? 0,
             'activate' => $request->activate,
             'status' => $request->status,
-            'is_vip' => $request->boolean('is_vip'),,
+            'is_vip' => $request->boolean('is_vip'),
         ]);
 
         // Update services based on booking type
