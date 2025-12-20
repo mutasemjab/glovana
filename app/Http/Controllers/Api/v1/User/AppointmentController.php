@@ -163,7 +163,7 @@ class AppointmentController extends Controller
      * 2. Dynamic validation rules based on booking_type
      * 3. Conditional processing for service vs hourly bookings
      */
-     
+
     public function store(Request $request)
     {
         try {
@@ -177,7 +177,7 @@ class AppointmentController extends Controller
             }
 
             $bookingType = $providerType->type->booking_type;
-            
+
             // ===== NEW: Check for concurrent booking limit (only for service type) =====
             if ($bookingType === 'service' && !is_null($providerType->number_of_work)) {
                 $requestedDate = $request->date;
@@ -204,7 +204,7 @@ class AppointmentController extends Controller
                 }
             }
             // ===== END OF NEW CODE =====
-            
+
             // Dynamic validation based on booking type
             $rules = [
                 'provider_type_id' => 'required|exists:provider_types,id',
@@ -331,7 +331,7 @@ class AppointmentController extends Controller
         }
     }
 
-     /**
+    /**
      * Schedule auto-cancellation for appointment if not accepted within timeout
      */
     private function scheduleAutoCancellation($appointmentId, $userId, $providerId)
@@ -364,7 +364,7 @@ class AppointmentController extends Controller
                     // Send notification to user
                     $title = "Appointment Canceled";
                     $body = "Your appointment #{$appointment->number} was automatically canceled because the provider was not available to accept it.";
-                    
+
                     try {
                         FCMController::sendMessageToUser($title, $body, $userId);
                         \Log::info("Auto-cancel notification sent to user ID: {$userId} for appointment #{$appointmentId}");
@@ -622,42 +622,56 @@ class AppointmentController extends Controller
             $reason = $request->reason_of_cancel ?? 'Canceled by user';
 
             try {
-                // Use the appointment service to handle cancellation with fine logic
-                $appointmentService = new AppointmentServiceClass();
-                $result = $appointmentService->cancelAppointment($appointment, $reason, 'user');
+                DB::beginTransaction();
 
-                if (!$result) {
-                    return $this->error_response('Failed', 'Failed to cancel appointment');
+                // Calculate if fine should be applied
+                $fineData = $this->calculateUserCancellationFine($appointment);
+
+                // Update appointment to canceled
+                $appointment->appointment_status = 5;
+                $appointment->reason_of_cancel = $reason;
+                $appointment->canceled_at = now();
+
+                if ($fineData['should_apply_fine']) {
+                    $appointment->fine_applied = 1; // Yes
+                    $appointment->fine_amount = $fineData['fine_amount'];
                 }
 
-                // Refresh appointment to get updated data
-                $appointment->refresh();
+                $appointment->save();
 
-                // Check if fine was applied
-                $latestFine = $appointment->latestFine ?? null;
-                if ($latestFine) {
+                // Apply fine if needed
+                if ($fineData['should_apply_fine']) {
+                    $fineDiscount = $this->applyUserCancellationFine($appointment, $user, $fineData);
+
                     $responseData['fine_applied'] = true;
-                    $responseData['fine_amount'] = $latestFine->amount;
+                    $responseData['fine_amount'] = $fineData['fine_amount'];
                     $responseData['fine_details'] = [
-                        'id' => $latestFine->id,
-                        'amount' => $latestFine->amount,
-                        'percentage' => $latestFine->percentage ?? 0,
-                        'reason' => $latestFine->reason,
-                        'status' => $latestFine->status_text ?? 'Applied',
-                        'applied_at' => $latestFine->applied_at ? $latestFine->applied_at->toISOString() : null
+                        'id' => $fineDiscount->id,
+                        'amount' => $fineData['fine_amount'],
+                        'percentage' => $fineData['fine_percentage'],
+                        'reason' => $fineData['fine_reason'],
+                        'status' => 'Applied',
+                        'applied_at' => $fineDiscount->applied_at,
+                        'hours_since_creation' => $fineData['hours_since_creation'],
+                        'cancellation_threshold_hours' => $fineData['threshold_hours']
                     ];
-                }
 
-                $responseData['appointment'] = $appointment;
-
-                // If fine was applied, include updated user balance
-                if ($latestFine && isset($latestFine->status) && $latestFine->status == 2) {
+                    // Refresh user to get updated balance
                     $user->refresh();
                     $responseData['updated_balance'] = $user->balance;
                 }
 
-                return $this->success_response('Appointment canceled successfully', $responseData);
+                DB::commit();
+
+                $responseData['appointment'] = $appointment;
+
+                $message = $fineData['should_apply_fine']
+                    ? "Appointment canceled. A fine of {$fineData['fine_amount']} has been deducted from your wallet."
+                    : 'Appointment canceled successfully';
+
+                return $this->success_response($message, $responseData);
             } catch (\Exception $e) {
+                DB::rollBack();
                 return $this->error_response('Failed to cancel appointment', ['error' => $e->getMessage()]);
             }
         } else {
@@ -1145,5 +1159,106 @@ class AppointmentController extends Controller
         } catch (\Exception $e) {
             \Log::error("Failed to send payment confirmation request to provider: " . $e->getMessage());
         }
+    }
+
+    private function calculateUserCancellationFine($appointment)
+    {
+        // Get fine settings - using 3 hours as per your requirement
+        $thresholdHours = 3; // Fixed to 3 hours as requested
+        $finePercentage = 15; // Fixed to 15% as requested
+
+        // Calculate hours since appointment creation
+        $hoursSinceCreation = now()->diffInHours($appointment->created_at);
+
+        // Determine if fine should be applied
+        $shouldApplyFine = $hoursSinceCreation >= $thresholdHours;
+
+        // Calculate fine amount
+        $fineAmount = 0;
+        if ($shouldApplyFine) {
+            $fineAmount = ($appointment->total_prices * $finePercentage) / 100;
+        }
+
+        $fineReason = $shouldApplyFine
+            ? "Late cancellation - Canceled {$hoursSinceCreation} hours after booking (threshold: {$thresholdHours} hours). {$finePercentage}% fine applied."
+            : "Cancellation within allowed timeframe ({$hoursSinceCreation} hours after booking).";
+
+        return [
+            'should_apply_fine' => $shouldApplyFine,
+            'fine_amount' => round($fineAmount, 2),
+            'fine_percentage' => $finePercentage,
+            'fine_reason' => $fineReason,
+            'hours_since_creation' => $hoursSinceCreation,
+            'threshold_hours' => $thresholdHours
+        ];
+    }
+
+    /**
+     * Apply user cancellation fine
+     */
+    private function applyUserCancellationFine($appointment, $user, $fineData)
+    {
+        // Check if user has sufficient balance
+        $hasSufficientBalance = $user->balance >= $fineData['fine_amount'];
+
+        // Create wallet transaction if user has balance
+        $walletTransactionId = null;
+        if ($hasSufficientBalance) {
+            $walletTransaction = \App\Models\WalletTransaction::create([
+                'user_id' => $user->id,
+                'amount' => $fineData['fine_amount'],
+                'type_of_transaction' => 2, // Withdrawal/Deduction
+                'note' => "Cancellation fine for appointment #{$appointment->number} - {$fineData['fine_reason']}",
+            ]);
+
+            // Deduct from user balance
+            $user->balance -= $fineData['fine_amount'];
+            $user->save();
+
+            $walletTransactionId = $walletTransaction->id;
+        }
+
+        // Create fine record
+        $fineDiscount = \App\Models\FineDiscount::create([
+            'user_id' => $user->id,
+            'provider_id' => null,
+            'appointment_id' => $appointment->id,
+            'category' => 1, // Automatic
+            'amount' => $fineData['fine_amount'],
+            'percentage' => $fineData['fine_percentage'],
+            'original_amount' => $appointment->total_prices,
+            'status' => $hasSufficientBalance ? 2 : 1, // Applied if sufficient balance, else pending
+            'reason' => $fineData['fine_reason'],
+            'notes' => $hasSufficientBalance
+                ? 'Fine automatically deducted from user wallet'
+                : 'Insufficient balance - fine pending',
+            'applied_at' => $hasSufficientBalance ? now() : null,
+            'wallet_transaction_id' => $walletTransactionId,
+        ]);
+
+        // Send notification to user
+        try {
+            $title = "Cancellation Fine Applied";
+            $body = $hasSufficientBalance
+                ? "A fine of {$fineData['fine_amount']} has been deducted from your wallet for late cancellation of appointment #{$appointment->number}."
+                : "A fine of {$fineData['fine_amount']} is pending for late cancellation of appointment #{$appointment->number}. Please add balance to your wallet.";
+
+            FCMController::sendMessageToUser($title, $body, $user->id);
+        } catch (\Exception $e) {
+            \Log::error("Failed to send fine notification to user: " . $e->getMessage());
+        }
+
+        // Log the fine application
+        \Log::info("User cancellation fine applied", [
+            'user_id' => $user->id,
+            'appointment_id' => $appointment->id,
+            'fine_amount' => $fineData['fine_amount'],
+            'hours_since_creation' => $fineData['hours_since_creation'],
+            'has_sufficient_balance' => $hasSufficientBalance,
+            'fine_id' => $fineDiscount->id,
+            'wallet_transaction_id' => $walletTransactionId
+        ]);
+
+        return $fineDiscount;
     }
 }

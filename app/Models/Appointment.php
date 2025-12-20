@@ -55,4 +55,15 @@ class Appointment extends Model
     {
         return $this->belongsTo(ProviderType::class);
     }
+
+    public function fineDiscounts()
+    {
+        return $this->hasMany(FineDiscount::class);
+    }
+
+    public function latestFine()
+    {
+        return $this->hasOne(FineDiscount::class)->latest();
+    }
+
 }
