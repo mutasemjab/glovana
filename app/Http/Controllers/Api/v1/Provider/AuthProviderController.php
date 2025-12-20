@@ -694,6 +694,40 @@ class AuthProviderController extends Controller
             return $this->success_response('Notifications retrieved successfully', $notifications);
         }
 
+         /**
+     * Send notification to a provider
+     */
+    public function sendMessageToProvider(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'provider_id' => 'required|exists:providers,id',
+            'title' => 'required|string',
+            'body' => 'required|string'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error_response('Validation error', $validator->errors());
+        }
+
+        try {
+            $response = FCMController::sendMessageToProvider(
+                $request->title,
+                $request->body,
+                $request->provider_id
+            );
+
+            if ($response) {
+                return $this->success_response('Notification sent successfully to the provider',[]);
+            } else {
+                return $this->error_response('Notification was not sent to the provider',[]);
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('FCM Error: ' . $e->getMessage());
+            return $this->error_response('An error occurred', ['error' => $e->getMessage()]);
+        }
+    }
+
 
         public function deleteProviderImages(Request $request)
         {

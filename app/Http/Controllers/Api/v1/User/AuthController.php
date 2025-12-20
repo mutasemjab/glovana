@@ -513,67 +513,37 @@ class AuthController extends Controller
 
 
 
-     public function sendMessage(Request $request)
+    public function sendMessage(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'user_id' => 'nullable|exists:users,id',
-            'provider_id' => 'nullable|exists:providers,id', // Adjust table name as needed
+            'user_id' => 'required|exists:users,id',
             'title' => 'required|string',
             'body' => 'required|string'
         ]);
-    
-        // Custom validation to ensure exactly one recipient is provided
-        $validator->after(function ($validator) use ($request) {
-            $hasUserId = !empty($request->user_id);
-            $hasProviderId = !empty($request->provider_id);
-            
-            if (!$hasUserId && !$hasProviderId) {
-                $validator->errors()->add('recipient', 'Either user_id or provider_id must be provided.');
-            }
-            
-            if ($hasUserId && $hasProviderId) {
-                $validator->errors()->add('recipient', 'Only one recipient (user_id or provider_id) can be specified at a time.');
-            }
-        });
-    
+
         if ($validator->fails()) {
             return $this->error_response('Validation error', $validator->errors());
         }
-    
+
         try {
-            $response = false;
-            
-            // Send to user if user_id is provided
-            if ($request->user_id) {
-                $response = FCMController::sendMessageToUser(
-                    $request->title,
-                    $request->body,
-                    $request->user_id
-                );
-                $recipientType = 'user';
-            }
-            
-            // Send to provider if provider_id is provided
-            if ($request->provider_id) {
-                $response = FCMController::sendMessageToProvider(
-                    $request->title,
-                    $request->body,
-                    $request->provider_id
-                );
-                $recipientType = 'provider';
-            }
-    
+            $response = FCMController::sendMessageToUser(
+                $request->title,
+                $request->body,
+                $request->user_id
+            );
+
             if ($response) {
-                return redirect()->back()->with('message', "Notification sent successfully to the {$recipientType}");
+                return $this->success_response('Notification sent successfully to the user',[]);
             } else {
-                return redirect()->back()->with('error', "Notification was not sent to the {$recipientType}");
+                return $this->error_response('Notification was not sent to the user',[]);
             }
             
         } catch (\Exception $e) {
             \Log::error('FCM Error: ' . $e->getMessage());
-            return redirect()->back()->with('error', 'An error occurred: ' . $e->getMessage());
+            return $this->error_response('An error occurred', ['error' => $e->getMessage()]);
         }
     }
+
 
     private function generateReferralCode()
     {
