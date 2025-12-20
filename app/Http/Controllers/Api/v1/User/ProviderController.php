@@ -495,7 +495,7 @@ class ProviderController extends Controller
         return $data;
     }
 
-       public function getProvidersByType($typeId)
+    public function getProvidersByType($typeId)
     {
         try {
             $type = Type::find($typeId);
