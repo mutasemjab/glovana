@@ -26,6 +26,9 @@ class AppointmentController extends Controller
 {
     use Responses;
 
+    private const AUTO_CANCEL_TIMEOUT_MINUTES = 1;
+
+
     public function index(Request $request)
     {
         try {
@@ -160,6 +163,7 @@ class AppointmentController extends Controller
      * 2. Dynamic validation rules based on booking_type
      * 3. Conditional processing for service vs hourly bookings
      */
+     
     public function store(Request $request)
     {
         try {
@@ -173,6 +177,7 @@ class AppointmentController extends Controller
             }
 
             $bookingType = $providerType->type->booking_type;
+            
             // ===== NEW: Check for concurrent booking limit (only for service type) =====
             if ($bookingType === 'service' && !is_null($providerType->number_of_work)) {
                 $requestedDate = $request->date;
@@ -199,6 +204,7 @@ class AppointmentController extends Controller
                 }
             }
             // ===== END OF NEW CODE =====
+            
             // Dynamic validation based on booking type
             $rules = [
                 'provider_type_id' => 'required|exists:provider_types,id',
@@ -290,6 +296,10 @@ class AppointmentController extends Controller
                             'has_service_discount' => $serviceInfo['has_discount'] ? 1 : 2,
                         ]);
                     }
+
+                    // ===== NEW: Schedule auto-cancellation for service-based appointments =====
+                    $this->scheduleAutoCancellation($appointment->id, $user->id, $providerType->provider->id);
+                    // ===== END OF NEW CODE =====
                 }
                 // For hourly bookings, you might want to store number_of_hours in a separate table or field
                 // This depends on your database schema
@@ -319,6 +329,58 @@ class AppointmentController extends Controller
         } catch (\Exception $e) {
             return $this->error_response('Failed to create appointment', ['error' => $e->getMessage()]);
         }
+    }
+
+     /**
+     * Schedule auto-cancellation for appointment if not accepted within timeout
+     */
+    private function scheduleAutoCancellation($appointmentId, $userId, $providerId)
+    {
+        dispatch(function () use ($appointmentId, $userId, $providerId) {
+            // Wait for the configured timeout
+            sleep(self::AUTO_CANCEL_TIMEOUT_MINUTES * 60);
+
+            try {
+                // Reload appointment to get current status
+                $appointment = Appointment::find($appointmentId);
+
+                if (!$appointment) {
+                    \Log::warning("Auto-cancel: Appointment #{$appointmentId} not found");
+                    return;
+                }
+
+                // Only cancel if still in Pending status (status = 1)
+                if ($appointment->appointment_status == 1) {
+                    DB::beginTransaction();
+
+                    // Update appointment to Canceled
+                    $appointment->appointment_status = 5;
+                    $appointment->reason_of_cancel = 'Automatically canceled - Provider did not respond within ' . self::AUTO_CANCEL_TIMEOUT_MINUTES . ' minute(s)';
+                    $appointment->canceled_at = now();
+                    $appointment->save();
+
+                    DB::commit();
+
+                    // Send notification to user
+                    $title = "Appointment Canceled";
+                    $body = "Your appointment #{$appointment->number} was automatically canceled because the provider was not available to accept it.";
+                    
+                    try {
+                        FCMController::sendMessageToUser($title, $body, $userId);
+                        \Log::info("Auto-cancel notification sent to user ID: {$userId} for appointment #{$appointmentId}");
+                    } catch (\Exception $e) {
+                        \Log::error("Failed to send auto-cancel notification to user: " . $e->getMessage());
+                    }
+
+                    \Log::info("Appointment #{$appointmentId} auto-canceled after " . self::AUTO_CANCEL_TIMEOUT_MINUTES . " minute(s)");
+                } else {
+                    \Log::info("Appointment #{$appointmentId} was accepted before auto-cancel timeout");
+                }
+            } catch (\Exception $e) {
+                DB::rollBack();
+                \Log::error("Auto-cancel error for appointment #{$appointmentId}: " . $e->getMessage());
+            }
+        })->afterResponse();
     }
 
     /**
