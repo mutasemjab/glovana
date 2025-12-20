@@ -17,8 +17,10 @@ return new class extends Migration
              $table->id();
              $table->text('photo')->nullable();
              $table->text('voice')->nullable();
-             $table->unsignedBigInteger('user_id');
+             $table->unsignedBigInteger('user_id')->nullable();
              $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+             $table->unsignedBigInteger('provider_id')->nullable();
+             $table->foreign('provider_id')->references('id')->on('providers')->onDelete('cascade');
              $table->timestamps();
         });
     }

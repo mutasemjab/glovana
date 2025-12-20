@@ -20,6 +20,8 @@ use App\Http\Controllers\Api\v1\Provider\RatingProviderController;
 use App\Http\Controllers\Api\v1\Provider\WalletProviderController;
 
 use App\Http\Controllers\Api\v1\Provider\ForgotPasswordProviderController;
+use App\Http\Controllers\Api\v1\Provider\UploadPhotoVoiceProviderController;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -167,8 +169,8 @@ Route::group(['prefix' => 'v1/provider'], function () {
 
 
         // image for chat
-        Route::get('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'index']);
-        Route::post('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'store']);
+        Route::get('/uploadPhotoVoice', [UploadPhotoVoiceProviderController::class, 'index']);
+        Route::post('/uploadPhotoVoice', [UploadPhotoVoiceProviderController::class, 'store']);
         Route::post('/update_profile', [AuthProviderController::class, 'updateProviderProfile']);
         Route::post('/delete_account', [AuthProviderController::class, 'deleteAccount']);
         Route::get('/providerProfile', [AuthProviderController::class, 'getProviderProfile']);
