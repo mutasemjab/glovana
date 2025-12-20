@@ -697,10 +697,10 @@ class AuthProviderController extends Controller
          /**
      * Send notification to a provider
      */
-    public function sendMessageToProvider(Request $request)
+    public function sendMessageFromProvider(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'provider_id' => 'required|exists:providers,id',
+            'user_id' => 'required|exists:users,id',
             'title' => 'required|string',
             'body' => 'required|string'
         ]);
@@ -710,16 +710,16 @@ class AuthProviderController extends Controller
         }
 
         try {
-            $response = FCMController::sendMessageToProvider(
+            $response = FCMController::sendMessageToUser(
                 $request->title,
                 $request->body,
-                $request->provider_id
+                $request->user_id
             );
 
             if ($response) {
-                return $this->success_response('Notification sent successfully to the provider',[]);
+                return $this->success_response('Notification sent successfully to the user',[]);
             } else {
-                return $this->error_response('Notification was not sent to the provider',[]);
+                return $this->error_response('Notification was not sent to the user',[]);
             }
             
         } catch (\Exception $e) {

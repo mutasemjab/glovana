@@ -516,7 +516,7 @@ class AuthController extends Controller
     public function sendMessage(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'user_id' => 'required|exists:users,id',
+            'provider_id' => 'required|exists:providers,id',
             'title' => 'required|string',
             'body' => 'required|string'
         ]);
@@ -526,16 +526,16 @@ class AuthController extends Controller
         }
 
         try {
-            $response = FCMController::sendMessageToUser(
+            $response = FCMController::sendMessageToProvider(
                 $request->title,
                 $request->body,
-                $request->user_id
+                $request->provider_id
             );
 
             if ($response) {
-                return $this->success_response('Notification sent successfully to the user',[]);
+                return $this->success_response('Notification sent successfully to the provider',[]);
             } else {
-                return $this->error_response('Notification was not sent to the user',[]);
+                return $this->error_response('Notification was not sent to the provider',[]);
             }
             
         } catch (\Exception $e) {

@@ -179,7 +179,7 @@ Route::group(['prefix' => 'v1/provider'], function () {
 
         //Notification
         Route::get('/notifications', [AuthProviderController::class, 'notifications']);
-        Route::post('/notifications', [AuthProviderController::class, 'sendMessageToProvider']);
+        Route::post('/notifications', [AuthProviderController::class, 'sendMessageFromProvider']);
 
         Route::get('/ratings', [RatingProviderController::class, 'index']);
         Route::get('/wallet/transactions', [WalletProviderController::class, 'getTransactions']);
