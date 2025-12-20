@@ -53,7 +53,7 @@ class ProviderDetailsController extends Controller
             'address' => 'nullable|string',
             'activate' => 'required|in:1,2',
             'status' => 'required|in:1,2',
-            'is_vip' => 'required|in:1,2',
+            'is_vip' => 'required|boolean',
             'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
             'galleries.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
         ];
@@ -88,7 +88,7 @@ class ProviderDetailsController extends Controller
             'price_per_hour' => $request->price_per_hour ?? 0,
             'activate' => $request->activate,
             'status' => $request->status,
-            'is_vip' => $request->is_vip,
+            'is_vip' => $request->boolean('is_vip'),
         ]);
 
         // Handle services based on booking type
@@ -176,7 +176,7 @@ class ProviderDetailsController extends Controller
             'address' => 'nullable|string',
             'activate' => 'required|in:1,2',
             'status' => 'required|in:1,2',
-            'is_vip' => 'required|in:1,2',
+            'is_vip' => 'required|boolean',
             'images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
             'galleries.*' => 'nullable|image|mimes:jpeg,png,jpg,gif',
         ];
@@ -210,7 +210,7 @@ class ProviderDetailsController extends Controller
             'price_per_hour' => $request->price_per_hour ?? 0,
             'activate' => $request->activate,
             'status' => $request->status,
-            'is_vip' => $request->is_vip,
+            'is_vip' => $request->boolean('is_vip'),,
         ]);
 
         // Update services based on booking type

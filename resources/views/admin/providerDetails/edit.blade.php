@@ -178,10 +178,14 @@
 
                                 <div class="mb-3">
                                     <label for="is_vip" class="form-label">{{ __('messages.VIP_Status') }}</label>
-                                    <select class="form-control @error('is_vip') is-invalid @enderror" 
-                                            id="is_vip" name="is_vip" required>
-                                        <option value="1" {{ old('is_vip', $providerType->is_vip) == '1' ? 'selected' : '' }}>{{ __('messages.VIP') }}</option>
-                                        <option value="2" {{ old('is_vip', $providerType->is_vip) == '2' ? 'selected' : '' }}>{{ __('messages.Regular') }}</option>
+                                   <select class="form-control @error('is_vip') is-invalid @enderror"
+                                            name="is_vip" required>
+                                        <option value="1" {{ old('is_vip', $providerType->is_vip) == true ? 'selected' : '' }}>
+                                            {{ __('messages.VIP') }}
+                                        </option>
+                                        <option value="0" {{ old('is_vip', $providerType->is_vip) == false ? 'selected' : '' }}>
+                                            {{ __('messages.Regular') }}
+                                        </option>
                                     </select>
                                     @error('is_vip')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                 </div>

@@ -32,7 +32,7 @@ return new class extends Migration
             $table->text('address')->nullable();
             $table->double('price_per_hour')->default(0); 
             $table->tinyInteger('status')->default(1); // 1 on //2 off
-            $table->tinyInteger('is_vip')->default(2); // 1 yes //2 no
+            $table->boolean('is_vip')->default(false);
             $table->timestamps();
         });
     }

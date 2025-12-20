@@ -17,7 +17,7 @@ class ProviderType extends Model
         'lat' => 'float',
         'lng' => 'float',
         'price_per_hour' => 'float',
-        'is_vip' => 'integer',
+        'is_vip' => 'boolean',
 
 
     ];
