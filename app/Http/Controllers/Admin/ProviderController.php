@@ -16,22 +16,22 @@ use Illuminate\Support\Str;
 
 class ProviderController extends Controller
 {
-    
+
     public function cancelProviderRequest(Request $request, $id)
     {
         $request->validate([
             'reason' => 'required|string|max:500'
         ]);
-    
+
         DB::beginTransaction();
-    
+
         try {
             $provider = Provider::findOrFail($id);
-    
+
             // Prepare notification data
             $title = 'Request Cancelled';
             $body = $request->reason;
-    
+
             // Save notification to database
             \App\Models\Notification::create([
                 'title' => $title,
@@ -39,16 +39,16 @@ class ProviderController extends Controller
                 'type' => 2, // provider type
                 'provider_id' => $provider->id,
             ]);
-    
+
             // Send FCM notification
             \App\Http\Controllers\Admin\FCMController::sendMessageToProvider(
                 $title,
                 $body,
                 $provider->id
             );
-    
+
             DB::commit();
-    
+
             return redirect()->back()->with('success', 'Provider request cancelled and notification sent successfully.');
         } catch (\Exception $e) {
             DB::rollback();
@@ -223,17 +223,51 @@ class ProviderController extends Controller
             $the_file_path = uploadImage('assets/admin/uploads', $request->photo_of_manager);
             $providerData['photo_of_manager'] = $the_file_path;
         }
-      if ($request->filled('password')) {
+
+        if ($request->filled('password')) {
             $providerData['password'] = Hash::make($request->password);
         }
 
+        // Check if activation status is being changed to 1 (active)
+        $wasInactive = $provider->activate != 1;
+        $isBeingActivated = $request->has('activate') && $request->activate == 1;
+
         $provider->update($providerData);
+
+        // Send notification if account was just activated
+        if ($wasInactive && $isBeingActivated) {
+            DB::beginTransaction();
+
+            try {
+                $title = 'Account Activated';
+                $body = 'Your account has been activated successfully. You can now use all features.';
+
+                // Save notification to database
+                \App\Models\Notification::create([
+                    'title' => $title,
+                    'body' => $body,
+                    'type' => 2, // provider type
+                    'provider_id' => $provider->id,
+                ]);
+
+                // Send FCM notification
+                \App\Http\Controllers\Admin\FCMController::sendMessageToProvider(
+                    $title,
+                    $body,
+                    $provider->id
+                );
+
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollback();
+                \Log::error('Failed to send activation notification: ' . $e->getMessage());
+            }
+        }
 
         return redirect()
             ->route('providers.index')
             ->with('success', 'provider updated successfully');
     }
-
     /**
      * Remove the specified resource from storage.
      *
@@ -305,10 +339,10 @@ class ProviderController extends Controller
 
     public function banHistory($id)
     {
-        $provider = Provider::with(['bans' => function($query) {
+        $provider = Provider::with(['bans' => function ($query) {
             $query->orderBy('created_at', 'desc');
         }, 'bans.admin', 'bans.unbannedByAdmin'])->findOrFail($id);
-        
+
         return view('admin.providers.bans.history', compact('provider'));
     }
 
@@ -346,8 +380,8 @@ class ProviderController extends Controller
             if ($request->ban_type === 'temporary') {
                 $duration = $request->ban_duration;
                 $unit = $request->ban_duration_unit;
-                
-                $banData['ban_until'] = match($unit) {
+
+                $banData['ban_until'] = match ($unit) {
                     'hours' => now()->addHours($duration),
                     'days' => now()->addDays($duration),
                     'weeks' => now()->addWeeks($duration),
@@ -362,7 +396,7 @@ class ProviderController extends Controller
 
             // Send notification to provider
             $title = __('messages.account_banned');
-            $body = $ban->is_permanent 
+            $body = $ban->is_permanent
                 ? __('messages.permanent_ban_notification', ['reason' => $ban->getReasonText(app()->getLocale())])
                 : __('messages.temporary_ban_notification', [
                     'reason' => $ban->getReasonText(app()->getLocale()),
