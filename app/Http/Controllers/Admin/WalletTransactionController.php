@@ -11,16 +11,17 @@ use App\Models\ProviderType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class WalletTransactionController extends Controller
 {
-      public function index()
+    public function index()
     {
         $transactions = WalletTransaction::with(['user', 'provider', 'admin'])->orderBy('created_at', 'desc')->get();
         $users = User::all();
         $providers = Provider::with('providerTypes')->get();
         $providerTypes = ProviderType::all(); // Add this line
-        
+
         return view('admin.wallet_transactions.index', compact('transactions', 'users', 'providers', 'providerTypes'));
     }
 
@@ -32,7 +33,7 @@ class WalletTransactionController extends Controller
     public function create()
     {
         $users = User::all();
-        $providers = Provider::with('providerTypes')->get(); 
+        $providers = Provider::with('providerTypes')->get();
         return view('admin.wallet_transactions.create', compact('users', 'providers'));
     }
 
@@ -59,63 +60,113 @@ class WalletTransactionController extends Controller
                 ->withInput();
         }
 
-        // Prepare transaction data
-        $transactionData = [
-            'amount' => $request->amount,
-            'type_of_transaction' => $request->type_of_transaction,
-            'note' => $request->note,
-            'admin_id' => Auth::id(), // Current logged in admin
-        ];
+        DB::beginTransaction();
 
-        // Set the appropriate entity (user or provider)
-        if ($request->entity_type == 'user') {
-            $user = User::findOrFail($request->entity_id);
-            $transactionData['user_id'] = $user->id;
-            $transactionData['provider_id'] = null;
-            
-            // Update user balance
-            if ($request->type_of_transaction == 1) {
-                // Add to balance
-                $user->balance += $request->amount;
-            } else {
-                // Withdraw from balance
-                if ($user->balance < $request->amount) {
-                    return redirect()
-                        ->route('wallet_transactions.create')
-                        ->with('error', __('messages.Insufficient_Balance'))
-                        ->withInput();
+        try {
+            // Prepare transaction data
+            $transactionData = [
+                'amount' => $request->amount,
+                'type_of_transaction' => $request->type_of_transaction,
+                'note' => $request->note,
+                'admin_id' => Auth::id(), // Current logged in admin
+            ];
+
+            // Set the appropriate entity (user or provider)
+            if ($request->entity_type == 'user') {
+                $user = User::findOrFail($request->entity_id);
+                $transactionData['user_id'] = $user->id;
+                $transactionData['provider_id'] = null;
+
+                // Update user balance
+                if ($request->type_of_transaction == 1) {
+                    // Add to balance
+                    $user->balance += $request->amount;
+                    $notificationTitle = 'Wallet Credited';
+                    $notificationBody = number_format($request->amount, 2) . ' JD has been added to your wallet.' . ($request->note ? ' Note: ' . $request->note : '');
+                } else {
+                    // Withdraw from balance
+                    if ($user->balance < $request->amount) {
+                        DB::rollback();
+                        return redirect()
+                            ->route('wallet_transactions.create')
+                            ->with('error', __('messages.Insufficient_Balance'))
+                            ->withInput();
+                    }
+                    $user->balance -= $request->amount;
+                    $notificationTitle = 'Wallet Debited';
+                    $notificationBody = number_format($request->amount, 2) . ' JD has been deducted from your wallet.' . ($request->note ? ' Note: ' . $request->note : '');
                 }
-                $user->balance -= $request->amount;
-            }
-            $user->save();
-        } else {
-            $provider = Provider::findOrFail($request->entity_id);
-            $transactionData['provider_id'] = $provider->id;
-            $transactionData['user_id'] = null;
-            
-            // Update provider balance
-            if ($request->type_of_transaction == 1) {
-                // Add to balance
-                $provider->balance += $request->amount;
+                $user->save();
+
+                // Send notification to user
+                \App\Models\Notification::create([
+                    'title' => $notificationTitle,
+                    'body' => $notificationBody,
+                    'type' => 1, // user type
+                    'user_id' => $user->id,
+                ]);
+
+                \App\Http\Controllers\Admin\FCMController::sendMessageToUser(
+                    $notificationTitle,
+                    $notificationBody,
+                    $user->id
+                );
             } else {
-                // Withdraw from balance
-                if ($provider->balance < $request->amount) {
-                    return redirect()
-                        ->route('wallet_transactions.create')
-                        ->with('error', __('messages.Insufficient_Balance'))
-                        ->withInput();
+                $provider = Provider::findOrFail($request->entity_id);
+                $transactionData['provider_id'] = $provider->id;
+                $transactionData['user_id'] = null;
+
+                // Update provider balance
+                if ($request->type_of_transaction == 1) {
+                    // Add to balance
+                    $provider->balance += $request->amount;
+                    $notificationTitle = 'Wallet Credited';
+                    $notificationBody = number_format($request->amount, 2) . ' JD has been added to your wallet.' . ($request->note ? ' Note: ' . $request->note : '');
+                } else {
+                    // Withdraw from balance
+                    if ($provider->balance < $request->amount) {
+                        DB::rollback();
+                        return redirect()
+                            ->route('wallet_transactions.create')
+                            ->with('error', __('messages.Insufficient_Balance'))
+                            ->withInput();
+                    }
+                    $provider->balance -= $request->amount;
+                    $notificationTitle = 'Wallet Debited';
+                    $notificationBody = number_format($request->amount, 2) . ' JD has been deducted from your wallet.' . ($request->note ? ' Note: ' . $request->note : '');
                 }
-                $provider->balance -= $request->amount;
+                $provider->save();
+
+                // Send notification to provider
+                \App\Models\Notification::create([
+                    'title' => $notificationTitle,
+                    'body' => $notificationBody,
+                    'type' => 2, // provider type
+                    'provider_id' => $provider->id,
+                ]);
+
+                \App\Http\Controllers\Admin\FCMController::sendMessageToProvider(
+                    $notificationTitle,
+                    $notificationBody,
+                    $provider->id
+                );
             }
-            $provider->save();
+
+            // Create the transaction
+            WalletTransaction::create($transactionData);
+
+            DB::commit();
+
+            return redirect()
+                ->route('wallet_transactions.index')
+                ->with('success', __('messages.Transaction_Created_Successfully'));
+        } catch (\Exception $e) {
+            DB::rollback();
+            return redirect()
+                ->route('wallet_transactions.create')
+                ->with('error', 'An error occurred: ' . $e->getMessage())
+                ->withInput();
         }
-
-        // Create the transaction
-        WalletTransaction::create($transactionData);
-
-        return redirect()
-            ->route('wallet_transactions.index')
-            ->with('success', __('messages.Transaction_Created_Successfully'));
     }
 
     /**
@@ -161,11 +212,11 @@ class WalletTransactionController extends Controller
         } elseif ($request->entity_type == 'provider') {
             // Filter by provider type if specified
             if ($request->provider_type_id) {
-                $query->whereHas('provider.providerTypes', function($q) use ($request) {
+                $query->whereHas('provider.providerTypes', function ($q) use ($request) {
                     $q->where('provider_types.id', $request->provider_type_id);
                 });
             }
-            
+
             // Filter by specific provider if specified
             if ($request->entity_id) {
                 $query->where('provider_id', $request->entity_id);
@@ -192,7 +243,7 @@ class WalletTransactionController extends Controller
 
         // Get the filtered transactions
         $transactions = $query->orderBy('created_at', 'desc')->get();
-        
+
         // Get users, providers, and provider types for the filter dropdowns
         $users = User::all();
         $providers = Provider::with('providerTypes')->get();
@@ -200,7 +251,4 @@ class WalletTransactionController extends Controller
 
         return view('admin.wallet_transactions.index', compact('transactions', 'users', 'providers', 'providerTypes'));
     }
-
-    
-
 }

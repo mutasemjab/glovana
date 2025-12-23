@@ -240,7 +240,7 @@ class ProviderController extends Controller
 
             try {
                 $title = 'Account Activated';
-                $body = 'Your account has been activated successfully. You can now use all features.';
+                $body = 'Your account has been activated successfully. Please logout and login again to use all features.';
 
                 // Save notification to database
                 \App\Models\Notification::create([
