@@ -25,7 +25,7 @@ class ProviderController extends Controller
 
                         ->with([
                             'type',
-                             'discounts' => function ($query) {
+                            'discounts' => function ($query) {
                                 $query->active()->current()->with('services');
                             },
                             'services.service',
@@ -231,89 +231,51 @@ class ProviderController extends Controller
     public function getVipProviders(Request $request)
     {
         try {
-            $query = Provider::with([
-                'providerTypes' => function ($query) {
-                    $query->where('activate', 1)
-
-                        ->where('is_vip', true)
+            $query = Provider::where('activate', 1)
+                ->whereHas('providerTypes', function ($q) {
+                    $q->where('activate', 1)
+                        ->where('status', 1)
+                        ->whereHas('activeVipSubscription'); // ✅ VIP logic
+                })
+                ->with(['providerTypes' => function ($q) {
+                    $q->where('activate', 1)
+                        ->where('status', 1)
+                        ->whereHas('activeVipSubscription')
                         ->with([
                             'type',
-                             'discounts' => function ($query) {
-                                $query->active()->current()->with('services');
-                            },
+                            'discounts' => fn($d) => $d->active()->current()->with('services'),
                             'services.service',
                             'providerServices.service',
-                            'images'
+                            'images',
+                            'activeVipSubscription' // optional but useful
                         ]);
-                }
-            ])
-                ->whereHas('providerTypes', function ($query) {
-                    $query->where('activate', 1)
+                }]);
 
-                        ->where('is_vip', true);
-                })
-                ->where('activate', 1);
-
-            // Optional type filter for VIP providers
-            if ($request->has('type_id')) {
+            /* -------- Filter by type -------- */
+            if ($request->filled('type_id')) {
                 $query->whereHas('providerTypes', function ($q) use ($request) {
                     $q->where('type_id', $request->type_id)
-                        ->where('is_vip', 1);
+                        ->whereHas('activeVipSubscription');
                 });
             }
 
-            // Sorting options for VIP providers
+            /* -------- Sorting -------- */
             $sortBy = $request->get('sort_by', 'created_at');
             $sortOrder = $request->get('sort_order', 'desc');
 
-            switch ($sortBy) {
-                case 'name':
-                    $query->orderBy('name_of_manager', $sortOrder);
-                    break;
-                case 'price_low':
-                    $query->leftJoin('provider_types', 'providers.id', '=', 'provider_types.provider_id')
-                        ->leftJoin('types', 'provider_types.type_id', '=', 'types.id')
-                        ->leftJoin('provider_services', 'provider_types.id', '=', 'provider_services.provider_type_id')
-                        ->where('provider_types.activate', 1)
-                        ->where('provider_types.status', 1)
-                        ->where('provider_types.is_vip', 1)
-                        ->selectRaw('providers.*, 
-                                     CASE 
-                                         WHEN types.booking_type = "hourly" THEN provider_types.price_per_hour
-                                         ELSE COALESCE(MIN(provider_services.price), 0)
-                                     END as sort_price')
-                        ->groupBy('providers.id')
-                        ->orderBy('sort_price', 'asc');
-                    break;
-                case 'price_high':
-                    $query->leftJoin('provider_types', 'providers.id', '=', 'provider_types.provider_id')
-                        ->leftJoin('types', 'provider_types.type_id', '=', 'types.id')
-                        ->leftJoin('provider_services', 'provider_types.id', '=', 'provider_services.provider_type_id')
-                        ->where('provider_types.activate', 1)
-                        ->where('provider_types.status', 1)
-                        ->where('provider_types.is_vip', 1)
-                        ->selectRaw('providers.*, 
-                                     CASE 
-                                         WHEN types.booking_type = "hourly" THEN provider_types.price_per_hour
-                                         ELSE COALESCE(MAX(provider_services.price), 0)
-                                     END as sort_price')
-                        ->groupBy('providers.id')
-                        ->orderBy('sort_price', 'desc');
-                    break;
-                case 'created_at':
-                default:
-                    $query->orderBy('created_at', $sortOrder);
-                    break;
+            if ($sortBy === 'name') {
+                $query->orderBy('name_of_manager', $sortOrder);
+            } else {
+                $query->orderBy('providers.created_at', $sortOrder);
             }
 
-            // Pagination
-            $perPage = $request->get('per_page', 15);
-            $vipProviders = $query->paginate($perPage);
+            /* -------- Pagination -------- */
+            $vipProviders = $query->paginate($request->get('per_page', 15));
 
-            // Transform data
-            $vipProvidersData = $vipProviders->getCollection()->map(function ($provider) {
-                return $this->transformProviderData($provider, false);
-            });
+            $vipProvidersData = $vipProviders->getCollection()->map(
+                fn($provider) =>
+                $this->transformProviderData($provider, false)
+            );
 
             return $this->success_response('VIP providers retrieved successfully', [
                 'vip_providers' => $vipProvidersData,
@@ -322,19 +284,13 @@ class ProviderController extends Controller
                     'last_page' => $vipProviders->lastPage(),
                     'per_page' => $vipProviders->perPage(),
                     'total' => $vipProviders->total(),
-                    'from' => $vipProviders->firstItem(),
-                    'to' => $vipProviders->lastItem(),
                 ],
-                'filters' => [
-                    'type_id' => $request->type_id,
-                    'sort_by' => $sortBy,
-                    'sort_order' => $sortOrder,
-                ]
             ]);
         } catch (\Exception $e) {
             return $this->error_response('Failed to retrieve VIP providers', $e->getMessage());
         }
     }
+
 
     public function getMapLocations()
     {
@@ -342,9 +298,9 @@ class ProviderController extends Controller
             $providers = Provider::where('activate', 1)
                 ->whereHas('providerTypes', function ($q) {
                     $q->where('activate', 1)
-                    ->whereHas('type', function ($t) {
-                        $t->where('booking_type', 'service');
-                    });
+                        ->whereHas('type', function ($t) {
+                            $t->where('booking_type', 'service');
+                        });
                 })
                 ->with([
                     'providerTypes' => function ($query) {
@@ -502,7 +458,7 @@ class ProviderController extends Controller
             if (!$type) {
                 return $this->error_response('Type not found', null);
             }
-    
+
             $providers = Provider::whereHas('providerTypes', function ($query) use ($typeId) {
                 $query->where('type_id', $typeId)
                     ->where('activate', 1);
@@ -525,17 +481,17 @@ class ProviderController extends Controller
                 ])
                 ->where('activate', 1)
                 ->get();
-    
+
             $providersData = $providers->map(function ($provider) {
                 $providerData = $this->transformProviderData($provider, false);
-                
+
                 /** ✅ Provider overall average rating (based on ProviderType accessors) */
                 $providerAvg = $provider->providerTypes->avg('avg_rating');
                 $providerData['avg_rating'] = round($providerAvg ?? 0, 1);
-                
+
                 return $providerData;
             });
-    
+
             return $this->success_response('Providers retrieved successfully', [
                 'type' => [
                     'id' => $type->id,
@@ -582,28 +538,28 @@ class ProviderController extends Controller
             ])
                 ->where('activate', 1)
                 ->find($providerId);
-    
+
             // If provider not found
             if (!$provider) {
                 return $this->error_response('Provider not found', null);
             }
-    
+
             // Transform provider data using your transformer method
             $providerData = $this->transformProviderData($provider, true);
-    
+
             /** ✅ Provider overall average rating (based on ProviderType accessors) */
             $providerAvg = $provider->providerTypes->avg('avg_rating');
             $providerData['avg_rating'] = round($providerAvg ?? 0, 1);
-    
+
             /** ✅ Calculate distance based on user's first address */
             $user = auth()->user();
             if ($user) {
                 $userAddress = $user->addresses()->whereNotNull('lat')->whereNotNull('lng')->first();
-                
+
                 if ($userAddress && $userAddress->lat && $userAddress->lng) {
                     // Get the first provider type with coordinates
                     $providerType = $provider->providerTypes->first();
-                    
+
                     if ($providerType && $providerType->lat && $providerType->lng) {
                         $distance = $this->calculateDistance(
                             $userAddress->lat,
@@ -621,10 +577,10 @@ class ProviderController extends Controller
             } else {
                 $providerData['distance'] = null;
             }
-    
+
             /** ✅ Find similar providers (same type_id as first providerType) */
             $firstTypeId = optional($provider->providerTypes->first())->type_id;
-    
+
             $similarProviders = collect();
             if ($firstTypeId) {
                 $similarProviders = Provider::whereHas('providerTypes', function ($query) use ($firstTypeId, $providerId) {
@@ -650,16 +606,16 @@ class ProviderController extends Controller
                         return $this->transformProviderData($similar, false);
                     });
             }
-    
+
             /** ✅ Add similar providers to response */
             $providerData['similar_providers'] = $similarProviders;
-    
+
             return $this->success_response('Provider details retrieved successfully', $providerData);
         } catch (\Exception $e) {
             return $this->error_response('Failed to retrieve provider details', $e->getMessage());
         }
     }
-    
+
     /**
      * Calculate distance between two coordinates using Haversine formula
      * Returns distance in kilometers
@@ -667,18 +623,18 @@ class ProviderController extends Controller
     private function calculateDistance($lat1, $lon1, $lat2, $lon2)
     {
         $earthRadius = 6371; // Earth's radius in kilometers
-    
+
         $latDiff = deg2rad($lat2 - $lat1);
         $lonDiff = deg2rad($lon2 - $lon1);
-    
+
         $a = sin($latDiff / 2) * sin($latDiff / 2) +
-             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
-             sin($lonDiff / 2) * sin($lonDiff / 2);
-    
+            cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+            sin($lonDiff / 2) * sin($lonDiff / 2);
+
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-    
+
         $distance = $earthRadius * $c;
-    
+
         return $distance;
     }
 
