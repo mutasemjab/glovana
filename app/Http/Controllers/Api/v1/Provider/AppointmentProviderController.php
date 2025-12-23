@@ -140,7 +140,7 @@ class AppointmentProviderController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => 'nullable|in:1,2,3,4,5', // Filter by status
+            'status' => 'nullable|in:1,2,3,4,5,6,7', // Filter by status
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
             'per_page' => 'nullable|integer|min:1|max:100',
