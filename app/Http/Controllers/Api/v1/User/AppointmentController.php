@@ -241,6 +241,17 @@ class AppointmentController extends Controller
                     $pricingData = $this->calculateHourlyPricing($providerType, $request);
                 }
 
+                if ($request->payment_type === 'wallet') {
+                    if ($user->balance < $pricingData['final_total']) {
+                        DB::rollback();
+                        return $this->error_response('Insufficient wallet balance', [
+                            'required_amount' => $pricingData['final_total'],
+                            'current_balance' => $user->balance,
+                            'message' => 'Your wallet balance is insufficient. Please add funds or choose a different payment method.'
+                        ]);
+                    }
+                }
+
                 // Generate appointment number
                 $appointmentNumber = $this->generateAppointmentNumber();
 
@@ -303,6 +314,8 @@ class AppointmentController extends Controller
                 }
                 // For hourly bookings, you might want to store number_of_hours in a separate table or field
                 // This depends on your database schema
+
+                $this->sendNewAppointmentNotificationToProvider($appointment, $user, $providerType);
 
                 DB::commit();
 
@@ -1260,5 +1273,32 @@ class AppointmentController extends Controller
         ]);
 
         return $fineDiscount;
+    }
+
+    private function sendNewAppointmentNotificationToProvider($appointment, $user, $providerType)
+    {
+        try {
+            $title = "New Appointment Request";
+            $body = "You have a new appointment request from {$user->name} for " . date('F j, Y', strtotime($appointment->date)) . ". Appointment #{$appointment->number}. Total: {$appointment->total_prices} JD.";
+
+            // Save notification to database
+            \App\Models\Notification::create([
+                'title' => $title,
+                'body' => $body,
+                'type' => 2, // provider type
+                'provider_id' => $providerType->provider->id,
+            ]);
+
+            // Send FCM notification
+            FCMController::sendMessageToProvider(
+                $title,
+                $body,
+                $providerType->provider->id
+            );
+
+            \Log::info("New appointment notification sent to provider ID: {$providerType->provider->id} for appointment #{$appointment->id}");
+        } catch (\Exception $e) {
+            \Log::error("Failed to send new appointment notification to provider: " . $e->getMessage());
+        }
     }
 }
