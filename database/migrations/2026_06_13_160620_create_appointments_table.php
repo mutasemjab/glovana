@@ -39,6 +39,8 @@ return new class extends Migration
             // Add foreign key for discount
             $table->foreign('discount_id')->references('id')->on('discounts')->onDelete('set null');
             
+            $table->unsignedBigInteger('coupon_id')->nullable();
+            $table->foreign('coupon_id')->references('id')->on('coupons')->onDelete('set null');
     
             $table->unsignedBigInteger('user_id')->nullable();
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
