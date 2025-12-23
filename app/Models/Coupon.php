@@ -53,6 +53,7 @@ class Coupon extends Model
 
     /**
      * Check if coupon is valid for use
+     * FIXED: Specify table name for user_id to avoid ambiguity
      */
     public function isValid($userId, $totalAmount)
     {
@@ -73,7 +74,11 @@ class Coupon extends Model
         }
 
         // Check if already used by this user
-        $alreadyUsed = $this->users()->where('user_id', $userId)->exists();
+        // FIX: Specify the table name for user_id column
+        $alreadyUsed = $this->users()
+            ->where('user_coupons.user_id', $userId)
+            ->exists();
+            
         if ($alreadyUsed) {
             return [
                 'valid' => false,
