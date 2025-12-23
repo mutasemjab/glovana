@@ -235,7 +235,7 @@ class ProviderController extends Controller
                 'providerTypes' => function ($query) {
                     $query->where('activate', 1)
 
-                        ->where('is_vip', 1)
+                        ->where('is_vip', true)
                         ->with([
                             'type',
                              'discounts' => function ($query) {
@@ -250,7 +250,7 @@ class ProviderController extends Controller
                 ->whereHas('providerTypes', function ($query) {
                     $query->where('activate', 1)
 
-                        ->where('is_vip', 1);
+                        ->where('is_vip', true);
                 })
                 ->where('activate', 1);
 
