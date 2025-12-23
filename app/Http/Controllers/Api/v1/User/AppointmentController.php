@@ -211,7 +211,9 @@ class AppointmentController extends Controller
                 'date' => 'required|date|after:today',
                 'address_id' => 'required|exists:user_addresses,id',
                 'note' => 'nullable|string|max:1000',
-                'payment_type' => 'required|in:cash,visa,wallet'
+                'payment_type' => 'required|in:cash,visa,wallet',
+                'coupon_code' => 'nullable|string'
+
             ];
 
             // Add booking type specific validation
@@ -241,6 +243,31 @@ class AppointmentController extends Controller
                     $pricingData = $this->calculateHourlyPricing($providerType, $request);
                 }
 
+                   $couponDiscount = 0;
+            $couponId = null;
+
+            // Apply coupon if provided
+            if ($request->coupon_code) {
+                $couponService = new \App\Services\CouponService();
+                $couponResult = $couponService->validateAppointmentCoupon(
+                    $request->coupon_code,
+                    $user->id,
+                    $pricingData['final_total']
+                );
+
+                if (!$couponResult['success']) {
+                    DB::rollback();
+                    return $this->error_response($couponResult['message'], []);
+                }
+
+                $couponDiscount = $couponResult['discount'];
+                $couponId = $couponResult['coupon']->id;
+            }
+
+            // Adjust final total with coupon
+            $finalTotal = $pricingData['final_total'] - $couponDiscount;
+
+
                 if ($request->payment_type === 'wallet') {
                     if ($user->balance < $pricingData['final_total']) {
                         DB::rollback();
@@ -256,34 +283,35 @@ class AppointmentController extends Controller
                 $appointmentNumber = $this->generateAppointmentNumber();
 
                 // Create appointment with existing + new discount fields
-                $appointment = Appointment::create([
-                    'user_id' => $user->id,
-                    'provider_type_id' => $request->provider_type_id,
-                    'date' => $request->date,
-                    'address_id' => $request->address_id,
-                    'note' => $request->note,
-                    'payment_type' => $request->payment_type,
-                    'number' => $appointmentNumber,
+               $appointment = Appointment::create([
+                'user_id' => $user->id,
+                'provider_type_id' => $request->provider_type_id,
+                'date' => $request->date,
+                'address_id' => $request->address_id,
+                'note' => $request->note,
+                'payment_type' => $request->payment_type,
+                'number' => $appointmentNumber,
 
-                    // Existing pricing fields
-                    'delivery_fee' => 0,
-                    'total_prices' => $pricingData['final_total'],
-                    'total_discounts' => $pricingData['discount_amount'],
-                    'coupon_discount' => null,
+                // Pricing fields
+                'delivery_fee' => 0,
+                'total_prices' => $finalTotal,
+                'total_discounts' => $pricingData['discount_amount'],
+                'coupon_discount' => $couponDiscount,
+                'coupon_id' => $couponId,
 
-                    // New discount fields
-                    'original_total_price' => $pricingData['original_total'],
-                    'discount_id' => $pricingData['discount_id'],
-                    'discount_percentage' => $pricingData['discount_percentage'],
-                    'discount_amount' => $pricingData['discount_amount'],
-                    'has_discount' => $pricingData['has_discount'] ? 1 : 2,
+                // New discount fields
+                'original_total_price' => $pricingData['original_total'],
+                'discount_id' => $pricingData['discount_id'],
+                'discount_percentage' => $pricingData['discount_percentage'],
+                'discount_amount' => $pricingData['discount_amount'],
+                'has_discount' => $pricingData['has_discount'] ? 1 : 2,
 
-                    // Default values
-                    'appointment_status' => 1, // Pending
-                    'payment_status' => 2, // Unpaid
-                    'fine_amount' => 0,
-                    'fine_applied' => 2 // No fine
-                ]);
+                // Default values
+                'appointment_status' => 1,
+                'payment_status' => 2,
+                'fine_amount' => 0,
+                'fine_applied' => 2
+            ]);
 
                 // Create appointment services only for service-based bookings
                 if ($bookingType === 'service') {
@@ -315,6 +343,9 @@ class AppointmentController extends Controller
                 // For hourly bookings, you might want to store number_of_hours in a separate table or field
                 // This depends on your database schema
 
+                 if ($couponId) {
+                $couponService->markAsUsed($couponId, $user->id);
+            }
                 $this->sendNewAppointmentNotificationToProvider($appointment, $user, $providerType);
 
                 DB::commit();
