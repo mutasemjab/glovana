@@ -294,7 +294,7 @@ class AuthProviderController extends Controller
                     'description' => $providerTypeData['description'],
                     'lat' => $providerTypeData['lat'],
                     'lng' => $providerTypeData['lng'],
-                    'number_of_work' => $providerTypeData['number_of_work'],
+                    'number_of_work' => $providerTypeData['number_of_work'] ?? null,
                     'phone_number_of_provider_type' => $providerTypeData['phone_number_of_provider_type'],
                     'practice_license' => $practice_license_path,
                     'identity_photo' =>  $identity_photo_path,
