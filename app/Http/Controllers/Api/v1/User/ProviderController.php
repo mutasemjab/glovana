@@ -389,15 +389,63 @@ class ProviderController extends Controller
             }),
         ];
 
+        // ✅ Get active discount for this provider type
+        $activeDiscount = $providerType->discounts->first(function ($discount) {
+            return $discount->isCurrentlyActive();
+        });
+
         // Add pricing information based on booking type
         if ($providerType->type->booking_type === 'hourly') {
-            $data['price_per_hour'] = $providerType->price_per_hour;
+            $originalPrice = $providerType->price_per_hour;
+            $discountedPrice = $originalPrice;
+            $hasDiscount = false;
+            $discountPercentage = null;
+
+            // ✅ Apply hourly discount if exists
+            if ($activeDiscount && $activeDiscount->discount_type === 'hourly') {
+                $discountedPrice = $activeDiscount->calculateDiscountedPrice($originalPrice);
+                $hasDiscount = true;
+                $discountPercentage = $activeDiscount->percentage;
+            }
+
             $data['pricing_type'] = 'hourly';
+            $data['price_per_hour'] = $discountedPrice;
+            $data['original_price_per_hour'] = $originalPrice;
+            $data['has_discount'] = $hasDiscount;
+            if ($hasDiscount) {
+                $data['discount_percentage'] = $discountPercentage;
+                $data['discount_info'] = [
+                    'name' => $activeDiscount->name,
+                    'description' => $activeDiscount->description,
+                    'percentage' => $activeDiscount->percentage,
+                    'start_date' => $activeDiscount->start_date->format('Y-m-d'),
+                    'end_date' => $activeDiscount->end_date->format('Y-m-d'),
+                ];
+            }
         } else {
             $data['pricing_type'] = 'service';
+
+            // ✅ Apply service discounts if exist
             $data['provider_services'] = $providerType->providerServices
                 ->where('is_active', 1)
-                ->map(function ($providerService) {
+                ->map(function ($providerService) use ($activeDiscount) {
+                    $originalPrice = $providerService->price;
+                    $discountedPrice = $originalPrice;
+                    $hasDiscount = false;
+                    $discountPercentage = null;
+
+                    // Check if there's an active service discount that applies to this service
+                    if (
+                        $activeDiscount &&
+                        $activeDiscount->discount_type === 'service' &&
+                        $activeDiscount->appliesToService($providerService->service_id)
+                    ) {
+
+                        $discountedPrice = $activeDiscount->calculateDiscountedPrice($originalPrice);
+                        $hasDiscount = true;
+                        $discountPercentage = $activeDiscount->percentage;
+                    }
+
                     return [
                         'id' => $providerService->id,
                         'service' => [
@@ -405,10 +453,25 @@ class ProviderController extends Controller
                             'name_en' => $providerService->service->name_en,
                             'name_ar' => $providerService->service->name_ar,
                         ],
-                        'price' => $providerService->price,
+                        'price' => $discountedPrice,
+                        'original_price' => $originalPrice,
+                        'has_discount' => $hasDiscount,
+                        'discount_percentage' => $discountPercentage,
                         'is_active' => $providerService->is_active,
                     ];
                 });
+
+            // ✅ Add discount info at provider type level if exists
+            if ($activeDiscount && $activeDiscount->discount_type === 'service') {
+                $data['discount_info'] = [
+                    'name' => $activeDiscount->name,
+                    'description' => $activeDiscount->description,
+                    'percentage' => $activeDiscount->percentage,
+                    'start_date' => $activeDiscount->start_date->format('Y-m-d'),
+                    'end_date' => $activeDiscount->end_date->format('Y-m-d'),
+                    'applicable_services' => $activeDiscount->services->pluck('id')->toArray(),
+                ];
+            }
         }
 
         if ($includeFullDetails) {
