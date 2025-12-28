@@ -35,6 +35,7 @@ return new class extends Migration
             $table->double('discount_percentage')->default(0);
             $table->double('discount_amount')->default(0);
             $table->tinyInteger('has_discount')->default(2); // 1 = yes, 2 = no
+            $table->tinyInteger('cancel_rating')->default(2); // 1 = yes, 2 = no
             
             // Add foreign key for discount
             $table->foreign('discount_id')->references('id')->on('discounts')->onDelete('set null');

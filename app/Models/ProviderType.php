@@ -10,10 +10,10 @@ use Spatie\Activitylog\Traits\LogsActivity;
 
 class ProviderType extends Model
 {
-    use HasFactory,LogsActivity;
+    use HasFactory, LogsActivity;
 
     protected $guarded = [];
-     protected $casts = [
+    protected $casts = [
         'lat' => 'float',
         'lng' => 'float',
         'price_per_hour' => 'float',
@@ -22,9 +22,9 @@ class ProviderType extends Model
 
     ];
 
-    protected $appends = ['is_favourite','avg_rating'];
+    protected $appends = ['is_favourite', 'avg_rating'];
 
-       public function getActivitylogOptions(): LogOptions
+    public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
             ->logAll() // Log all attributes since you're using $guarded = []
@@ -40,7 +40,7 @@ class ProviderType extends Model
         if (!auth()->check()) {
             return false;
         }
-        
+
         return $this->favourites()->where('user_id', auth()->id())->exists();
     }
 
@@ -70,11 +70,11 @@ class ProviderType extends Model
         return $this->hasMany(ProviderServiceType::class);
     }
 
-     public function providerServices()
+    public function providerServices()
     {
         return $this->hasMany(ProviderService::class);
     }
- 
+
     public function ratings()
     {
         return $this->hasMany(ProviderRating::class);
@@ -116,7 +116,7 @@ class ProviderType extends Model
         return $this->hasMany(Appointment::class);
     }
 
-     public function discounts()
+    public function discounts()
     {
         return $this->hasMany(Discount::class);
     }
@@ -155,7 +155,7 @@ class ProviderType extends Model
         return $pricingService->getAllDiscountedServicePrices($this->id);
     }
 
-        // Accessors
+    // Accessors
     public function getStatusTextAttribute()
     {
         return $this->status == 1 ? 'On' : 'Off';
@@ -184,5 +184,19 @@ class ProviderType extends Model
     public function getIsCurrentlyVipAttribute()
     {
         return $this->activeVipSubscription()->exists();
+    }
+
+    // Add this scope to ProviderType model
+    public function scopeAvailableForInstantBooking($query)
+    {
+        return $query->where('status', 1)
+            ->whereDoesntHave('appointments', function ($q) {
+                // Don't have appointment now with status 2, 3, or 6
+                $q->whereIn('appointment_status', [2, 3, 6]);
+            })
+            ->whereDoesntHave('appointments', function ($q) {
+                // Don't have any appointment today
+                $q->whereDate('date', today());
+            });
     }
 }

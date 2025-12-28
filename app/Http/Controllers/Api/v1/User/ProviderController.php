@@ -514,7 +514,7 @@ class ProviderController extends Controller
         return $data;
     }
 
-    public function getProvidersByType($typeId)
+    public function getProvidersByType(Request $request, $typeId)
     {
         try {
             $type = Type::find($typeId);
@@ -522,24 +522,39 @@ class ProviderController extends Controller
                 return $this->error_response('Type not found', null);
             }
 
-            $providers = Provider::whereHas('providerTypes', function ($query) use ($typeId) {
+            // Get appointment type from request (instant or scheduled)
+            $appointmentType = $request->input('appointment_type', 'scheduled'); // default scheduled
+            $isInstantBooking = $appointmentType === 'instant';
+
+            $providers = Provider::whereHas('providerTypes', function ($query) use ($typeId, $isInstantBooking) {
                 $query->where('type_id', $typeId)
                     ->where('activate', 1);
+
+                // Apply instant booking filter if needed
+                if ($isInstantBooking) {
+                    $query->availableForInstantBooking();
+                }
             })
                 ->with([
-                    'providerTypes' => function ($query) use ($typeId) {
+                    'providerTypes' => function ($query) use ($typeId, $isInstantBooking) {
                         $query->where('type_id', $typeId)
-                            ->where('activate', 1)
-                            ->with([
-                                'type',
-                                'discounts' => function ($query) {
-                                    $query->active()->current()->with('services');
-                                },
-                                'services.service',
-                                'providerServices.service',
-                                'images',
-                                'ratings' // Add this to load ratings
-                            ]);
+                            ->where('activate', 1);
+
+                        // Apply instant booking filter if needed
+                        if ($isInstantBooking) {
+                            $query->availableForInstantBooking();
+                        }
+
+                        $query->with([
+                            'type',
+                            'discounts' => function ($query) {
+                                $query->active()->current()->with('services');
+                            },
+                            'services.service',
+                            'providerServices.service',
+                            'images',
+                            'ratings'
+                        ]);
                     }
                 ])
                 ->where('activate', 1)
@@ -547,11 +562,8 @@ class ProviderController extends Controller
 
             $providersData = $providers->map(function ($provider) {
                 $providerData = $this->transformProviderData($provider, false);
-
-                /** ✅ Provider overall average rating (based on ProviderType accessors) */
                 $providerAvg = $provider->providerTypes->avg('avg_rating');
                 $providerData['avg_rating'] = round($providerAvg ?? 0, 1);
-
                 return $providerData;
             });
 
