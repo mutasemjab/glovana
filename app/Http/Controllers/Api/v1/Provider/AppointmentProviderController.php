@@ -465,14 +465,6 @@ class AppointmentProviderController extends Controller
             'type_of_transaction' => 2, // withdrawal
             'note' => "Commission deduction for cash appointment #{$appointment->number}"
         ]);
-
-        // Add commission to admin wallet
-        WalletTransaction::create([
-            'admin_id' => 1,
-            'amount' => $commissionAmount,
-            'type_of_transaction' => 1, // add
-            'note' => "Commission from cash appointment #{$appointment->number}"
-        ]);
     }
 
     /**
@@ -490,11 +482,11 @@ class AppointmentProviderController extends Controller
             'note' => "Payment from visa appointment #{$appointment->number}"
         ]);
 
-        // Add commission to admin wallet
+          // deduct commission from provider wallet
         WalletTransaction::create([
-            'admin_id' => 1,
+            'provider_id' => $provider->id,
             'amount' => $commissionAmount,
-            'type_of_transaction' => 1, // add
+            'type_of_transaction' => 2, // withdrawal
             'note' => "Commission from visa appointment #{$appointment->number}"
         ]);
     }
@@ -524,11 +516,11 @@ class AppointmentProviderController extends Controller
             'note' => "Payment from wallet appointment #{$appointment->number}"
         ]);
 
-        // Add commission to admin wallet
+        // deduct commission from provider wallet
         WalletTransaction::create([
-            'admin_id' => 1,
+            'provider_id' => $provider->id,
             'amount' => $commissionAmount,
-            'type_of_transaction' => 1, // add
+            'type_of_transaction' => 2, // withdrawal
             'note' => "Commission from wallet appointment #{$appointment->number}"
         ]);
     }

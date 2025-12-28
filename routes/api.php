@@ -103,6 +103,11 @@ Route::group(['prefix' => 'v1/user'], function () {
 
         Route::get('/wallet/transactions', [WalletController::class, 'getTransactions']);
 
+        Route::post('/appointments/enable-cancel-rating', [
+            AppointmentController::class,
+            'enableCancelRating'
+        ]);
+
         //Ecommerce
 
         Route::get('/productFavourites', [FavouriteController::class, 'index']);
@@ -161,7 +166,7 @@ Route::group(['prefix' => 'v1/provider'], function () {
     Route::post('/update-password', [ForgotPasswordProviderController::class, 'updatePassword']);
 
     // Auth Route
-    Route::group(['middleware' => ['auth:provider-api','check.provider.activation']], function () {
+    Route::group(['middleware' => ['auth:provider-api', 'check.provider.activation']], function () {
 
         Route::get('/active', [AuthProviderController::class, 'active']);
         Route::post('/updateStatus/{id}', [AuthProviderController::class, 'updateStatusOnOff']);

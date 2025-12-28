@@ -29,6 +29,32 @@ class AppointmentController extends Controller
     private const AUTO_CANCEL_TIMEOUT_MINUTES = 1;
 
 
+    public function enableCancelRating(Request $request)
+    {
+        $request->validate([
+            'appointment_id' => 'required|exists:appointments,id'
+        ]);
+
+        $user = Auth::guard('user-api')->user();
+
+        $appointment = Appointment::where('id', $request->appointment_id)
+            ->where('user_id', $user->id) // security check
+            ->first();
+
+        if (!$appointment) {
+            return $this->error_response('Appointment not found',[]);
+        }
+
+        $appointment->update([
+            'cancel_rating' => 1
+        ]);
+
+        return $this->success_response('Cancel rating enabled successfully', [
+            'appointment_id' => $appointment->id,
+            'cancel_rating' => $appointment->cancel_rating
+        ]);
+    }
+
     public function index(Request $request)
     {
         try {
