@@ -66,16 +66,12 @@ class Appointment extends Model
         return $this->hasOne(FineDiscount::class)->latest();
     }
 
+   // App\Models\Appointment.php
     public function providerRating()
     {
-        return $this->hasOne(
-            ProviderRating::class,
-            'provider_type_id',
-            'provider_type_id'
-        )->whereColumn(
-            'provider_ratings.user_id',
-            'appointments.user_id'
-        );
+        return $this->hasOne(ProviderRating::class, 'provider_type_id', 'provider_type_id')
+            ->where('provider_ratings.user_id', $this->user_id);
     }
+
 
 }
