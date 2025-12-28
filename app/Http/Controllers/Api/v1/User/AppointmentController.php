@@ -50,6 +50,7 @@ class AppointmentController extends Controller
 
             // Build query with relationships including discount
             $query = Appointment::with([
+                'providerRating',
                 'user:id,name,phone,email,photo',
                 'address',
                 'providerType',
@@ -87,6 +88,11 @@ class AppointmentController extends Controller
 
             // Transform the data to include status labels and discount info
             $appointments->getCollection()->transform(function ($appointment) {
+
+                $appointment->rating_flag =
+                    ($appointment->cancel_rating == 2 && !$appointment->providerRating)
+                    ? 1
+                    : 2;
                 // Status labels
                 $appointment->status_text = $this->getAppointmentStatusText($appointment->appointment_status);
                 $appointment->payment_status_text = $appointment->payment_status == 1 ? 'Paid' : 'Unpaid';
