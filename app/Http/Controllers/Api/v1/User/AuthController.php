@@ -20,6 +20,33 @@ class AuthController extends Controller
 {
     use Responses;
 
+
+    public function updatePhone(Request $request)
+    {
+        $user = auth()->user();
+
+        $validator = Validator::make($request->all(), [
+            'phone' => 'required|string|unique:users,phone,' . $user->id,
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error_response(
+                'Validation error',
+                $validator->errors()
+            );
+        }
+
+        $user->phone = $request->phone;
+        $user->save();
+
+        return $this->success_response(
+            'Phone number updated successfully',
+            [
+                'phone' => $user->phone
+            ]
+        );
+    }
+
     public function active()
     {
         $user = auth()->user();

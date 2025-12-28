@@ -68,7 +68,7 @@ Route::group(['prefix' => 'v1/user'], function () {
         // هدول كانو برة الauth بس دخلتهم جوا عشان favourite
         Route::get('/categories', [CategoryController::class, 'index']);
         Route::get('/categories/{id}', [CategoryController::class, 'getProductsFromCategory']);
-
+        Route::post('/updatePhone', [AuthController::class, 'updatePhone']);
         Route::get('/products/{id}', [ProductController::class, 'productDetails']);
         Route::get('product/search', [ProductController::class, 'searchProduct']);
         Route::get('/providers/type/{typeId}', [ProviderController::class, 'getProvidersByType']);

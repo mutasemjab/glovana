@@ -38,7 +38,18 @@ class OrderController extends Controller
         DB::beginTransaction();
 
         try {
-            $user = $request->user();
+
+            $user = auth()->user();
+
+            if (empty($user->phone)) {
+                return $this->error_response(
+                    'Phone number required',
+                    [
+                        'message' => 'You must add a phone number to your profile before continuing.'
+                    ]
+                );
+            }
+
             $cartItems = Cart::where('user_id', $user->id)->where('status', 1)->get();
 
             if ($cartItems->isEmpty()) {
