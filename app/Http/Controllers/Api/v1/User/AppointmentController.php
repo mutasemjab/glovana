@@ -395,51 +395,11 @@ class AppointmentController extends Controller
      */
     private function scheduleAutoCancellation($appointmentId, $userId, $providerId)
     {
-        dispatch(function () use ($appointmentId, $userId, $providerId) {
-            // Wait for the configured timeout
-            sleep(self::AUTO_CANCEL_TIMEOUT_MINUTES * 60);
-
-            try {
-                // Reload appointment to get current status
-                $appointment = Appointment::find($appointmentId);
-
-                if (!$appointment) {
-                    \Log::warning("Auto-cancel: Appointment #{$appointmentId} not found");
-                    return;
-                }
-
-                // Only cancel if still in Pending status (status = 1)
-                if ($appointment->appointment_status == 1) {
-                    DB::beginTransaction();
-
-                    // Update appointment to Canceled
-                    $appointment->appointment_status = 5;
-                    $appointment->reason_of_cancel = 'Automatically canceled - Provider did not respond within ' . self::AUTO_CANCEL_TIMEOUT_MINUTES . ' minute(s)';
-                    $appointment->canceled_at = now();
-                    $appointment->save();
-
-                    DB::commit();
-
-                    // Send notification to user
-                    $title = "Appointment Canceled";
-                    $body = "Your appointment #{$appointment->number} was automatically canceled because the provider was not available to accept it.";
-
-                    try {
-                        FCMController::sendMessageToUser($title, $body, $userId);
-                        \Log::info("Auto-cancel notification sent to user ID: {$userId} for appointment #{$appointmentId}");
-                    } catch (\Exception $e) {
-                        \Log::error("Failed to send auto-cancel notification to user: " . $e->getMessage());
-                    }
-
-                    \Log::info("Appointment #{$appointmentId} auto-canceled after " . self::AUTO_CANCEL_TIMEOUT_MINUTES . " minute(s)");
-                } else {
-                    \Log::info("Appointment #{$appointmentId} was accepted before auto-cancel timeout");
-                }
-            } catch (\Exception $e) {
-                DB::rollBack();
-                \Log::error("Auto-cancel error for appointment #{$appointmentId}: " . $e->getMessage());
-            }
-        })->afterResponse();
+        // Dispatch the job with delay
+        \App\Jobs\AutoCancelAppointment::dispatch($appointmentId, $userId, $providerId, self::AUTO_CANCEL_TIMEOUT_MINUTES)
+            ->delay(now()->addMinutes(self::AUTO_CANCEL_TIMEOUT_MINUTES));
+        
+        \Log::info("Auto-cancel job scheduled for appointment #{$appointmentId} - will execute in " . self::AUTO_CANCEL_TIMEOUT_MINUTES . " minute(s)");
     }
 
     /**
@@ -1220,17 +1180,43 @@ class AppointmentController extends Controller
         }
     }
 
-    private function calculateUserCancellationFine($appointment)
+   private function calculateUserCancellationFine($appointment)
     {
-        // Get fine settings - using 3 hours as per your requirement
-        $thresholdHours = 3; // Fixed to 3 hours as requested
-        $finePercentage = 15; // Fixed to 15% as requested
+        // ✅ Check if appointment is still in "Accepted" status (status = 2)
+        // If yes and more than 10 minutes have passed since acceptance, NO FINE
+        if ($appointment->appointment_status == 2) {
+            // Get the delay threshold from settings (default 10 minutes)
+            $delayThresholdMinutes = 10;
+            
+            // Calculate minutes since appointment was last updated (when provider accepted it)
+            $minutesSinceAcceptance = now()->diffInMinutes($appointment->updated_at);
+            
+            // If provider hasn't changed status for more than threshold minutes, no fine
+            if ($minutesSinceAcceptance >= $delayThresholdMinutes) {
+                return [
+                    'should_apply_fine' => false,
+                    'fine_amount' => 0,
+                    'fine_percentage' => 0,
+                    'fine_reason' => "No fine applied - Provider did not update status from 'Accepted' to 'On The Way' within {$delayThresholdMinutes} minutes",
+                    'hours_until_appointment' => 0,
+                    'threshold_hours' => 3,
+                    'provider_delayed' => true,
+                    'minutes_since_acceptance' => $minutesSinceAcceptance
+                ];
+            }
+        }
 
-        // Calculate hours since appointment creation
-        $hoursSinceCreation = now()->diffInHours($appointment->created_at);
+        // Normal fine calculation based on time before appointment
+        $thresholdHours = 3;
+        $finePercentage = 15;
 
-        // Determine if fine should be applied
-        $shouldApplyFine = $hoursSinceCreation >= $thresholdHours;
+        // Calculate time remaining before appointment
+        $appointmentTime = \Carbon\Carbon::parse($appointment->date);
+        $now = now();
+        $hoursUntilAppointment = $now->diffInHours($appointmentTime, false);
+
+        // Apply fine only if canceling less than 3 hours before appointment
+        $shouldApplyFine = $hoursUntilAppointment > 0 && $hoursUntilAppointment <= $thresholdHours;
 
         // Calculate fine amount
         $fineAmount = 0;
@@ -1239,16 +1225,17 @@ class AppointmentController extends Controller
         }
 
         $fineReason = $shouldApplyFine
-            ? "Late cancellation - Canceled {$hoursSinceCreation} hours after booking (threshold: {$thresholdHours} hours). {$finePercentage}% fine applied."
-            : "Cancellation within allowed timeframe ({$hoursSinceCreation} hours after booking).";
+            ? "Late cancellation - Canceled with {$hoursUntilAppointment} hours remaining before appointment (threshold: {$thresholdHours} hours). {$finePercentage}% fine applied."
+            : "Cancellation more than {$thresholdHours} hours before appointment ({$hoursUntilAppointment} hours remaining). No fine applied.";
 
         return [
             'should_apply_fine' => $shouldApplyFine,
             'fine_amount' => round($fineAmount, 2),
             'fine_percentage' => $finePercentage,
             'fine_reason' => $fineReason,
-            'hours_since_creation' => $hoursSinceCreation,
-            'threshold_hours' => $thresholdHours
+            'hours_until_appointment' => round($hoursUntilAppointment, 2),
+            'threshold_hours' => $thresholdHours,
+            'provider_delayed' => false
         ];
     }
 

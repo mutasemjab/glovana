@@ -47,7 +47,21 @@ class WalletTransactionController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'entity_type' => 'required|in:user,provider',
-            'entity_id' => 'required',
+            'entity_id' => [
+                'required',
+                'numeric',
+                function ($attribute, $value, $fail) use ($request) {
+                    if ($request->entity_type == 'user') {
+                        if (!User::find($value)) {
+                            $fail('The selected user is invalid.');
+                        }
+                    } elseif ($request->entity_type == 'provider') {
+                        if (!Provider::find($value)) {
+                            $fail('The selected provider is invalid.');
+                        }
+                    }
+                },
+            ],
             'amount' => 'required|numeric|min:0.01',
             'type_of_transaction' => 'required|in:1,2',
             'note' => 'nullable|string',

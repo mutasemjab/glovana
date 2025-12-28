@@ -51,7 +51,7 @@ class SendAppointmentReminders extends Command
                 'address'
             ])
             ->whereBetween('date', [$startTime, $endTime])
-            ->whereIn('appointment_status', [1, 2]) // Pending or Accepted
+            ->where('appointment_status',2) // Pending or Accepted
             ->get();
 
             if ($appointments->isEmpty()) {
