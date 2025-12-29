@@ -251,6 +251,7 @@ class AppointmentController extends Controller
                 'provider_type_id' => 'required|exists:provider_types,id',
                 'date' => 'required|date|after:today',
                 'address_id' => 'required|exists:user_addresses,id',
+                'delivery_fee' => 'nullable',
                 'note' => 'nullable|string|max:1000',
                 'payment_type' => 'required|in:cash,visa,wallet',
                 'coupon_code' => 'nullable|string'
@@ -334,7 +335,7 @@ class AppointmentController extends Controller
                     'number' => $appointmentNumber,
 
                     // Pricing fields
-                    'delivery_fee' => 0,
+                    'delivery_fee' => $request->delivery_fee ?? 0,
                     'total_prices' => $finalTotal,
                     'total_discounts' => $pricingData['discount_amount'],
                     'coupon_discount' => $couponDiscount,
