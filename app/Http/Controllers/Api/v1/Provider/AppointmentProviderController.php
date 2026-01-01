@@ -461,6 +461,7 @@ class AppointmentProviderController extends Controller
         
         WalletTransaction::create([
             'provider_id' => $provider->id,
+            'admin_id' => 1,
             'amount' => $commissionAmount,
             'type_of_transaction' => 2, // withdrawal
             'note' => "Commission deduction for cash appointment #{$appointment->number}"
@@ -477,6 +478,7 @@ class AppointmentProviderController extends Controller
         
         WalletTransaction::create([
             'provider_id' => $provider->id,
+             'admin_id' => 1,
             'amount' => $providerAmount,
             'type_of_transaction' => 1, // add
             'note' => "Payment from visa appointment #{$appointment->number}"
@@ -485,6 +487,7 @@ class AppointmentProviderController extends Controller
           // deduct commission from provider wallet
         WalletTransaction::create([
             'provider_id' => $provider->id,
+             'admin_id' => 1,
             'amount' => $commissionAmount,
             'type_of_transaction' => 2, // withdrawal
             'note' => "Commission from visa appointment #{$appointment->number}"
@@ -501,6 +504,7 @@ class AppointmentProviderController extends Controller
         
         WalletTransaction::create([
             'user_id' => $user->id,
+             'admin_id' => 1,
             'amount' => $appointment->total_prices,
             'type_of_transaction' => 2, // withdrawal
             'note' => "Payment for appointment #{$appointment->number}"
@@ -511,6 +515,7 @@ class AppointmentProviderController extends Controller
         
         WalletTransaction::create([
             'provider_id' => $provider->id,
+             'admin_id' => 1,
             'amount' => $providerAmount,
             'type_of_transaction' => 1, // add
             'note' => "Payment from wallet appointment #{$appointment->number}"
@@ -519,6 +524,7 @@ class AppointmentProviderController extends Controller
         // deduct commission from provider wallet
         WalletTransaction::create([
             'provider_id' => $provider->id,
+             'admin_id' => 1,
             'amount' => $commissionAmount,
             'type_of_transaction' => 2, // withdrawal
             'note' => "Commission from wallet appointment #{$appointment->number}"
