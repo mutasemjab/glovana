@@ -21,12 +21,14 @@ class AutoCancelAppointment implements ShouldQueue
     protected $providerId;
     protected $timeoutMinutes;
 
-    public function __construct($appointmentId, $userId, $providerId, $timeoutMinutes = 1)
+    public function __construct($appointmentId, $userId, $providerId, $timeoutMinutes = 10)
     {
         $this->appointmentId = $appointmentId;
         $this->userId = $userId;
         $this->providerId = $providerId;
         $this->timeoutMinutes = $timeoutMinutes;
+
+        Log::info("AutoCancelAppointment job created for appointment #{$appointmentId} with timeout {$timeoutMinutes} minutes");
     }
 
     public function handle()
