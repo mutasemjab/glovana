@@ -194,7 +194,7 @@
 
                             <div class="mb-3">
                             <label for="practice_license" class="form-label">{{ __('messages.Practice_License_Image') }}</label>
-                            <img src="{{'assets/admin/uploads/' . $providerType->practice_license }}" 
+                            <img src="{{asset('assets/admin/uploads/' . $providerType->practice_license) }}" 
                                                          class="card-img-top" style="height: 150px; object-fit: cover;">
                             <input type="file" class="form-control @error('practice_license') is-invalid @enderror" 
                                 id="practice_license" name="practice_license" accept="image/*">
@@ -203,7 +203,7 @@
 
                         <div class="mb-3">
                             <label for="identity_photo" class="form-label">{{ __('messages.Identity_Photo_Image') }}</label>
-                               <img src="{{'assets/admin/uploads/' . $providerType->identity_photo }}" 
+                               <img src="{{asset('assets/admin/uploads/' . $providerType->identity_photo) }}" 
                                                          class="card-img-top" style="height: 150px; object-fit: cover;">
                             <input type="file" class="form-control @error('identity_photo') is-invalid @enderror" 
                                 id="identity_photo" name="identity_photo" accept="image/*">
