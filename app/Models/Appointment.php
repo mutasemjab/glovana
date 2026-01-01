@@ -9,10 +9,10 @@ use Spatie\Activitylog\LogOptions;
 
 class Appointment extends Model
 {
-    use HasFactory,LogsActivity;
-  
-     protected $guarded = [];
-     protected $casts = [
+    use HasFactory, LogsActivity;
+
+    protected $guarded = [];
+    protected $casts = [
         'date' => 'datetime',
         'delivery_fee' => 'double',
         'total_prices' => 'double',
@@ -20,7 +20,27 @@ class Appointment extends Model
         'coupon_discount' => 'double',
     ];
 
-      public function getActivitylogOptions(): LogOptions
+    protected $appends = ['rating_flag'];
+
+    public function getRatingFlagAttribute()
+    {
+        // ✅ Step 1: Check if user has rated this provider type
+        $hasRatedProviderType = ProviderRating::where('provider_type_id', $this->provider_type_id)
+            ->where('user_id', $this->user_id)
+            ->exists();
+
+        // ✅ Step 2: If rated, ALWAYS return 2 (don't show rating)
+        if ($hasRatedProviderType) {
+            return 2;
+        }
+
+        // ✅ Step 3: If not rated, check cancel_rating for THIS appointment
+        // cancel_rating = 2 → rating_flag = 1 (show rating)
+        // cancel_rating = 1 → rating_flag = 2 (don't show rating)
+        return ($this->cancel_rating == 2) ? 1 : 2;
+    }
+
+    public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
             ->logAll() // Log all attributes since you're using $guarded = []
@@ -65,13 +85,5 @@ class Appointment extends Model
     {
         return $this->hasOne(FineDiscount::class)->latest();
     }
-
-   // App\Models\Appointment.php
-    public function providerRating()
-    {
-        return $this->hasOne(ProviderRating::class, 'provider_type_id', 'provider_type_id')
-            ->where('provider_ratings.user_id', $this->user_id);
-    }
-
 
 }
