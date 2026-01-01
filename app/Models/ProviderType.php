@@ -191,12 +191,16 @@ class ProviderType extends Model
     {
         return $query->where('status', 1)
             ->whereDoesntHave('appointments', function ($q) {
-                // Don't have appointment now with status 2, 3, or 6
-                $q->whereIn('appointment_status', [2, 3, 6]);
-            })
-            ->whereDoesntHave('appointments', function ($q) {
-                // Don't have any appointment today
-                $q->whereDate('date', today());
+                $q->where(function ($dateQuery) {
+                    // For TODAY: exclude if status is NOT 1, 4, or 5
+                    $dateQuery->whereDate('date', today())
+                        ->whereNotIn('appointment_status', [1, 4, 5]);
+                })
+                    ->orWhere(function ($dateQuery) {
+                        // For OTHER dates: exclude if status is 2, 3, or 6
+                        $dateQuery->whereDate('date', '!=', today())
+                            ->whereIn('appointment_status', [2, 3, 6]);
+                    });
             });
     }
 }
