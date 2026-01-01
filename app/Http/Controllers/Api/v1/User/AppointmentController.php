@@ -76,7 +76,6 @@ class AppointmentController extends Controller
 
             // Build query with relationships including discount
             $query = Appointment::with([
-                'providerRating',
                 'user:id,name,phone,email,photo',
                 'address',
                 'providerType',
