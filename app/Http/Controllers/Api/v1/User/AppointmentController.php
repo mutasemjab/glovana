@@ -26,7 +26,7 @@ class AppointmentController extends Controller
 {
     use Responses;
 
-    private const AUTO_CANCEL_TIMEOUT_MINUTES = 1;
+    private const AUTO_CANCEL_TIMEOUT_MINUTES = 10;
 
 
     public function enableCancelRating(Request $request)
