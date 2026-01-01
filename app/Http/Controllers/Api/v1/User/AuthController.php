@@ -92,10 +92,14 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        if ($validator->fails()) {
-            return $this->error_response('Validation error', $validator->errors());
+     if ($validator->fails()) {
+            // Get all error messages as a flat array and join them
+            $errors = $validator->errors()->all();
+            $errorMessage = implode(' ', $errors);
+            
+            return $this->error_response($errorMessage, []);
         }
-
+        
         $credentials = $request->only('phone', 'password');
 
         if ($userType == 'provider') {
