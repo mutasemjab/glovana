@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
+
 class CartController extends Controller
 {
     use Responses;
@@ -44,7 +45,10 @@ class CartController extends Controller
         ]);
 
         $product = Product::find($request->product_id);
-        $price = $product->price;
+        
+        // Use price_after_discount if available, otherwise use regular price
+        $price = $product->price_after_discount ?? $product->price;
+        
         $userId = $request->user()->id;
 
         // Find existing cart item
@@ -87,8 +91,6 @@ class CartController extends Controller
         return $this->success_response('Product added to cart', $cart);
     }
 
-
-
     public function delete($id)
     {
         $cart = Cart::find($id);
@@ -101,5 +103,4 @@ class CartController extends Controller
 
         return $this->success_response('Cart item deleted', []);
     }
-   
 }

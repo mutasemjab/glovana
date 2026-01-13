@@ -1478,7 +1478,6 @@ return [
   'Original_Price' => 'السعر الأصلي',
   'Discounted_Price' => 'السعر بعد الخصم',
   'Price_Per_Hour' => 'السعر في الساعة',
-  'Currency' => 'ريال', // Change to your currency (or دولار for dollar, etc.)
   'You_Save' => 'توفر',
   'Save' => 'توفير',
   'Savings' => 'المدخرات',

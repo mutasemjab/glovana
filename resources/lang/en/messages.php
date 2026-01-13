@@ -498,7 +498,6 @@ return [
   'Description' => 'Description',
   'Price_Per_Hour' => 'Price Per Hour',
   'Price' => 'Price',
-  'Currency' => 'JOD',
   'Latitude' => 'Latitude',
   'Longitude' => 'Longitude',
   'Address' => 'Address',
@@ -1379,7 +1378,6 @@ return [
   'Original_Price' => 'Original Price',
   'Discounted_Price' => 'Discounted Price',
   'Price_Per_Hour' => 'Price Per Hour',
-  'Currency' => 'USD', // Change to your currency
   'You_Save' => 'You Save',
   'Save' => 'Save',
   'Savings' => 'Savings',
