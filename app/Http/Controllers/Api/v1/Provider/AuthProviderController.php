@@ -54,7 +54,7 @@ class AuthProviderController extends Controller
         try {
             // Check provider authentication
             $providerApi = auth('provider-api')->user();
-            
+
             if (!$providerApi) {
                 return $this->error_response('Unauthorized', null, 401);
             }
@@ -93,7 +93,7 @@ class AuthProviderController extends Controller
                 'account_age_days' => $providerApi->created_at->diffInDays(now()),
                 'last_login' => $providerApi->updated_at, // Assuming updated_at tracks last activity
                 'total_earnings' => $providerApi->walletTransactions()
-                    ->where('type_of_transaction',1)
+                    ->where('type_of_transaction', 1)
                     ->sum('amount'),
                 'average_rating' => $this->calculateAverageRating($providerApi),
                 'total_reviews' => $this->getTotalReviews($providerApi)
@@ -119,7 +119,7 @@ class AuthProviderController extends Controller
                 'stats' => $providerStats
             ]);
 
-           
+
             DB::commit();
 
             return $this->success_response('Delete request submitted successfully. Your account will be reviewed by our team.', [
@@ -127,7 +127,6 @@ class AuthProviderController extends Controller
                 'status' => 'pending_review',
                 'message' => 'Your account deletion request has been submitted and is pending admin review. You will be notified once a decision is made.'
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Account deletion request error: ' . $e->getMessage(), [
@@ -135,7 +134,7 @@ class AuthProviderController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return $this->error_response('Failed to submit delete request', ['error' => $e->getMessage()], 500);
         }
     }
@@ -146,11 +145,11 @@ class AuthProviderController extends Controller
     private function calculateAverageRating($provider)
     {
         $allRatings = collect();
-        
+
         foreach ($provider->providerTypes as $providerType) {
             $allRatings = $allRatings->merge($providerType->ratings);
         }
-        
+
         return $allRatings->isNotEmpty() ? round($allRatings->avg('rating'), 2) : 0;
     }
 
@@ -160,11 +159,11 @@ class AuthProviderController extends Controller
     private function getTotalReviews($provider)
     {
         $totalReviews = 0;
-        
+
         foreach ($provider->providerTypes as $providerType) {
             $totalReviews += $providerType->ratings()->whereNotNull('review')->count();
         }
-        
+
         return $totalReviews;
     }
 
@@ -174,7 +173,7 @@ class AuthProviderController extends Controller
     public function updateProviderProfile(Request $request)
     {
         $provider = auth()->user();
-        
+
         // Check if user is a provider
         if (!$provider instanceof \App\Models\Provider) {
             return $this->error_response('Unauthorized', 'Only providers can update provider profile');
@@ -194,7 +193,7 @@ class AuthProviderController extends Controller
 
         // Update provider basic info
         $updateData = $request->only(['name_of_manager', 'phone', 'email', 'fcm_token']);
-        
+
         if ($request->hasFile('photo_of_manager')) {
             // Delete old photo if exists
             if ($provider->photo_of_manager) {
@@ -213,13 +212,13 @@ class AuthProviderController extends Controller
     public function completeProviderProfile(Request $request)
     {
         $provider = auth()->user();
-        
-        // Check if user is a provider
+
         if (!$provider instanceof \App\Models\Provider) {
             return $this->error_response('Unauthorized', 'Only providers can complete provider profile');
         }
 
-        $validator = Validator::make($request->all(), [
+        // First, validate the basic structure
+        $basicValidator = Validator::make($request->all(), [
             'provider_types' => 'required|array|min:1',
             'provider_types.*.type_id' => 'required|exists:types,id',
             'provider_types.*.name' => 'required|string|max:255',
@@ -229,54 +228,70 @@ class AuthProviderController extends Controller
             'provider_types.*.number_of_work' => 'nullable|numeric',
             'provider_types.*.phone_number_of_provider_type' => 'required',
             'provider_types.*.address' => 'nullable|string',
-            'provider_types.*.price_per_hour' => 'required_if:provider_types.*.booking_type,hourly|nullable|numeric|min:0',
             'provider_types.*.is_vip' => 'sometimes|in:1,2',
             'provider_types.*.practice_license' => 'nullable',
             'provider_types.*.identity_photo' => 'nullable',
-            'provider_types.*.service_ids' => 'required|array|min:1',
-            'provider_types.*.service_ids.*' => 'exists:services,id',
-            // New validation for service pricing (for service-based types)
-            'provider_types.*.services_with_prices' => 'sometimes|array',
-            'provider_types.*.services_with_prices.*.service_id' => 'required|exists:services,id',
-            'provider_types.*.services_with_prices.*.price' => 'required|numeric|min:0',
-            'provider_types.*.services_with_prices.*.is_active' => 'sometimes|boolean',
-            // Images and galleries
             'provider_types.*.images' => 'nullable|array',
             'provider_types.*.images.*' => 'image|mimes:jpeg,png,jpg',
             'provider_types.*.galleries' => 'nullable|array',
             'provider_types.*.galleries.*' => 'image|mimes:jpeg,png,jpg',
-            // Availabilities
             'provider_types.*.availabilities' => 'required|array|min:1',
             'provider_types.*.availabilities.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
             'provider_types.*.availabilities.*.start_time' => 'required|date_format:H:i',
             'provider_types.*.availabilities.*.end_time' => 'required|date_format:H:i|after:provider_types.*.availabilities.*.start_time',
         ]);
 
-        if ($validator->fails()) {
-            // Get all error messages as a flat array and join them
-            $errors = $validator->errors()->all();
+        if ($basicValidator->fails()) {
+            $errors = $basicValidator->errors()->all();
             $errorMessage = implode(' ', $errors);
-            
             return $this->error_response($errorMessage, []);
         }
 
+        // Now validate each provider type based on its booking type
         try {
+            foreach ($request->provider_types as $index => $providerTypeData) {
+                $type = \App\Models\Type::find($providerTypeData['type_id']);
+
+                if (!$type) {
+                    return $this->error_response('Validation error', "Invalid type_id at index {$index}");
+                }
+
+                // Validate based on booking type
+                if ($type->booking_type === 'hourly') {
+                    // For hourly: price_per_hour is required, services are optional
+                    $hourlyValidator = Validator::make($providerTypeData, [
+                        'price_per_hour' => 'required|numeric|min:0',
+                        'service_ids' => 'nullable|array',
+                        'service_ids.*' => 'exists:services,id',
+                    ]);
+
+                    if ($hourlyValidator->fails()) {
+                        $errors = $hourlyValidator->errors()->all();
+                        $errorMessage = "Provider type at index {$index}: " . implode(' ', $errors);
+                        return $this->error_response($errorMessage, []);
+                    }
+                } else {
+                    // For service: services_with_prices is required
+                    $serviceValidator = Validator::make($providerTypeData, [
+                        'services_with_prices' => 'required|array|min:1',
+                        'services_with_prices.*.service_id' => 'required|exists:services,id',
+                        'services_with_prices.*.price' => 'required|numeric|min:0',
+                        'services_with_prices.*.is_active' => 'sometimes|boolean',
+                        'price_per_hour' => 'nullable|numeric|min:0',
+                    ]);
+
+                    if ($serviceValidator->fails()) {
+                        $errors = $serviceValidator->errors()->all();
+                        $errorMessage = "Provider type at index {$index}: " . implode(' ', $errors);
+                        return $this->error_response($errorMessage, []);
+                    }
+                }
+            }
+
             DB::beginTransaction();
 
             foreach ($request->provider_types as $providerTypeData) {
-                // Get the type to check booking_type
                 $type = \App\Models\Type::find($providerTypeData['type_id']);
-                
-                // Validate pricing based on booking type
-                if ($type->booking_type === 'hourly' && empty($providerTypeData['price_per_hour'])) {
-                    DB::rollback();
-                    return $this->error_response('Validation error', 'Price per hour is required for hourly booking types');
-                }
-                
-                if ($type->booking_type === 'service' && empty($providerTypeData['services_with_prices'])) {
-                    DB::rollback();
-                    return $this->error_response('Validation error', 'Services with prices are required for service booking types');
-                }
 
                 $practice_license_path = isset($providerTypeData['practice_license'])
                     ? uploadImage('assets/admin/uploads', $providerTypeData['practice_license'])
@@ -299,7 +314,7 @@ class AuthProviderController extends Controller
                     'practice_license' => $practice_license_path,
                     'identity_photo' =>  $identity_photo_path,
                     'address' => $providerTypeData['address'] ?? null,
-                    'price_per_hour' => $type->booking_type === 'hourly' ? $providerTypeData['price_per_hour'] : 0,
+                    'price_per_hour' => $type->booking_type === 'hourly' ? ($providerTypeData['price_per_hour'] ?? 0) : 0,
                     'is_vip' => $providerTypeData['is_vip'] ?? 2,
                     'activate' => 1,
                     'status' => 1,
@@ -307,31 +322,31 @@ class AuthProviderController extends Controller
 
                 // Handle services based on booking type
                 if ($type->booking_type === 'hourly') {
-                    // For hourly types, use the existing service_ids approach
-                    foreach ($providerTypeData['service_ids'] as $serviceId) {
-                        \App\Models\ProviderServiceType::create([
-                            'provider_type_id' => $providerType->id,
-                            'service_id' => $serviceId,
-                        ]);
-                    }
-                } else {
-                    // For service types, use services_with_prices
-                    if (isset($providerTypeData['services_with_prices'])) {
-                        foreach ($providerTypeData['services_with_prices'] as $serviceData) {
-                            // Create in ProviderServiceType for compatibility
+                    // For hourly types: services are optional
+                    if (isset($providerTypeData['service_ids']) && is_array($providerTypeData['service_ids'])) {
+                        foreach ($providerTypeData['service_ids'] as $serviceId) {
                             \App\Models\ProviderServiceType::create([
                                 'provider_type_id' => $providerType->id,
-                                'service_id' => $serviceData['service_id'],
-                            ]);
-
-                            // Create in ProviderService with pricing
-                            \App\Models\ProviderService::create([
-                                'provider_type_id' => $providerType->id,
-                                'service_id' => $serviceData['service_id'],
-                                'price' => $serviceData['price'],
-                                'is_active' => $serviceData['is_active'] ?? 1,
+                                'service_id' => $serviceId,
                             ]);
                         }
+                    }
+                } else {
+                    // For service types: services_with_prices is required (already validated)
+                    foreach ($providerTypeData['services_with_prices'] as $serviceData) {
+                        // Create in ProviderServiceType for compatibility
+                        \App\Models\ProviderServiceType::create([
+                            'provider_type_id' => $providerType->id,
+                            'service_id' => $serviceData['service_id'],
+                        ]);
+
+                        // Create in ProviderService with pricing
+                        \App\Models\ProviderService::create([
+                            'provider_type_id' => $providerType->id,
+                            'service_id' => $serviceData['service_id'],
+                            'price' => $serviceData['price'],
+                            'is_active' => $serviceData['is_active'] ?? 1,
+                        ]);
                     }
                 }
 
@@ -387,7 +402,6 @@ class AuthProviderController extends Controller
                     'providerTypes.availabilities'
                 ])
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
             return $this->error_response('Error completing profile', $e->getMessage());
@@ -397,7 +411,7 @@ class AuthProviderController extends Controller
     public function getProviderProfile(Request $request)
     {
         $provider = auth()->user();
-        
+
         // Check if user is a provider
         if (!$provider instanceof \App\Models\Provider) {
             return $this->error_response('Unauthorized', 'Only providers can view provider profile');
@@ -420,8 +434,7 @@ class AuthProviderController extends Controller
     public function updateProviderType(Request $request, $providerTypeId)
     {
         $provider = auth()->user();
-        
-        // Check if user is a provider
+
         if (!$provider instanceof \App\Models\Provider) {
             return $this->error_response('Unauthorized', 'Only providers can update provider types');
         }
@@ -435,6 +448,7 @@ class AuthProviderController extends Controller
             return $this->error_response('Not found', 'Provider type not found');
         }
 
+        // Basic validation
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
             'description' => 'sometimes|string',
@@ -445,22 +459,12 @@ class AuthProviderController extends Controller
             'practice_license' => 'sometimes',
             'identity_photo' => 'sometimes',
             'address' => 'nullable|string',
-            'price_per_hour' => 'sometimes|numeric|min:0',
             'is_vip' => 'sometimes|in:1,2',
             'status' => 'sometimes|in:1,2',
-            'service_ids' => 'sometimes|array|min:1',
-            'service_ids.*' => 'exists:services,id',
-            // New validation for service pricing updates
-            'services_with_prices' => 'sometimes|array',
-            'services_with_prices.*.service_id' => 'required|exists:services,id',
-            'services_with_prices.*.price' => 'required|numeric|min:0',
-            'services_with_prices.*.is_active' => 'sometimes|boolean',
-            // Images and galleries
             'images' => 'nullable|array',
             'images.*' => 'image|mimes:jpeg,png,jpg',
             'galleries' => 'nullable|array',
             'galleries.*' => 'image|mimes:jpeg,png,jpg',
-            // Availabilities
             'availabilities' => 'sometimes|array|min:1',
             'availabilities.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
             'availabilities.*.start_time' => 'required',
@@ -468,27 +472,64 @@ class AuthProviderController extends Controller
         ]);
 
         if ($validator->fails()) {
-            // Get all error messages as a flat array and join them
             $errors = $validator->errors()->all();
             $errorMessage = implode(' ', $errors);
-            
             return $this->error_response($errorMessage, []);
+        }
+
+        // Validate based on booking type
+        if ($providerType->type->booking_type === 'hourly') {
+            // For hourly: validate price_per_hour if provided, services are optional
+            if ($request->has('price_per_hour')) {
+                $hourlyValidator = Validator::make($request->all(), [
+                    'price_per_hour' => 'required|numeric|min:0',
+                ]);
+
+                if ($hourlyValidator->fails()) {
+                    return $this->error_response('Validation error', $hourlyValidator->errors());
+                }
+            }
+
+            if ($request->has('service_ids')) {
+                $serviceValidator = Validator::make($request->all(), [
+                    'service_ids' => 'array',
+                    'service_ids.*' => 'exists:services,id',
+                ]);
+
+                if ($serviceValidator->fails()) {
+                    return $this->error_response('Validation error', $serviceValidator->errors());
+                }
+            }
+        } else {
+            // For service: validate services_with_prices if provided
+            if ($request->has('services_with_prices')) {
+                $serviceValidator = Validator::make($request->all(), [
+                    'services_with_prices' => 'array|min:1',
+                    'services_with_prices.*.service_id' => 'required|exists:services,id',
+                    'services_with_prices.*.price' => 'required|numeric|min:0',
+                    'services_with_prices.*.is_active' => 'sometimes|boolean',
+                ]);
+
+                if ($serviceValidator->fails()) {
+                    return $this->error_response('Validation error', $serviceValidator->errors());
+                }
+            }
         }
 
         try {
             DB::beginTransaction();
 
             // Update provider type basic info
-            $updateData = $request->only(['name', 'description', 'lat', 'lng', 'number_of_work','phone_number_of_provider_type','address', 'is_vip', 'status']);
-            
+            $updateData = $request->only(['name', 'description', 'lat', 'lng', 'number_of_work', 'phone_number_of_provider_type', 'address', 'is_vip', 'status']);
+
             // Handle price_per_hour based on booking type
             if ($providerType->type->booking_type === 'hourly' && $request->has('price_per_hour')) {
                 $updateData['price_per_hour'] = $request->price_per_hour;
             }
-            
+
             $providerType->update($updateData);
 
-            // ✅ Handle new file uploads for practice_license and identity_photo
+            // Handle new file uploads for practice_license and identity_photo
             if ($request->hasFile('practice_license')) {
                 $practiceLicensePath = uploadImage('assets/admin/uploads', $request->file('practice_license'));
                 $providerType->update(['practice_license' => $practiceLicensePath]);
@@ -501,11 +542,11 @@ class AuthProviderController extends Controller
 
             // Update services based on booking type
             if ($providerType->type->booking_type === 'hourly') {
-                // For hourly types, use traditional service_ids approach
+                // For hourly types: update services if provided (optional)
                 if ($request->has('service_ids')) {
                     // Delete existing services
                     \App\Models\ProviderServiceType::where('provider_type_id', $providerType->id)->delete();
-                    
+
                     // Add new services
                     foreach ($request->service_ids as $serviceId) {
                         \App\Models\ProviderServiceType::create([
@@ -515,12 +556,12 @@ class AuthProviderController extends Controller
                     }
                 }
             } else {
-                // For service types, handle services_with_prices
+                // For service types: update services_with_prices if provided
                 if ($request->has('services_with_prices')) {
                     // Delete existing services and provider services
                     \App\Models\ProviderServiceType::where('provider_type_id', $providerType->id)->delete();
                     \App\Models\ProviderService::where('provider_type_id', $providerType->id)->delete();
-                    
+
                     // Add new services with prices
                     foreach ($request->services_with_prices as $serviceData) {
                         // Create in ProviderServiceType for compatibility
@@ -570,7 +611,7 @@ class AuthProviderController extends Controller
             if ($request->has('availabilities')) {
                 // Delete existing availability
                 \App\Models\ProviderAvailability::where('provider_type_id', $providerType->id)->delete();
-                
+
                 // Add new availability
                 foreach ($request->availabilities as $availability) {
                     \App\Models\ProviderAvailability::create([
@@ -596,7 +637,6 @@ class AuthProviderController extends Controller
             return $this->success_response('Provider type updated successfully', [
                 'provider_type' => $providerType
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
             return $this->error_response('Error updating provider type', $e->getMessage());
@@ -610,7 +650,7 @@ class AuthProviderController extends Controller
     public function updateProviderTypeServices(Request $request, $providerTypeId)
     {
         $provider = auth()->user();
-        
+
         if (!$provider instanceof \App\Models\Provider) {
             return $this->error_response('Unauthorized', 'Only providers can update services');
         }
@@ -671,30 +711,29 @@ class AuthProviderController extends Controller
                 'provider_type' => $providerType,
                 'services' => $providerType->providerServices
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
             return $this->error_response('Error updating services', $e->getMessage());
         }
     }
 
-        public function notifications()
-        {
-            $provider = auth()->user();
+    public function notifications()
+    {
+        $provider = auth()->user();
 
-            $notifications = Notification::query()
-                ->where(function ($query) use ($provider) {
-                    $query->where('type', 0)
-                        ->orWhere('type', 2)
-                        ->orWhere('provider_id', $provider->id);
-                })
-                ->orderBy('id', 'DESC')
-                ->get();
+        $notifications = Notification::query()
+            ->where(function ($query) use ($provider) {
+                $query->where('type', 0)
+                    ->orWhere('type', 2)
+                    ->orWhere('provider_id', $provider->id);
+            })
+            ->orderBy('id', 'DESC')
+            ->get();
 
-            return $this->success_response('Notifications retrieved successfully', $notifications);
-        }
+        return $this->success_response('Notifications retrieved successfully', $notifications);
+    }
 
-         /**
+    /**
      * Send notification to a provider
      */
     public function sendMessageFromProvider(Request $request)
@@ -717,11 +756,10 @@ class AuthProviderController extends Controller
             );
 
             if ($response) {
-                return $this->success_response('Notification sent successfully to the user',[]);
+                return $this->success_response('Notification sent successfully to the user', []);
             } else {
-                return $this->error_response('Notification was not sent to the user',[]);
+                return $this->error_response('Notification was not sent to the user', []);
             }
-            
         } catch (\Exception $e) {
             \Log::error('FCM Error: ' . $e->getMessage());
             return $this->error_response('An error occurred', ['error' => $e->getMessage()]);
@@ -729,128 +767,125 @@ class AuthProviderController extends Controller
     }
 
 
-        public function deleteProviderImages(Request $request)
-        {
-            $provider = auth()->user();
-            
-            // Check if user is a provider
-            if (!$provider instanceof \App\Models\Provider) {
-                return $this->error_response('Unauthorized', 'Only providers can delete images');
-            }
+    public function deleteProviderImages(Request $request)
+    {
+        $provider = auth()->user();
 
-            $validator = Validator::make($request->all(), [
-                'image_ids' => 'required|array|min:1',
-                'image_ids.*' => 'required|integer|exists:provider_images,id',
-            ]);
-
-            if ($validator->fails()) {
-                return $this->error_response('Validation error', $validator->errors());
-            }
-
-            try {
-                DB::beginTransaction();
-
-                $deletedCount = 0;
-                $notFoundIds = [];
-
-                foreach ($request->image_ids as $imageId) {
-                    // Find the image and verify it belongs to the provider
-                    $image = \App\Models\ProviderImage::whereHas('providerType', function ($query) use ($provider) {
-                        $query->where('provider_id', $provider->id);
-                    })->find($imageId);
-
-                    if ($image) {
-                        // Delete the physical file if it exists
-                        if ($image->photo && file_exists(base_path($image->photo))) {
-                            unlink(base_path($image->photo));
-                        }
-                        
-                        // Delete the database record
-                        $image->delete();
-                        $deletedCount++;
-                    } else {
-                        $notFoundIds[] = $imageId;
-                    }
-                }
-
-                DB::commit();
-
-                $message = "Successfully deleted {$deletedCount} image(s)";
-                if (!empty($notFoundIds)) {
-                    $message .= ". Images with IDs [" . implode(', ', $notFoundIds) . "] were not found or don't belong to you";
-                }
-
-                return $this->success_response($message, [
-                    'deleted_count' => $deletedCount,
-                    'not_found_ids' => $notFoundIds
-                ]);
-
-            } catch (\Exception $e) {
-                DB::rollback();
-                return $this->error_response('Error deleting images', $e->getMessage());
-            }
+        // Check if user is a provider
+        if (!$provider instanceof \App\Models\Provider) {
+            return $this->error_response('Unauthorized', 'Only providers can delete images');
         }
 
-        public function deleteProviderGalleries(Request $request)
-        {
-            $provider = auth()->user();
-            
-            // Check if user is a provider
-            if (!$provider instanceof \App\Models\Provider) {
-                return $this->error_response('Unauthorized', 'Only providers can delete gallery images');
-            }
+        $validator = Validator::make($request->all(), [
+            'image_ids' => 'required|array|min:1',
+            'image_ids.*' => 'required|integer|exists:provider_images,id',
+        ]);
 
-            $validator = Validator::make($request->all(), [
-                'gallery_ids' => 'required|array|min:1',
-                'gallery_ids.*' => 'required|integer|exists:provider_galleries,id',
-            ]);
-
-            if ($validator->fails()) {
-                return $this->error_response('Validation error', $validator->errors());
-            }
-
-            try {
-                DB::beginTransaction();
-
-                $deletedCount = 0;
-                $notFoundIds = [];
-
-                foreach ($request->gallery_ids as $galleryId) {
-                    // Find the gallery image and verify it belongs to the provider
-                    $gallery = \App\Models\ProviderGallery::whereHas('providerType', function ($query) use ($provider) {
-                        $query->where('provider_id', $provider->id);
-                    })->find($galleryId);
-
-                    if ($gallery) {
-                        // Delete the physical file if it exists
-                        if ($gallery->photo && file_exists(base_path($gallery->photo))) {
-                            unlink(base_path($gallery->photo));
-                        }
-                        
-                        // Delete the database record
-                        $gallery->delete();
-                        $deletedCount++;
-                    } else {
-                        $notFoundIds[] = $galleryId;
-                    }
-                }
-
-                DB::commit();
-
-                $message = "Successfully deleted {$deletedCount} gallery image(s)";
-                if (!empty($notFoundIds)) {
-                    $message .= ". Gallery images with IDs [" . implode(', ', $notFoundIds) . "] were not found or don't belong to you";
-                }
-
-                return $this->success_response($message, [
-                    'deleted_count' => $deletedCount,
-                    'not_found_ids' => $notFoundIds
-                ]);
-
-            } catch (\Exception $e) {
-                DB::rollback();
-                return $this->error_response('Error deleting gallery images', $e->getMessage());
-            }
+        if ($validator->fails()) {
+            return $this->error_response('Validation error', $validator->errors());
         }
 
+        try {
+            DB::beginTransaction();
+
+            $deletedCount = 0;
+            $notFoundIds = [];
+
+            foreach ($request->image_ids as $imageId) {
+                // Find the image and verify it belongs to the provider
+                $image = \App\Models\ProviderImage::whereHas('providerType', function ($query) use ($provider) {
+                    $query->where('provider_id', $provider->id);
+                })->find($imageId);
+
+                if ($image) {
+                    // Delete the physical file if it exists
+                    if ($image->photo && file_exists(base_path($image->photo))) {
+                        unlink(base_path($image->photo));
+                    }
+
+                    // Delete the database record
+                    $image->delete();
+                    $deletedCount++;
+                } else {
+                    $notFoundIds[] = $imageId;
+                }
+            }
+
+            DB::commit();
+
+            $message = "Successfully deleted {$deletedCount} image(s)";
+            if (!empty($notFoundIds)) {
+                $message .= ". Images with IDs [" . implode(', ', $notFoundIds) . "] were not found or don't belong to you";
+            }
+
+            return $this->success_response($message, [
+                'deleted_count' => $deletedCount,
+                'not_found_ids' => $notFoundIds
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return $this->error_response('Error deleting images', $e->getMessage());
+        }
+    }
+
+    public function deleteProviderGalleries(Request $request)
+    {
+        $provider = auth()->user();
+
+        // Check if user is a provider
+        if (!$provider instanceof \App\Models\Provider) {
+            return $this->error_response('Unauthorized', 'Only providers can delete gallery images');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'gallery_ids' => 'required|array|min:1',
+            'gallery_ids.*' => 'required|integer|exists:provider_galleries,id',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error_response('Validation error', $validator->errors());
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $deletedCount = 0;
+            $notFoundIds = [];
+
+            foreach ($request->gallery_ids as $galleryId) {
+                // Find the gallery image and verify it belongs to the provider
+                $gallery = \App\Models\ProviderGallery::whereHas('providerType', function ($query) use ($provider) {
+                    $query->where('provider_id', $provider->id);
+                })->find($galleryId);
+
+                if ($gallery) {
+                    // Delete the physical file if it exists
+                    if ($gallery->photo && file_exists(base_path($gallery->photo))) {
+                        unlink(base_path($gallery->photo));
+                    }
+
+                    // Delete the database record
+                    $gallery->delete();
+                    $deletedCount++;
+                } else {
+                    $notFoundIds[] = $galleryId;
+                }
+            }
+
+            DB::commit();
+
+            $message = "Successfully deleted {$deletedCount} gallery image(s)";
+            if (!empty($notFoundIds)) {
+                $message .= ". Gallery images with IDs [" . implode(', ', $notFoundIds) . "] were not found or don't belong to you";
+            }
+
+            return $this->success_response($message, [
+                'deleted_count' => $deletedCount,
+                'not_found_ids' => $notFoundIds
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return $this->error_response('Error deleting gallery images', $e->getMessage());
+        }
+    }
 }
