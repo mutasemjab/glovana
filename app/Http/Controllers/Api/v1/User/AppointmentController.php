@@ -152,21 +152,12 @@ class AppointmentController extends Controller
                 // User-specific flags
                 $appointment->can_cancel = in_array($appointment->appointment_status, [1, 2]); // Can cancel if Pending or Accepted
                 $appointment->can_rate = ($appointment->appointment_status == 4 && $appointment->payment_status == 1); // Can rate if delivered and paid
-                $appointment->requires_payment_selection = ($appointment->appointment_status == 4 && $appointment->payment_status == 2);
 
                 // Add services summary for service-based appointments with discount info
                 if ($appointment->booking_type == 'service') {
                     $appointment->services_summary = $this->getServicesSummaryWithDiscount($appointment);
                 }
 
-                // Payment info for wallet users
-                if ($appointment->requires_payment_selection) {
-                    $appointment->payment_options = [
-                        'can_pay_with_wallet' => $appointment->user->balance >= $appointment->total_prices,
-                        'user_wallet_balance' => $appointment->user->balance,
-                        'required_amount' => $appointment->total_prices
-                    ];
-                }
 
                 return $appointment;
             });
@@ -733,101 +724,6 @@ class AppointmentController extends Controller
         }
     }
 
-    public function selectPaymentMethod(Request $request, $appointmentId)
-    {
-        try {
-            $user = Auth::user();
-
-            $validator = Validator::make($request->all(), [
-                'payment_type' => 'required|string|in:cash,visa,wallet'
-            ]);
-
-            if ($validator->fails()) {
-                return $this->error_response('Validation failed', $validator->errors());
-            }
-
-            $appointment = Appointment::where('user_id', $user->id)
-                ->where('appointment_status', 4) // Must be delivered
-                ->where('payment_status', 2) // Must be unpaid
-                ->with(['providerType.provider'])
-                ->find($appointmentId);
-
-            if (!$appointment) {
-                return $this->error_response('Appointment not found or not eligible for payment', []);
-            }
-
-            // Check wallet balance if payment type is wallet
-            if ($request->payment_type === 'wallet' && $user->balance < $appointment->total_prices) {
-                return $this->error_response('Insufficient wallet balance', [
-                    'required_amount' => $appointment->total_prices,
-                    'current_balance' => $user->balance
-                ]);
-            }
-
-            // Update payment type
-            $appointment->payment_type = $request->payment_type;
-            $appointment->save();
-
-            // Send notification to provider for payment confirmation
-            $this->sendPaymentConfirmationRequestToProvider($appointment);
-
-            return $this->success_response('Payment method selected successfully. Waiting for provider confirmation.', [
-                'appointment' => $appointment,
-                'payment_type' => $request->payment_type,
-                'amount' => $appointment->total_prices,
-                'status' => 'pending_provider_confirmation'
-            ]);
-        } catch (\Exception $e) {
-            return $this->error_response('Failed to select payment method', ['error' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Get appointments that require payment method selection
-     */
-    public function getPendingPaymentAppointments(Request $request)
-    {
-        try {
-            $user = Auth::user();
-
-            $appointments = Appointment::with([
-                'providerType',
-                'providerType.provider',
-                'providerType.type',
-                'appointmentServices.service'
-            ])
-                ->where('user_id', $user->id)
-                ->where('appointment_status', 4) // Delivered
-                ->where('payment_status', 2) // Unpaid
-                ->orderBy('updated_at', 'desc')
-                ->get();
-
-            // Transform the data
-            $appointments->transform(function ($appointment) {
-                $appointment->appointment_status_label = $this->getAppointmentStatusLabel($appointment->appointment_status);
-                $appointment->payment_status_label = $this->getPaymentStatusLabel($appointment->payment_status);
-                $appointment->booking_type = $appointment->providerType->type->booking_type ?? 'service';
-                $appointment->total_customers = $this->getTotalCustomers($appointment);
-
-                // Add payment options info
-                $appointment->payment_options = [
-                    'can_pay_with_wallet' => auth()->user()->balance >= $appointment->total_prices,
-                    'user_wallet_balance' => auth()->user()->balance,
-                    'required_amount' => $appointment->total_prices
-                ];
-
-                return $appointment;
-            });
-
-            return $this->success_response('Pending payment appointments retrieved successfully', [
-                'appointments' => $appointments,
-                'count' => $appointments->count()
-            ]);
-        } catch (\Exception $e) {
-            return $this->error_response('Failed to retrieve pending payment appointments', ['error' => $e->getMessage()]);
-        }
-    }
-
     // ===================== PRIVATE HELPER METHODS =====================
 
     /**
@@ -1186,21 +1082,7 @@ class AppointmentController extends Controller
         return $labels[$status] ?? 'Unknown';
     }
 
-    /**
-     * Send payment confirmation request to provider
-     */
-    private function sendPaymentConfirmationRequestToProvider($appointment)
-    {
-        try {
-            $title = "Payment Confirmation Required";
-            $body = "Customer selected {$appointment->payment_type} payment for appointment #{$appointment->number}. Please confirm payment.";
-
-            FCMController::sendMessageToProvider($title, $body, $appointment->providerType->provider->id);
-            \Log::info("Payment confirmation request sent to provider ID: {$appointment->providerType->provider->id}");
-        } catch (\Exception $e) {
-            \Log::error("Failed to send payment confirmation request to provider: " . $e->getMessage());
-        }
-    }
+ 
 
    private function calculateUserCancellationFine($appointment)
     {

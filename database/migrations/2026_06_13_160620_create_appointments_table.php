@@ -21,9 +21,9 @@ return new class extends Migration
             $table->double('total_prices');
             $table->double('total_discounts');
             $table->double('coupon_discount')->nullable();
-            $table->string('payment_type');// cash //visa //wallet
+            $table->string('payment_type'); // cash //visa //wallet
             $table->tinyInteger('payment_status')->default(2); // 1 Paid   // 2 Unpaid
-            $table->text('reason_of_cancel')->nullable(); 
+            $table->text('reason_of_cancel')->nullable();
             $table->dateTime('date');
             $table->text('note')->nullable();
             $table->dateTime('canceled_at')->nullable();
@@ -36,13 +36,18 @@ return new class extends Migration
             $table->double('discount_amount')->default(0);
             $table->tinyInteger('has_discount')->default(2); // 1 = yes, 2 = no
             $table->tinyInteger('cancel_rating')->default(2); // 1 = yes, 2 = no
-            
+
             // Add foreign key for discount
             $table->foreign('discount_id')->references('id')->on('discounts')->onDelete('set null');
-            
+
             $table->unsignedBigInteger('coupon_id')->nullable();
             $table->foreign('coupon_id')->references('id')->on('coupons')->onDelete('set null');
-    
+
+            $table->unsignedBigInteger('settlement_cycle_id')->nullable();
+            $table->tinyInteger('settlement_status')->default(1); // 1 = pending, 2 = settled
+
+            $table->foreign('settlement_cycle_id')->references('id')->on('settlement_cycles')->onDelete('set null');
+
             $table->unsignedBigInteger('user_id')->nullable();
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->unsignedBigInteger('address_id')->nullable();
@@ -54,7 +59,7 @@ return new class extends Migration
             // Add indexes for better performance
             $table->index(['discount_id', 'has_discount']);
             $table->index(['provider_type_id', 'has_discount']);
-
+            $table->index(['settlement_cycle_id', 'settlement_status']);
         });
     }
 

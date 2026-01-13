@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Validator;
 class AppointmentProviderController extends Controller
 {
     use Responses;
-    
+
 
     public function paymentReport(Request $request)
     {
@@ -39,6 +39,8 @@ class AppointmentProviderController extends Controller
             'payment_type' => 'nullable|in:cash,visa,wallet',
             'appointment_status' => 'nullable|in:1,2,3,4,5',
             'payment_status' => 'nullable|in:1,2',
+            'settlement_status' => 'nullable|in:1,2', // 1 = pending, 2 = settled
+            'settlement_cycle_id' => 'nullable|exists:settlement_cycles,id',
         ]);
 
         if ($validator->fails()) {
@@ -48,15 +50,36 @@ class AppointmentProviderController extends Controller
         $appointments = Appointment::whereHas('providerType', function ($q) use ($provider) {
             $q->where('provider_id', $provider->id);
         })
-        ->when($request->filled('date_from'), fn($q) => $q->whereDate('date', '>=', $request->date_from))
-        ->when($request->filled('date_to'), fn($q) => $q->whereDate('date', '<=', $request->date_to))
-        ->when($request->filled('payment_type'), fn($q) => $q->where('payment_type', $request->payment_type))
-        ->when($request->filled('appointment_status'), fn($q) => $q->where('appointment_status', $request->appointment_status))
-        ->when($request->filled('payment_status'), fn($q) => $q->where('payment_status', $request->payment_status))
-        ->with('providerType.provider')
-        ->get();
+            ->when($request->filled('date_from'), fn($q) => $q->whereDate('date', '>=', $request->date_from))
+            ->when($request->filled('date_to'), fn($q) => $q->whereDate('date', '<=', $request->date_to))
+            ->when($request->filled('payment_type'), fn($q) => $q->where('payment_type', $request->payment_type))
+            ->when($request->filled('appointment_status'), fn($q) => $q->where('appointment_status', $request->appointment_status))
+            ->when($request->filled('payment_status'), fn($q) => $q->where('payment_status', $request->payment_status))
+            ->when($request->filled('settlement_status'), fn($q) => $q->where('settlement_status', $request->settlement_status))
+            ->when($request->filled('settlement_cycle_id'), fn($q) => $q->where('settlement_cycle_id', $request->settlement_cycle_id))
+            ->with(['providerType.provider', 'settlementCycle', 'appointmentSettlement'])
+            ->get();
 
         $commissionRate = $this->getAdminCommission();
+
+        // Get settlement cycles info
+        $settlementCycles = \App\Models\SettlementCycle::whereHas('appointmentSettlements', function ($q) use ($provider) {
+            $q->where('provider_id', $provider->id);
+        })
+            ->when($request->filled('date_from'), fn($q) => $q->where('end_date', '>=', $request->date_from))
+            ->when($request->filled('date_to'), fn($q) => $q->where('start_date', '<=', $request->date_to))
+            ->with(['providerSettlements' => function ($q) use ($provider) {
+                $q->where('provider_id', $provider->id);
+            }])
+            ->orderBy('start_date', 'desc')
+            ->get();
+
+        // Calculate totals by payment type
+        $totalsByPaymentType = [
+            'cash' => ['count' => 0, 'amount' => 0, 'commission' => 0, 'net' => 0],
+            'visa' => ['count' => 0, 'amount' => 0, 'commission' => 0, 'net' => 0],
+            'wallet' => ['count' => 0, 'amount' => 0, 'commission' => 0, 'net' => 0],
+        ];
 
         $report = [
             'total_appointments' => $appointments->count(),
@@ -74,6 +97,15 @@ class AppointmentProviderController extends Controller
             $report['total_commission'] += $commission;
             $report['total_provider_earnings'] += $providerEarnings;
 
+            // Add to payment type totals
+            $paymentType = $appointment->payment_type;
+            if (isset($totalsByPaymentType[$paymentType])) {
+                $totalsByPaymentType[$paymentType]['count']++;
+                $totalsByPaymentType[$paymentType]['amount'] += $appointment->total_prices;
+                $totalsByPaymentType[$paymentType]['commission'] += $commission;
+                $totalsByPaymentType[$paymentType]['net'] += $providerEarnings;
+            }
+
             $report['appointments'][] = [
                 'id' => $appointment->id,
                 'number' => $appointment->number,
@@ -81,55 +113,58 @@ class AppointmentProviderController extends Controller
                 'status' => $this->getAppointmentStatusText($appointment->appointment_status),
                 'payment_type' => $appointment->payment_type,
                 'payment_status' => $appointment->payment_status == 1 ? 'Paid' : 'Unpaid',
+                'settlement_status' => $appointment->settlement_status == 1 ? 'Pending Settlement' : 'Settled',
+                'settlement_cycle' => $appointment->settlementCycle ? [
+                    'id' => $appointment->settlementCycle->id,
+                    'period' => $appointment->settlementCycle->start_date->format('d M') . ' - ' . $appointment->settlementCycle->end_date->format('d M Y'),
+                    'status' => $appointment->settlementCycle->status == 1 ? 'Active' : 'Completed'
+                ] : null,
                 'total' => $appointment->total_prices,
                 'commission' => round($commission, 2),
                 'provider_earnings' => round($providerEarnings, 2),
             ];
         }
 
+        // Add payment type breakdown
+        $report['payment_type_breakdown'] = $totalsByPaymentType;
+
+        // Add settlement cycles summary
+        $report['settlement_cycles'] = $settlementCycles->map(function ($cycle) use ($commissionRate) {
+            $providerSettlement = $cycle->providerSettlements->first();
+
+            return [
+                'id' => $cycle->id,
+                'period' => $cycle->start_date->format('d M') . ' - ' . $cycle->end_date->format('d M Y'),
+                'start_date' => $cycle->start_date->format('Y-m-d'),
+                'end_date' => $cycle->end_date->format('Y-m-d'),
+                'status' => $cycle->status == 1 ? 'Active' : 'Completed',
+                'total_appointments' => $providerSettlement ? $providerSettlement->total_appointments : 0,
+                'total_amount' => $providerSettlement ? $providerSettlement->total_appointments_amount : 0,
+                'commission' => $providerSettlement ? $providerSettlement->commission_amount : 0,
+                'net_amount' => $providerSettlement ? $providerSettlement->net_amount : 0,
+                'payment_status' => $providerSettlement ?
+                    ($providerSettlement->payment_status == 1 ? 'Pending' : 'Paid') : 'N/A',
+            ];
+        });
+
+        // Get current active cycle
+        $currentCycle = \App\Models\SettlementCycle::where('status', 1)
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now())
+            ->first();
+
+        if ($currentCycle) {
+            $report['current_settlement_cycle'] = [
+                'id' => $currentCycle->id,
+                'period' => $currentCycle->start_date->format('d M') . ' - ' . $currentCycle->end_date->format('d M Y'),
+                'days_remaining' => now()->diffInDays($currentCycle->end_date, false) + 1,
+                'end_date' => $currentCycle->end_date->format('Y-m-d'),
+            ];
+        }
+
         return $this->success_response('Payment report generated', $report);
     }
 
-     public function getPendingPaymentConfirmations(Request $request)
-    {
-        try {
-            $provider = auth()->user();
-
-            if (!$provider instanceof \App\Models\Provider) {
-                return $this->error_response('Unauthorized', 'Only providers can view appointments');
-            }
-
-                  $appointments = Appointment::whereHas('providerType', function ($q) use ($provider) {
-                    $q->where('provider_id', $provider->id);
-                })->with([
-                    'user:id,name,phone,email,photo',
-                    'providerType',
-                    'providerType.provider',
-                    'providerType.type',
-                    'appointmentServices.service'
-                ])->where('appointment_status', 4) // Delivered
-                    ->where('payment_status', 2) // Unpaid
-                    ->orderBy('updated_at', 'desc')
-                    ->get();
-
-
-            // Transform the data
-            $appointments->transform(function ($appointment) {
-                $appointment->appointment_status_label = $this->getAppointmentStatusText($appointment->appointment_status);
-                $appointment->booking_type = $appointment->providerType->type->booking_type ?? 'hourly';                
-
-                return $appointment;
-            });
-
-            return $this->success_response('Pending payment appointments retrieved successfully', [
-                'appointments' => $appointments,
-                'count' => $appointments->count()
-            ]);
-
-        } catch (\Exception $e) {
-            return $this->error_response('Failed to retrieve pending payment appointments', ['error' => $e->getMessage()]);
-        }
-    }
 
     public function getProviderAppointments(Request $request)
     {
@@ -225,7 +260,7 @@ class AppointmentProviderController extends Controller
         $appointment->total_customers = $this->getTotalCustomers($appointment);
         $appointment->can_finish = $appointment->appointment_status == 3;
         $appointment->requires_payment_confirmation = ($appointment->appointment_status == 4 && $appointment->payment_status == 2);
-        
+
         // Add services summary for service-based appointments
         if ($appointment->booking_type == 'service') {
             $appointment->services_summary = $this->getServicesSummary($appointment);
@@ -252,7 +287,7 @@ class AppointmentProviderController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:2,3,4,5,6,7', // Can't set to pending (1)
+            'status' => 'required|in:2,3,4,5,6,7',
             'note' => 'nullable|string|max:500',
             'reason_of_cancel' => 'nullable|string|max:500',
         ]);
@@ -269,32 +304,42 @@ class AppointmentProviderController extends Controller
             return $this->error_response('Not found', 'Appointment not found');
         }
 
-        // Check if status transition is valid
         $currentStatus = $appointment->appointment_status;
         $newStatus = $request->status;
 
-       
-        // Special handling for completing appointment (status 4)
+        // Handle completing appointment (status 4)
         if ($newStatus == 4) {
-            // Mark as delivered but keep payment status as unpaid
-            // This will trigger payment selection process
-            $appointment->appointment_status = 4;
-            
-            if ($request->filled('note')) {
-                $appointment->note = $request->note;
+            try {
+                DB::beginTransaction();
+
+                // Update appointment status
+                $appointment->appointment_status = 4;
+                $appointment->payment_status = 1; // Mark as paid (will be settled later)
+
+                if ($request->filled('note')) {
+                    $appointment->note = $request->note;
+                }
+
+                $appointment->save();
+
+                // Record in appointment_settlements for tracking
+                $this->recordAppointmentForSettlement($appointment);
+
+                DB::commit();
+
+                // Send notification to user
+                $this->sendAppointmentCompletedNotificationToUser($appointment);
+
+                return $this->success_response('Appointment completed successfully', [
+                    'appointment' => $appointment,
+                    'status_text' => $this->getAppointmentStatusText($newStatus),
+                    'payment_type' => $appointment->payment_type, // ✅ استخدام القيمة الموجودة أصلاً
+                    'message' => 'Service completed. Payment will be settled in the next cycle.'
+                ]);
+            } catch (\Exception $e) {
+                DB::rollback();
+                return $this->error_response('Failed to complete appointment', ['error' => $e->getMessage()]);
             }
-            
-            $appointment->save();
-
-            // Send notification to user to select payment method
-            $this->sendPaymentSelectionNotificationToUser($appointment);
-
-            return $this->success_response('Appointment completed. Waiting for payment confirmation.', [
-                'appointment' => $appointment,
-                'status_text' => $this->getAppointmentStatusText($newStatus),
-                'requires_payment_confirmation' => true,
-                'message' => 'Service completed. Customer will select payment method.'
-            ]);
         }
 
         // For other status changes
@@ -318,226 +363,99 @@ class AppointmentProviderController extends Controller
     }
 
     /**
-     * User selects payment method after service completion
+     * Record appointment for settlement cycle
      */
-    public function selectPaymentMethod(Request $request, $appointmentId)
-    {
-        $user = auth()->user();
-
-        $validator = Validator::make($request->all(), [
-            'payment_type' => 'required|string|in:cash,visa,wallet'
-        ]);
-
-        if ($validator->fails()) {
-            return $this->error_response('Validation error', $validator->errors());
-        }
-
-        $appointment = \App\Models\Appointment::where('user_id', $user->id)
-            ->where('appointment_status', 4) // Must be delivered
-            ->where('payment_status', 2) // Must be unpaid
-            ->with(['user', 'providerType.provider'])
-            ->find($appointmentId);
-
-        if (!$appointment) {
-            return $this->error_response('Not found', 'Appointment not found or not eligible for payment');
-        }
-
-        // Check wallet balance if payment type is wallet
-        if ($request->payment_type === 'wallet' && $user->balance < $appointment->total_prices) {
-            return $this->error_response('Insufficient wallet balance', [
-                'required_amount' => $appointment->total_prices,
-                'current_balance' => $user->balance
-            ]);
-        }
-
-        // Update payment type
-        $appointment->payment_type = $request->payment_type;
-        $appointment->save();
-
-        // Send notification to provider for payment confirmation
-        $this->sendPaymentConfirmationRequestToProvider($appointment);
-
-        return $this->success_response('Payment method selected. Waiting for provider confirmation.', [
-            'appointment' => $appointment,
-            'payment_type' => $request->payment_type,
-            'amount' => $appointment->total_prices
-        ]);
-    }
-
-    /**
-     * Provider confirms payment after user selects payment method
-     */
-    public function confirmPayment(Request $request, $appointmentId)
-    {
-        $provider = auth()->user();
-
-        if (!$provider instanceof \App\Models\Provider) {
-            return $this->error_response('Unauthorized', 'Only providers can confirm payment');
-        }
-
-        $validator = Validator::make($request->all(), [
-            'payment_confirmed' => 'required|boolean'
-        ]);
-
-        if ($validator->fails()) {
-            return $this->error_response('Validation error', $validator->errors());
-        }
-
-        $appointment = \App\Models\Appointment::whereHas('providerType', function ($q) use ($provider) {
-            $q->where('provider_id', $provider->id);
-        })->where('appointment_status', 4) // Must be delivered
-            ->where('payment_status', 2) // Must be unpaid
-            ->with(['user', 'providerType.provider'])
-            ->find($appointmentId);
-
-        if (!$appointment) {
-            return $this->error_response('Not found', 'Appointment not found or not eligible for payment confirmation');
-        }
-
-        if (!$request->payment_confirmed) {
-            return $this->error_response('Payment not confirmed', 'Provider must confirm payment to proceed');
-        }
-
-        try {
-            DB::beginTransaction();
-
-            // Process payment based on selected payment type
-            $this->processPaymentByType($appointment);
-
-            // Mark appointment as paid
-            $appointment->payment_status = 1;
-            $appointment->save();
-
-            DB::commit();
-
-            // Send payment confirmation to user
-            $this->sendPaymentConfirmationToUser($appointment);
-
-            return $this->success_response('Payment confirmed and processed successfully', [
-                'appointment' => $appointment,
-                'payment_type' => $appointment->payment_type,
-                'amount_processed' => $appointment->total_prices
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollback();
-            return $this->error_response('Payment processing failed', ['error' => $e->getMessage()]);
-        }
-    }
-
-    /**
-     * Process payment based on type with commission handling
-     */
-    private function processPaymentByType($appointment)
+    private function recordAppointmentForSettlement($appointment)
     {
         $commission = $this->getAdminCommission();
         $commissionAmount = ($appointment->total_prices * $commission) / 100;
         $providerAmount = $appointment->total_prices - $commissionAmount;
-        $provider = $appointment->providerType->provider;
-        $user = $appointment->user;
 
-        switch ($appointment->payment_type) {
-            case 'cash':
-                $this->processCashPayment($appointment, $provider, $commissionAmount);
-                break;
-                
-            case 'visa':
-                $this->processVisaPayment($appointment, $provider, $commissionAmount, $providerAmount);
-                break;
-                
-            case 'wallet':
-                $this->processWalletPayment($appointment, $user, $provider, $commissionAmount, $providerAmount);
-                break;
+        // Get or create current settlement cycle
+        $settlementCycle = $this->getCurrentSettlementCycle();
+
+        // Create appointment settlement record
+        \App\Models\AppointmentSettlement::create([
+            'settlement_cycle_id' => $settlementCycle->id,
+            'appointment_id' => $appointment->id,
+            'provider_id' => $appointment->providerType->provider->id,
+            'appointment_amount' => $appointment->total_prices,
+            'commission_amount' => $commissionAmount,
+            'provider_amount' => $providerAmount,
+            'payment_type' => $appointment->payment_type,
+        ]);
+
+        // Link appointment to settlement cycle
+        $appointment->settlement_cycle_id = $settlementCycle->id;
+        $appointment->settlement_status = 1; // Pending settlement
+        $appointment->save();
+    }
+
+    /**
+     * Get or create current settlement cycle (every 14 days)
+     */
+    private function getCurrentSettlementCycle()
+    {
+        $today = now();
+
+        // Check if there's an active cycle
+        $activeCycle = \App\Models\SettlementCycle::where('status', 1)
+            ->where('start_date', '<=', $today)
+            ->where('end_date', '>=', $today)
+            ->first();
+
+        if ($activeCycle) {
+            return $activeCycle;
+        }
+
+        // Create new cycle based on day of month
+        $dayOfMonth = $today->day;
+
+        if ($dayOfMonth <= 14) {
+            // First cycle of the month (1-14)
+            $startDate = $today->copy()->startOfMonth();
+            $endDate = $today->copy()->startOfMonth()->addDays(13); // Day 14
+        } else {
+            // Second cycle of the month (15-end)
+            $startDate = $today->copy()->startOfMonth()->addDays(14); // Day 15
+            $endDate = $today->copy()->endOfMonth();
+        }
+
+        return \App\Models\SettlementCycle::create([
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'status' => 1, // Pending
+        ]);
+    }
+
+    /**
+     * Send appointment completed notification to user
+     */
+    private function sendAppointmentCompletedNotificationToUser($appointment)
+    {
+        try {
+            $title = "Appointment Completed";
+            $body = "Your appointment #{$appointment->number} has been completed. Payment method: {$appointment->payment_type}. Settlement will be processed in the next cycle.";
+
+            FCMController::sendMessageToUser($title, $body, $appointment->user_id);
+            \Log::info("Appointment completed notification sent to user ID: {$appointment->user_id}");
+        } catch (\Exception $e) {
+            \Log::error("Failed to send appointment completed notification: " . $e->getMessage());
         }
     }
 
-    /**
-     * Process cash payment
-     */
-    private function processCashPayment($appointment, $provider, $commissionAmount)
-    {
-        // Deduct commission from provider wallet
-        $provider->decrement('balance', $commissionAmount);
-        
-        WalletTransaction::create([
-            'provider_id' => $provider->id,
-            'admin_id' => 1,
-            'amount' => $commissionAmount,
-            'type_of_transaction' => 2, // withdrawal
-            'note' => "Commission deduction for cash appointment #{$appointment->number}"
-        ]);
-    }
 
-    /**
-     * Process visa payment
-     */
-    private function processVisaPayment($appointment, $provider, $commissionAmount, $providerAmount)
-    {
-        // Add provider amount to provider wallet
-        $provider->increment('balance', $providerAmount);
-        
-        WalletTransaction::create([
-            'provider_id' => $provider->id,
-             'admin_id' => 1,
-            'amount' => $providerAmount,
-            'type_of_transaction' => 1, // add
-            'note' => "Payment from visa appointment #{$appointment->number}"
-        ]);
 
-          // deduct commission from provider wallet
-        WalletTransaction::create([
-            'provider_id' => $provider->id,
-             'admin_id' => 1,
-            'amount' => $commissionAmount,
-            'type_of_transaction' => 2, // withdrawal
-            'note' => "Commission from visa appointment #{$appointment->number}"
-        ]);
-    }
-
-    /**
-     * Process wallet payment
-     */
-    private function processWalletPayment($appointment, $user, $provider, $commissionAmount, $providerAmount)
-    {
-        // Deduct total from user wallet
-        $user->decrement('balance', $appointment->total_prices);
-        
-        WalletTransaction::create([
-            'user_id' => $user->id,
-             'admin_id' => 1,
-            'amount' => $appointment->total_prices,
-            'type_of_transaction' => 2, // withdrawal
-            'note' => "Payment for appointment #{$appointment->number}"
-        ]);
-
-        // Add provider amount to provider wallet
-        $provider->increment('balance', $providerAmount);
-        
-        WalletTransaction::create([
-            'provider_id' => $provider->id,
-             'admin_id' => 1,
-            'amount' => $providerAmount,
-            'type_of_transaction' => 1, // add
-            'note' => "Payment from wallet appointment #{$appointment->number}"
-        ]);
-
-        // deduct commission from provider wallet
-        WalletTransaction::create([
-            'provider_id' => $provider->id,
-             'admin_id' => 1,
-            'amount' => $commissionAmount,
-            'type_of_transaction' => 2, // withdrawal
-            'note' => "Commission from wallet appointment #{$appointment->number}"
-        ]);
-    }
 
     /**
      * Get total customers for an appointment
      */
     private function getTotalCustomers($appointment)
     {
-        if (isset($appointment->providerType->type->booking_type) && 
-            $appointment->providerType->type->booking_type == 'service') {
+        if (
+            isset($appointment->providerType->type->booking_type) &&
+            $appointment->providerType->type->booking_type == 'service'
+        ) {
             return $appointment->appointmentServices->sum('customer_count');
         }
         return 1; // Default for hourly appointments
@@ -548,14 +466,16 @@ class AppointmentProviderController extends Controller
      */
     private function getServicesSummary($appointment)
     {
-        if (isset($appointment->providerType->type->booking_type) && 
-            $appointment->providerType->type->booking_type == 'service') {
-            
+        if (
+            isset($appointment->providerType->type->booking_type) &&
+            $appointment->providerType->type->booking_type == 'service'
+        ) {
+
             // Get aggregated services (existing functionality)
-            $services = $appointment->appointmentServices->map(function($appointmentService) {
+            $services = $appointment->appointmentServices->map(function ($appointmentService) {
                 return [
-                    'name' => app()->getLocale() == 'ar' ? 
-                        $appointmentService->service->name_ar : 
+                    'name' => app()->getLocale() == 'ar' ?
+                        $appointmentService->service->name_ar :
                         $appointmentService->service->name_en,
                     'customer_count' => $appointmentService->customer_count,
                     'service_price' => $appointmentService->service_price,
@@ -574,8 +494,8 @@ class AppointmentProviderController extends Controller
                         'services' => $services->map(function ($service) {
                             return [
                                 'service_id' => $service->service_id,
-                                'service_name' => app()->getLocale() == 'ar' ? 
-                                    $service->service->name_ar : 
+                                'service_name' => app()->getLocale() == 'ar' ?
+                                    $service->service->name_ar :
                                     $service->service->name_en,
                                 'service_price' => $service->service_price
                             ];
@@ -593,7 +513,7 @@ class AppointmentProviderController extends Controller
                 'customer_services' => $customerServices // Individual customer breakdown
             ];
         }
-        
+
         return null;
     }
 
@@ -606,45 +526,7 @@ class AppointmentProviderController extends Controller
         return $setting ? $setting->value : 1.5; // Default 1.5%
     }
 
-    // Notification Methods
-    private function sendPaymentSelectionNotificationToUser($appointment)
-    {
-        try {
-            $title = "Service Completed - Select Payment Method";
-            $body = "Your service has been completed. Please select your payment method for appointment #{$appointment->number}";
 
-            FCMController::sendMessageToUser($title, $body, $appointment->user_id);
-            \Log::info("Payment selection notification sent to user ID: {$appointment->user_id}");
-        } catch (\Exception $e) {
-            \Log::error("Failed to send payment selection notification: " . $e->getMessage());
-        }
-    }
-
-    private function sendPaymentConfirmationRequestToProvider($appointment)
-    {
-        try {
-            $title = "Payment Confirmation Required";
-            $body = "Customer selected {$appointment->payment_type} payment for appointment #{$appointment->number}. Please confirm payment.";
-
-            FCMController::sendMessageToProvider($title, $body, $appointment->providerType->provider->id);
-            \Log::info("Payment confirmation request sent to provider");
-        } catch (\Exception $e) {
-            \Log::error("Failed to send payment confirmation request: " . $e->getMessage());
-        }
-    }
-
-    private function sendPaymentConfirmationToUser($appointment)
-    {
-        try {
-            $title = "Payment Confirmed";
-            $body = "Your payment has been confirmed for appointment #{$appointment->number}. Thank you!";
-
-            FCMController::sendMessageToUser($title, $body, $appointment->user_id);
-            \Log::info("Payment confirmation sent to user");
-        } catch (\Exception $e) {
-            \Log::error("Failed to send payment confirmation: " . $e->getMessage());
-        }
-    }
 
     private function sendAppointmentStatusNotificationToUser($appointment, $oldStatus, $newStatus)
     {
@@ -659,7 +541,7 @@ class AppointmentProviderController extends Controller
             $title = "Appointment Status Update";
             $body = $statusMessages[$newStatus] ?? "Your appointment status has been updated";
             $body .= " - Appointment #{$appointment->number}";
-            
+
             // Add cancellation reason if status is 5 and reason exists
             if ($newStatus == 5 && !empty($appointment->reason_of_cancel)) {
                 $body .= ". Reason: {$appointment->reason_of_cancel}";

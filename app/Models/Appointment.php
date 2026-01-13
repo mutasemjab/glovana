@@ -85,5 +85,13 @@ class Appointment extends Model
     {
         return $this->hasOne(FineDiscount::class)->latest();
     }
+    public function settlementCycle()
+    {
+        return $this->belongsTo(SettlementCycle::class);
+    }
 
+    public function appointmentSettlement()
+    {
+        return $this->hasOne(AppointmentSettlement::class);
+    }
 }

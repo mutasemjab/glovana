@@ -1610,6 +1610,120 @@ return [
     'Terms_Conditions' => 'الشروط والأحكام',
     'Privacy_Policy' => 'سياسة الخصوصية',
     'Support' => 'الدعم',
+     // Page Title
+    'page_title' => 'تقرير الدفعات وأرباح مقدمي الخدمة',
+    'settlement_report' => 'تقرير دورات التسوية',
+    
+    // Filters
+    'filters' => 'التصفية',
+    'period' => 'الفترة',
+    'daily' => 'يومي',
+    'monthly' => 'شهري',
+    'yearly' => 'سنوي',
+    'provider' => 'مقدم الخدمة',
+    'all_providers' => 'جميع مقدمي الخدمة',
+    'date_from' => 'من تاريخ',
+    'date_to' => 'إلى تاريخ',
+    'settlement_cycle' => 'دورة التسوية',
+    'all_cycles' => 'جميع الدورات',
+    'settlement_status' => 'حالة التسوية',
+    'all_status' => 'جميع الحالات',
+    'pending_settlement' => 'في انتظار التسوية',
+    'settled' => 'تمت التسوية',
+    'filter_btn' => 'تصفية',
+    'export_btn' => 'تصدير',
+    'reset_btn' => 'إعادة تعيين',
+    
+    // Summary Cards
+    'total_providers' => 'إجمالي مقدمي الخدمة',
+    'total_appointments' => 'إجمالي المواعيد',
+    'total_revenue' => 'إجمالي الإيرادات',
+    'total_commission' => 'إجمالي العمولة',
+    'total_provider_earnings' => 'إجمالي أرباح مقدمي الخدمة',
+    'pending_settlements' => 'التسويات المعلقة',
+    'completed_settlements' => 'التسويات المكتملة',
+    
+    // Provider Info
+    'provider_info' => 'معلومات مقدم الخدمة',
+    'wallet_balance' => 'رصيد المحفظة',
+    'phone' => 'الهاتف',
+    'email' => 'البريد الإلكتروني',
+    
+    // Summary
+    'summary' => 'الملخص',
+    'appointments' => 'المواعيد',
+    'total_amount' => 'المبلغ الإجمالي',
+    'commission' => 'العمولة',
+    'provider_earnings' => 'أرباح مقدم الخدمة',
+    'net_earnings' => 'صافي الأرباح',
+    'wallet_in' => 'الوارد للمحفظة',
+    'wallet_out' => 'الصادر من المحفظة',
+    'net_change' => 'صافي التغيير',
+    
+    // Settlement Info
+    'settlement_info' => 'معلومات التسوية',
+    'current_cycle' => 'الدورة الحالية',
+    'cycle_period' => 'فترة الدورة',
+    'days_remaining' => 'الأيام المتبقية',
+    'cycle_ends_on' => 'تنتهي الدورة في',
+    'settlement_cycles' => 'دورات التسوية',
+    'cycle_details' => 'تفاصيل الدورة',
+    'payment_status' => 'حالة الدفع',
+    'paid' => 'مدفوع',
+    'unpaid' => 'غير مدفوع',
+    
+    // Payment Types
+    'payment_breakdown' => 'تفصيل طرق الدفع',
+    'cash' => 'كاش',
+    'visa' => 'فيزا',
+    'wallet' => 'محفظة',
+    'count' => 'العدد',
+    'amount' => 'المبلغ',
+    'commission_due' => 'العمولة المستحقة',
+    'amount_to_receive' => 'المبلغ المستحق',
+    
+    // Table Headers
+    'appointment_id' => 'الرقم',
+    'appointment_number' => 'رقم الموعد',
+    'date' => 'التاريخ',
+    'user' => 'المستخدم',
+    'payment_type' => 'طريقة الدفع',
+    'total' => 'الإجمالي',
+    'status' => 'الحالة',
+    'actions' => 'الإجراءات',
+    'details' => 'التفاصيل',
+    'view_details' => 'عرض التفاصيل',
+    'hide_details' => 'إخفاء التفاصيل',
+    
+    // Period Breakdown
+    'period_breakdown' => 'تفصيل الفترة',
+    'appointments_for' => 'مواعيد',
+    
+    // Messages
+    'no_data' => 'لم يتم العثور على بيانات للمعايير المحددة.',
+    'no_appointments' => 'لم يتم العثور على مواعيد لهذا المزود في الفترة المحددة.',
+    'loading' => 'جاري التحميل...',
+    
+    // Appointment Status
+    'pending' => 'قيد الانتظار',
+    'accepted' => 'مقبول',
+    'on_the_way' => 'في الطريق',
+    'delivered' => 'مكتمل',
+    'canceled' => 'ملغي',
+    'start_work' => 'بدء العمل',
+    'arrived' => 'وصل',
+    
+    // Actions
+    'view_appointment' => 'عرض الموعد',
+    'view_cycle' => 'عرض الدورة',
+    'mark_as_paid' => 'تحديد كمدفوع',
+    'download_invoice' => 'تحميل الفاتورة',
+    
+    // Tooltips
+    'tooltip_commission' => 'عمولة الإدارة من هذا الموعد',
+    'tooltip_earnings' => 'أرباح المزود بعد العمولة',
+    'tooltip_wallet' => 'رصيد المحفظة الحالي',
+    'tooltip_cycle' => 'دورة التسوية لهذه الفترة',
   "" => "",
   "" => "",
   "" => "",

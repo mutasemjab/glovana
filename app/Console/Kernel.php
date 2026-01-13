@@ -32,6 +32,16 @@ class Kernel extends ConsoleKernel
         $schedule->command('subscriptions:check-expired')
             ->daily()
             ->appendOutputTo(storage_path('logs/subscriptions-check.log'));
+
+        // Check for settlement payments daily at 9:00 AM
+        $schedule->command('settlement:check-payments')
+            ->dailyAt('09:00')
+            ->timezone('Asia/Amman');
+
+        // Send reminders daily at 10:00 AM
+        $schedule->command('settlement:send-reminders')
+            ->dailyAt('10:00')
+            ->timezone('Asia/Amman');
     }
 
     /**

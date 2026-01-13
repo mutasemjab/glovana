@@ -27,6 +27,7 @@ return new class extends Migration
             ['key' => "start_price", 'value' => 0.25],
             ['key' => "price_per_km", 'value' => 0.15],
             ['key' => "minimum_to_notify_me_for_quantity_products", 'value' => 2],
+            ['key' => "whatsapp_number", 'value' => 962795970357],
         ]);
 
     }

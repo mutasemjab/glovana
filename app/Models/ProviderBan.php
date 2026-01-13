@@ -39,12 +39,15 @@ class ProviderBan extends Model
             'en' => 'Unprofessional Conduct',
             'ar' => 'سلوك غير مهني'
         ],
+        'unpaid_settlement' => [  // ✅ NEW
+            'en' => 'Unpaid Settlement Dues',
+            'ar' => 'عدم دفع مستحقات التسوية'
+        ],
         'other' => [
             'en' => 'Other',
             'ar' => 'أخرى'
         ],
     ];
-
     protected $fillable = [
         'provider_id',
         'admin_id',

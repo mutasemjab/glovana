@@ -135,11 +135,7 @@ Route::group(['prefix' => 'v1/user'], function () {
             Route::get('/', [AppointmentController::class, 'index']); // GET /api/appointments
             Route::post('/', [AppointmentController::class, 'store']); // POST /api/appointments
             Route::put('/{appointmentId}', [AppointmentController::class, 'update']);
-            Route::post('/{appointmentId}/select-payment-method', [AppointmentController::class, 'selectPaymentMethod']);
             Route::post('/{appointmentId}/status', [AppointmentController::class, 'updateAppointmentStatus']);
-
-            // User can view appointments requiring payment method selection
-            Route::get('/pending-payment', [AppointmentController::class, 'getPendingPaymentAppointments']);
         });
 
         Route::prefix('points')->group(function () {
@@ -203,8 +199,6 @@ Route::group(['prefix' => 'v1/provider'], function () {
             Route::get('/{appointmentId}', [AppointmentProviderController::class, 'getAppointmentDetails']);
             // Update appointment status
             Route::post('/{appointmentId}/status', [AppointmentProviderController::class, 'updateAppointmentStatus']);
-            // New payment confirmation route
-            Route::post('/{appointmentId}/confirm-payment', [AppointmentProviderController::class, 'confirmPayment']);
 
             //Report
             Route::get('/provider/payment-report', [AppointmentProviderController::class, 'paymentReport']);

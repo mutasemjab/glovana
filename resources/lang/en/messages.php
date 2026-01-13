@@ -1484,7 +1484,121 @@ return [
     'Terms_Conditions' => 'Terms & Conditions',
     'Privacy_Policy' => 'Privacy Policy',
     'Support' => 'Support',
-  '' => '',
+     // Page Title
+    'page_title' => 'Provider Payment & Earnings Report',
+    'settlement_report' => 'Settlement Cycles Report',
+    
+    // Filters
+    'filters' => 'Filters',
+    'period' => 'Period',
+    'daily' => 'Daily',
+    'monthly' => 'Monthly',
+    'yearly' => 'Yearly',
+    'provider' => 'Provider',
+    'all_providers' => 'All Providers',
+    'date_from' => 'Date From',
+    'date_to' => 'Date To',
+    'settlement_cycle' => 'Settlement Cycle',
+    'all_cycles' => 'All Cycles',
+    'settlement_status' => 'Settlement Status',
+    'all_status' => 'All Status',
+    'pending_settlement' => 'Pending Settlement',
+    'settled' => 'Settled',
+    'filter_btn' => 'Filter',
+    'export_btn' => 'Export',
+    'reset_btn' => 'Reset',
+    
+    // Summary Cards
+    'total_providers' => 'Total Providers',
+    'total_appointments' => 'Total Appointments',
+    'total_revenue' => 'Total Revenue',
+    'total_commission' => 'Total Commission',
+    'total_provider_earnings' => 'Total Provider Earnings',
+    'pending_settlements' => 'Pending Settlements',
+    'completed_settlements' => 'Completed Settlements',
+    
+    // Provider Info
+    'provider_info' => 'Provider Information',
+    'wallet_balance' => 'Wallet Balance',
+    'phone' => 'Phone',
+    'email' => 'Email',
+    
+    // Summary
+    'summary' => 'Summary',
+    'appointments' => 'Appointments',
+    'total_amount' => 'Total Amount',
+    'commission' => 'Commission',
+    'provider_earnings' => 'Provider Earnings',
+    'net_earnings' => 'Net Earnings',
+    'wallet_in' => 'Wallet In',
+    'wallet_out' => 'Wallet Out',
+    'net_change' => 'Net Change',
+    
+    // Settlement Info
+    'settlement_info' => 'Settlement Information',
+    'current_cycle' => 'Current Cycle',
+    'cycle_period' => 'Cycle Period',
+    'days_remaining' => 'Days Remaining',
+    'cycle_ends_on' => 'Cycle Ends On',
+    'settlement_cycles' => 'Settlement Cycles',
+    'cycle_details' => 'Cycle Details',
+    'payment_status' => 'Payment Status',
+    'paid' => 'Paid',
+    'unpaid' => 'Unpaid',
+    
+    // Payment Types
+    'payment_breakdown' => 'Payment Type Breakdown',
+    'cash' => 'Cash',
+    'visa' => 'Visa',
+    'wallet' => 'Wallet',
+    'count' => 'Count',
+    'amount' => 'Amount',
+    'commission_due' => 'Commission Due',
+    'amount_to_receive' => 'Amount to Receive',
+    
+    // Table Headers
+    'appointment_id' => 'ID',
+    'appointment_number' => 'Number',
+    'date' => 'Date',
+    'user' => 'User',
+    'payment_type' => 'Payment Type',
+    'total' => 'Total',
+    'status' => 'Status',
+    'actions' => 'Actions',
+    'details' => 'Details',
+    'view_details' => 'View Details',
+    'hide_details' => 'Hide Details',
+    
+    // Period Breakdown
+    'period_breakdown' => 'Period Breakdown',
+    'appointments_for' => 'Appointments for',
+    
+    // Messages
+    'no_data' => 'No data found for the selected criteria.',
+    'no_appointments' => 'No appointments found for this provider in the selected period.',
+    'loading' => 'Loading...',
+    
+    // Appointment Status
+    'pending' => 'Pending',
+    'accepted' => 'Accepted',
+    'on_the_way' => 'On The Way',
+    'delivered' => 'Delivered',
+    'canceled' => 'Canceled',
+    'start_work' => 'Start Work',
+    'arrived' => 'Arrived',
+    
+    // Actions
+    'view_appointment' => 'View Appointment',
+    'view_cycle' => 'View Cycle',
+    'mark_as_paid' => 'Mark as Paid',
+    'download_invoice' => 'Download Invoice',
+    
+    // Tooltips
+    'tooltip_commission' => 'Admin commission from this appointment',
+    'tooltip_earnings' => 'Provider earnings after commission',
+    'tooltip_wallet' => 'Current wallet balance',
+    'tooltip_cycle' => 'Settlement cycle for this period',
+    '' => '',
   '' => '',
   '' => '',
   '' => '',
