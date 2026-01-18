@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->string('title');
             $table->text('body');
-            $table->tinyInteger('type'); // 0 for all // 1 users // 2 provider 
+            $table->tinyInteger('type'); // 0 for all // 1 users // 2 provider //3 specific user // 4 specific provider
             $table->unsignedBigInteger('user_id')->nullable();
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->unsignedBigInteger('provider_id')->nullable();

@@ -79,6 +79,7 @@ class AppointmentController extends Controller
                 'user:id,name,phone,email,photo',
                 'address',
                 'providerType',
+                'providerType.images',
                 'providerType.provider:id,name_of_manager,phone,photo_of_manager',
                 'providerType.type',
                 'appointmentServices.service',
