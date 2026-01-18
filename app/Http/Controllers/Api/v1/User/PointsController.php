@@ -7,6 +7,7 @@ use App\Models\WalletTransaction;
 use App\Models\User;
 use App\Models\Provider;
 use App\Models\Setting;
+use App\Services\PointsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
