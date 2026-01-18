@@ -37,6 +37,12 @@ return new class extends Migration
             $table->tinyInteger('has_discount')->default(2); // 1 = yes, 2 = no
             $table->tinyInteger('cancel_rating')->default(2); // 1 = yes, 2 = no
 
+            $table->integer('points_earned')->default(0);
+            $table->integer('points_redeemed')->default(0);
+            $table->double('points_discount_amount')->default(0);
+            $table->tinyInteger('points_awarded')->default(2)->comment('1=yes, 2=no');
+            $table->tinyInteger('rating_points_awarded')->default(2)->comment('1=yes, 2=no');
+
             // Add foreign key for discount
             $table->foreign('discount_id')->references('id')->on('discounts')->onDelete('set null');
 

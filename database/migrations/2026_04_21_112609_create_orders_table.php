@@ -32,6 +32,11 @@ return new class extends Migration
             $table->foreign('address_id')->references('id')->on('user_addresses')->onDelete('cascade');
             $table->unsignedBigInteger('coupon_id')->nullable();
             $table->foreign('coupon_id')->references('id')->on('coupons')->onDelete('set null');
+
+            $table->integer('points_earned')->default(0);
+            $table->integer('points_redeemed')->default(0);
+            $table->double('points_discount_amount')->default(0);
+            $table->tinyInteger('points_awarded')->default(2)->comment('1=yes, 2=no');
             $table->timestamps();
         });
     }

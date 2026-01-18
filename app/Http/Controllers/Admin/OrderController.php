@@ -9,12 +9,20 @@ use App\Models\User;
 use App\Models\Driver;
 use App\Models\Service;
 use App\Models\WalletTransaction;
+use App\Services\PointsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
+
+    protected $pointsService;
+
+    public function __construct(PointsService $pointsService)
+    {
+        $this->pointsService = $pointsService;
+    }
     /**
      * Display a listing of orders
      */
@@ -54,12 +62,12 @@ class OrderController extends Controller
             // Search by order number or user name
             if ($request->filled('search')) {
                 $search = $request->search;
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('number', 'like', "%{$search}%")
-                      ->orWhereHas('user', function($userQuery) use ($search) {
-                          $userQuery->where('name', 'like', "%{$search}%")
-                                   ->orWhere('phone', 'like', "%{$search}%");
-                      });
+                        ->orWhereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('phone', 'like', "%{$search}%");
+                        });
                 });
             }
 
@@ -77,7 +85,6 @@ class OrderController extends Controller
             $statistics = $this->getOrderStatistics();
 
             return view('admin.orders.index', compact('orders', 'statistics'));
-
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to load orders: ' . $e->getMessage());
         }
@@ -99,7 +106,6 @@ class OrderController extends Controller
             $order->payment_status_label = $this->getPaymentStatusLabel($order->payment_status);
 
             return view('admin.orders.show', compact('order'));
-
         } catch (\Exception $e) {
             return back()->with('error', 'Order not found: ' . $e->getMessage());
         }
@@ -118,9 +124,8 @@ class OrderController extends Controller
             ])->findOrFail($id);
 
             $users = User::where('activate', 1)->get(['id', 'name', 'phone', 'email']);
-            
-            return view('admin.orders.edit', compact('order', 'users'));
 
+            return view('admin.orders.edit', compact('order', 'users'));
         } catch (\Exception $e) {
             return back()->with('error', 'Order not found: ' . $e->getMessage());
         }
@@ -139,7 +144,8 @@ class OrderController extends Controller
             $order = Order::with('orderProducts')->findOrFail($id);
             $oldStatus = $order->order_status;
             $oldPaymentStatus = $order->payment_status;
-
+            $user = $order->user;
+            
             DB::beginTransaction();
 
             try {
@@ -159,6 +165,8 @@ class OrderController extends Controller
                 if ($request->order_status == 4 && $oldStatus != 4) {
                     $warehouseId = $request->warehouse_id ?? $this->getDefaultWarehouseId();
                     $this->createDeliveryVoucher($order, $warehouseId);
+                    $this->pointsService->awardFirstOrderPoints($user, $order);
+                    $this->pointsService->awardOrderPurchasePoints($user, $order);
                 }
 
                 // Handle refund if status changed to refund
@@ -175,12 +183,10 @@ class OrderController extends Controller
 
                 return redirect()->route('orders.show', $order->id)
                     ->with('success', $message);
-
             } catch (\Exception $e) {
                 DB::rollback();
                 throw $e;
             }
-
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to update order: ' . $e->getMessage());
         }
@@ -194,11 +200,11 @@ class OrderController extends Controller
         $defaultWarehouse = DB::table('warehouses')
             ->orderBy('id', 'asc')
             ->first();
-        
+
         if (!$defaultWarehouse) {
             throw new \Exception('No warehouse found. Please create a warehouse first.');
         }
-        
+
         return $defaultWarehouse->id;
     }
 
@@ -273,7 +279,6 @@ class OrderController extends Controller
                 'warehouse_id' => $warehouseId,
                 'products_count' => $orderProducts->count()
             ]);
-
         } catch (\Exception $e) {
             \Log::error("Failed to create delivery voucher for order {$order->id}: " . $e->getMessage());
             throw new \Exception("Failed to create delivery voucher: " . $e->getMessage());
@@ -290,11 +295,11 @@ class OrderController extends Controller
             ->lockForUpdate() // Prevent race conditions
             ->orderBy('number', 'desc')
             ->first();
-        
+
         return $lastVoucher ? $lastVoucher->number + 1 : 1;
     }
 
-  
+
 
     /**
      * Get order statistics
@@ -310,8 +315,8 @@ class OrderController extends Controller
             'unpaid_orders' => Order::where('payment_status', 2)->count(),
             'today_orders' => Order::whereDate('created_at', today())->count(),
             'this_month_orders' => Order::whereMonth('created_at', now()->month)
-                                       ->whereYear('created_at', now()->year)
-                                       ->count()
+                ->whereYear('created_at', now()->year)
+                ->count()
         ];
     }
 
@@ -325,7 +330,7 @@ class OrderController extends Controller
             $user = $order->user;
             if ($user->balance >= $order->total_prices) {
                 $user->decrement('balance', $order->total_prices);
-                
+
                 // Create wallet transaction
                 WalletTransaction::create([
                     'user_id' => $user->id,
@@ -344,10 +349,10 @@ class OrderController extends Controller
     {
         if ($order->payment_status == 1) { // Only refund if paid
             $user = $order->user;
-            
+
             // Add refund to user wallet
             $user->increment('balance', $order->total_prices);
-            
+
             // Create wallet transaction for refund
             WalletTransaction::create([
                 'user_id' => $user->id,
@@ -365,7 +370,7 @@ class OrderController extends Controller
     {
         $labels = [
             1 => 'Pending',
-            2 => 'Accepted', 
+            2 => 'Accepted',
             3 => 'On The Way',
             4 => 'Delivered',
             5 => 'Canceled',
@@ -387,8 +392,4 @@ class OrderController extends Controller
 
         return $labels[$status] ?? 'Unknown';
     }
-
-  
-
-   
 }
