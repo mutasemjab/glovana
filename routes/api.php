@@ -94,6 +94,7 @@ Route::group(['prefix' => 'v1/user'], function () {
 
         Route::post('/ratings', [RatingController::class, 'store']);
         Route::post('/product/ratings', [RatingController::class, 'storeRatingProduct']);
+        Route::get('/pending-rating', [RatingController::class, 'getPendingRating']);
 
         Route::get('/addresses', [UserAddressController::class, 'index']);
         Route::post('/addresses', [UserAddressController::class, 'store']);
