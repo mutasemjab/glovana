@@ -71,7 +71,6 @@ class NotificationController extends Controller
                             'title' => $request->title,
                             'body' => $request->body,
                             'type' => 1,
-                            'user_id' => $user->id,
                         ]);
                     }
                     $response = true;
@@ -86,7 +85,6 @@ class NotificationController extends Controller
                             'title' => $request->title,
                             'body' => $request->body,
                             'type' => 2,
-                            'provider_id' => $provider->id,
                         ]);
                     }
                     $response = true;
@@ -100,7 +98,7 @@ class NotificationController extends Controller
                         Notification::create([
                             'title' => $request->title,
                             'body' => $request->body,
-                            'type' => 1,
+                            'type' => 3,
                             'user_id' => $user->id,
                         ]);
                     }
@@ -114,7 +112,7 @@ class NotificationController extends Controller
                         Notification::create([
                             'title' => $request->title,
                             'body' => $request->body,
-                            'type' => 2,
+                            'type' => 4,
                             'provider_id' => $provider->id,
                         ]);
                     }

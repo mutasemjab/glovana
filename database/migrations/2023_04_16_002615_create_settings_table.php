@@ -20,7 +20,7 @@ return new class extends Migration
             $table->timestamps();
         });
         DB::table('settings')->insert([
-            ['key' => "number_of_points_to_convert_to_money", 'value' => 1],
+            ['key' => "number_of_points_to_convert_to_money", 'value' => 100],
             ['key' => "one_point_equal_money", 'value' => 1],
             ['key' => "commission_of_admin", 'value' => 1.5],
             ['key' => "calculate_delivery_fee_depend_on_the_place_or_distance", 'value' => 1], // 1 place // 2 distance
