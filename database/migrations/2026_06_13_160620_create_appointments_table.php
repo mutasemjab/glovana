@@ -16,6 +16,7 @@ return new class extends Migration
         Schema::create('appointments', function (Blueprint $table) {
             $table->id();
             $table->integer('number')->nullable();
+            $table->enum('appointment_type', ['instant', 'scheduled'])->default('scheduled'); 
             $table->tinyInteger('appointment_status')->default(1);  // 1 Pending //2 Accepted //3 OnTheWay // 4 Delivered // 5 Canceled  // 6 start work // 7 arrived user to provider
             $table->double('delivery_fee');
             $table->double('total_prices');

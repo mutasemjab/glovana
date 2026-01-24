@@ -182,9 +182,10 @@ class AppointmentProviderController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'status' => 'nullable|in:1,2,3,4,5,6,7', // Filter by status
+            'status' => 'nullable|in:1,2,3,4,5,6,7',
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
+            'appointment_type' => 'nullable|in:instant,scheduled', // NEW FILTER
             'per_page' => 'nullable|integer|min:1|max:100',
             'page' => 'nullable|integer|min:1'
         ]);
@@ -203,32 +204,35 @@ class AppointmentProviderController extends Controller
             'appointmentServices.service'
         ]);
 
-        // Filter by status if provided
         if ($request->filled('status')) {
             $query->where('appointment_status', $request->status);
         }
 
-        // Filter by date range if provided
+        // NEW: Filter by appointment type
+        if ($request->filled('appointment_type')) {
+            $query->where('appointment_type', $request->appointment_type);
+        }
+
         if ($request->filled('date_from')) {
             $query->whereDate('date', '>=', $request->date_from);
         }
+        
         if ($request->filled('date_to')) {
             $query->whereDate('date', '<=', $request->date_to);
         }
 
-        // Order by date (newest first)
         $query->orderBy('date', 'desc');
 
         $perPage = $request->get('per_page', 15);
         $appointments = $query->paginate($perPage);
 
-        // Add status text and booking type info
         $appointments->getCollection()->transform(function ($appointment) {
             $appointment->status_text = $this->getAppointmentStatusText($appointment->appointment_status);
             $appointment->payment_status_text = $appointment->payment_status == 1 ? 'Paid' : 'Unpaid';
+            $appointment->appointment_type_text = ucfirst($appointment->appointment_type); // NEW
             $appointment->booking_type = $appointment->providerType->type->booking_type ?? 'hourly';
             $appointment->total_customers = $this->getTotalCustomers($appointment);
-            $appointment->can_finish = $appointment->appointment_status == 3; // Can finish if "On The Way"
+            $appointment->can_finish = $appointment->appointment_status == 3;
             $appointment->requires_payment_confirmation = ($appointment->appointment_status == 4 && $appointment->payment_status == 2);
             return $appointment;
         });

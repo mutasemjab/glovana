@@ -241,7 +241,8 @@ class AppointmentController extends Controller
                 'delivery_fee' => 'nullable',
                 'note' => 'nullable|string|max:1000',
                 'payment_type' => 'required|in:cash,visa,wallet',
-                'coupon_code' => 'nullable|string'
+                'coupon_code' => 'nullable|string',
+                'appointment_type' => 'required|in:instant,scheduled' 
 
             ];
 
@@ -311,6 +312,8 @@ class AppointmentController extends Controller
                 // Generate appointment number
                 $appointmentNumber = $this->generateAppointmentNumber();
 
+                $initialStatus = ($bookingType === 'service') ? 2 : 1;
+
                 // Create appointment with existing + new discount fields
                 $appointment = Appointment::create([
                     'user_id' => $user->id,
@@ -320,7 +323,8 @@ class AppointmentController extends Controller
                     'note' => $request->note,
                     'payment_type' => $request->payment_type,
                     'number' => $appointmentNumber,
-
+                    'appointment_type' => $request->appointment_type,
+                    
                     // Pricing fields
                     'delivery_fee' => $request->delivery_fee ?? 0,
                     'total_prices' => $finalTotal,
@@ -336,7 +340,7 @@ class AppointmentController extends Controller
                     'has_discount' => $pricingData['has_discount'] ? 1 : 2,
 
                     // Default values
-                    'appointment_status' => 1,
+                    'appointment_status' => $initialStatus,
                     'payment_status' => 2,
                     'fine_amount' => 0,
                     'fine_applied' => 2

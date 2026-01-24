@@ -186,10 +186,14 @@ class ProviderType extends Model
         return $this->activeVipSubscription()->exists();
     }
 
-    // Add this scope to ProviderType model
-    public function scopeAvailableForInstantBooking($query)
+   public function scopeAvailableForInstantBooking($query)
     {
         return $query->where('status', 1)
+            // ===== NEW: Filter by booking type - only hourly for instant =====
+            ->whereHas('type', function ($q) {
+                $q->where('booking_type', 'hourly');
+            })
+            // ===== END OF NEW CODE =====
             ->whereDoesntHave('appointments', function ($q) {
                 $q->where(function ($dateQuery) {
                     // For TODAY: exclude if status is NOT 1, 4, or 5
