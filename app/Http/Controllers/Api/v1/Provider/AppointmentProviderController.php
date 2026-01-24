@@ -54,7 +54,7 @@ class AppointmentProviderController extends Controller
             return $this->error_response('Validation error', $validator->errors());
         }
 
-        $appointments = Appointment::whereHas('providerType', function ($q) use ($provider) {
+        $appointments = Appointment::where('appointment_status',4)->whereHas('providerType', function ($q) use ($provider) {
             $q->where('provider_id', $provider->id);
         })
             ->when($request->filled('date_from'), fn($q) => $q->whereDate('date', '>=', $request->date_from))
