@@ -285,123 +285,123 @@ class AppointmentProviderController extends Controller
         ]);
     }
 
-    phppublic function updateAppointmentStatus(Request $request, $appointmentId)
-{
-    $provider = auth()->user();
+    public function updateAppointmentStatus(Request $request, $appointmentId)
+    {
+        $provider = auth()->user();
 
-    if (!$provider instanceof \App\Models\Provider) {
-        return $this->error_response('Unauthorized', 'Only providers can update appointment status');
-    }
+        if (!$provider instanceof \App\Models\Provider) {
+            return $this->error_response('Unauthorized', 'Only providers can update appointment status');
+        }
 
-    $validator = Validator::make($request->all(), [
-        'status' => 'required|in:2,3,4,5,6,7',
-        'note' => 'nullable|string|max:500',
-        'reason_of_cancel' => 'nullable|string|max:500',
-    ]);
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:2,3,4,5,6,7',
+            'note' => 'nullable|string|max:500',
+            'reason_of_cancel' => 'nullable|string|max:500',
+        ]);
 
-    if ($validator->fails()) {
-        return $this->error_response('Validation error', $validator->errors());
-    }
+        if ($validator->fails()) {
+            return $this->error_response('Validation error', $validator->errors());
+        }
 
-    $appointment = \App\Models\Appointment::whereHas('providerType', function ($q) use ($provider) {
-        $q->where('provider_id', $provider->id);
-    })->with(['user', 'providerType.provider', 'providerType'])->find($appointmentId);
+        $appointment = \App\Models\Appointment::whereHas('providerType', function ($q) use ($provider) {
+            $q->where('provider_id', $provider->id);
+        })->with(['user', 'providerType.provider', 'providerType'])->find($appointmentId);
 
-    if (!$appointment) {
-        return $this->error_response('Not found', 'Appointment not found');
-    }
+        if (!$appointment) {
+            return $this->error_response('Not found', 'Appointment not found');
+        }
 
-    $currentStatus = $appointment->appointment_status;
-    $newStatus = $request->status;
+        $currentStatus = $appointment->appointment_status;
+        $newStatus = $request->status;
 
-    // Handle completing appointment (status 4)
-    if ($newStatus == 4) {
-        try {
-            DB::beginTransaction();
+        // Handle completing appointment (status 4)
+        if ($newStatus == 4) {
+            try {
+                DB::beginTransaction();
 
-            // Update appointment status
-            $appointment->appointment_status = 4;
-            $appointment->payment_status = 1;
+                // Update appointment status
+                $appointment->appointment_status = 4;
+                $appointment->payment_status = 1;
 
-            if ($request->filled('note')) {
-                $appointment->note = $request->note;
-            }
+                if ($request->filled('note')) {
+                    $appointment->note = $request->note;
+                }
 
-            $appointment->save();
+                $appointment->save();
 
-            // Record in appointment_settlements for tracking
-            $this->recordAppointmentForSettlement($appointment);
+                // Record in appointment_settlements for tracking
+                $this->recordAppointmentForSettlement($appointment);
 
-            // ✅ ✅ منح النقاط - كود بسيط وواضح ✅ ✅
-            if ($appointment->points_awarded != 1) {
-                $user = $appointment->user;
-                
-                if ($user) {
-                    try {
-                        // منح نقاط الصالون (سيمنح VIP تلقائياً إذا كان موجود)
-                        $transaction = $this->pointsService->awardSalonBookingPoints($user, $appointment);
-                        
-                        if ($transaction) {
-                            // تحديث appointment بعدد النقاط الممنوحة
-                            $appointment->points_earned = $transaction->points;
-                            $appointment->points_awarded = 1;
-                            $appointment->save();
+                // ✅ ✅ منح النقاط - كود بسيط وواضح ✅ ✅
+                if ($appointment->points_awarded != 1) {
+                    $user = $appointment->user;
+                    
+                    if ($user) {
+                        try {
+                            // منح نقاط الصالون (سيمنح VIP تلقائياً إذا كان موجود)
+                            $transaction = $this->pointsService->awardSalonBookingPoints($user, $appointment);
                             
-                            \Log::info("Points awarded for appointment", [
-                                'appointment_id' => $appointment->id,
-                                'user_id' => $user->id,
-                                'points' => $transaction->points,
-                                'is_vip' => $appointment->providerType->is_vip ?? 0
-                            ]);
+                            if ($transaction) {
+                                // تحديث appointment بعدد النقاط الممنوحة
+                                $appointment->points_earned = $transaction->points;
+                                $appointment->points_awarded = 1;
+                                $appointment->save();
+                                
+                                \Log::info("Points awarded for appointment", [
+                                    'appointment_id' => $appointment->id,
+                                    'user_id' => $user->id,
+                                    'points' => $transaction->points,
+                                    'is_vip' => $appointment->providerType->is_vip ?? 0
+                                ]);
+                            }
+                        } catch (\Exception $e) {
+                            \Log::error("Failed to award points: " . $e->getMessage());
+                            // لا نوقف العملية إذا فشلت النقاط
                         }
-                    } catch (\Exception $e) {
-                        \Log::error("Failed to award points: " . $e->getMessage());
-                        // لا نوقف العملية إذا فشلت النقاط
                     }
                 }
+
+                DB::commit();
+
+                // Send notification to user
+                $this->sendAppointmentCompletedNotificationToUser($appointment);
+
+                $message = 'Appointment completed successfully. Payment will be settled in the next cycle.';
+                if ($appointment->points_earned > 0) {
+                    $message .= " User earned {$appointment->points_earned} points!";
+                }
+
+                return $this->success_response($message, [
+                    'appointment' => $appointment,
+                    'status_text' => $this->getAppointmentStatusText($newStatus),
+                    'payment_type' => $appointment->payment_type,
+                    'points_earned' => $appointment->points_earned
+                ]);
+            } catch (\Exception $e) {
+                DB::rollback();
+                return $this->error_response('Failed to complete appointment', ['error' => $e->getMessage()]);
             }
-
-            DB::commit();
-
-            // Send notification to user
-            $this->sendAppointmentCompletedNotificationToUser($appointment);
-
-            $message = 'Appointment completed successfully. Payment will be settled in the next cycle.';
-            if ($appointment->points_earned > 0) {
-                $message .= " User earned {$appointment->points_earned} points!";
-            }
-
-            return $this->success_response($message, [
-                'appointment' => $appointment,
-                'status_text' => $this->getAppointmentStatusText($newStatus),
-                'payment_type' => $appointment->payment_type,
-                'points_earned' => $appointment->points_earned
-            ]);
-        } catch (\Exception $e) {
-            DB::rollback();
-            return $this->error_response('Failed to complete appointment', ['error' => $e->getMessage()]);
         }
+
+        // For other status changes
+        $appointment->appointment_status = $newStatus;
+
+        if ($request->filled('note')) {
+            $appointment->note = $request->note;
+        }
+        if ($request->filled('reason_of_cancel')) {
+            $appointment->reason_of_cancel = $request->reason_of_cancel;
+        }
+
+        $appointment->save();
+
+        $this->sendAppointmentStatusNotificationToUser($appointment, $currentStatus, $newStatus);
+
+        return $this->success_response('Appointment status updated successfully', [
+            'appointment' => $appointment,
+            'status_text' => $this->getAppointmentStatusText($newStatus)
+        ]);
     }
-
-    // For other status changes
-    $appointment->appointment_status = $newStatus;
-
-    if ($request->filled('note')) {
-        $appointment->note = $request->note;
-    }
-    if ($request->filled('reason_of_cancel')) {
-        $appointment->reason_of_cancel = $request->reason_of_cancel;
-    }
-
-    $appointment->save();
-
-    $this->sendAppointmentStatusNotificationToUser($appointment, $currentStatus, $newStatus);
-
-    return $this->success_response('Appointment status updated successfully', [
-        'appointment' => $appointment,
-        'status_text' => $this->getAppointmentStatusText($newStatus)
-    ]);
-}
 
     /**
      * Record appointment for settlement cycle
