@@ -18,7 +18,6 @@ class RatingController extends Controller
 {
     use Responses;
 
-    // Add this method to your AuthProviderController or create a new RatingController
 
     public function getPendingRating()
     {

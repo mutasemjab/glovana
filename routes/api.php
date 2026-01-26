@@ -190,7 +190,6 @@ Route::group(['prefix' => 'v1/provider'], function () {
         // Additional utility routes
         Route::delete('/images', [AuthProviderController::class, 'deleteProviderImages']);
         Route::delete('/gallery', [AuthProviderController::class, 'deleteProviderGalleries']);
-        Route::get('/pending-payment-confirmation', [AppointmentProviderController::class, 'getPendingPaymentConfirmations']);
 
 
         Route::prefix('appointments')->group(function () {
