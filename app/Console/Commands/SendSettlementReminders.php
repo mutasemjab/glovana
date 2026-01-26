@@ -81,7 +81,7 @@ class SendSettlementReminders extends Command
                     \App\Models\Notification::create([
                         'title' => $title,
                         'body' => $body,
-                        'type' => 2,
+                        'type' => 4,
                         'provider_id' => $provider->id,
                     ]);
 
@@ -184,7 +184,7 @@ class SendSettlementReminders extends Command
                     \App\Models\Notification::create([
                         'title' => $title,
                         'body' => $body,
-                        'type' => 2,
+                        'type' => 4,
                         'provider_id' => $provider->id,
                     ]);
 

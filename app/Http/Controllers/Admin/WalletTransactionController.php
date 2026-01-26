@@ -116,7 +116,7 @@ class WalletTransactionController extends Controller
                 \App\Models\Notification::create([
                     'title' => $notificationTitle,
                     'body' => $notificationBody,
-                    'type' => 1, // user type
+                    'type' => 3, // user type
                     'user_id' => $user->id,
                 ]);
 
@@ -155,7 +155,7 @@ class WalletTransactionController extends Controller
                 \App\Models\Notification::create([
                     'title' => $notificationTitle,
                     'body' => $notificationBody,
-                    'type' => 2, // provider type
+                    'type' => 4, // provider type
                     'provider_id' => $provider->id,
                 ]);
 

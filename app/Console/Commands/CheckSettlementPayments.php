@@ -140,7 +140,7 @@ class CheckSettlementPayments extends Command
             \App\Models\Notification::create([
                 'title' => $title,
                 'body' => $body,
-                'type' => 2, // Provider type
+                'type' => 4, // Provider type
                 'provider_id' => $provider->id,
             ]);
 

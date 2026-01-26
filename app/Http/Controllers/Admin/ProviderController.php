@@ -36,7 +36,7 @@ class ProviderController extends Controller
             \App\Models\Notification::create([
                 'title' => $title,
                 'body' => $body,
-                'type' => 2, // provider type
+                'type' => 4, // provider type
                 'provider_id' => $provider->id,
             ]);
 
@@ -246,7 +246,7 @@ class ProviderController extends Controller
                 \App\Models\Notification::create([
                     'title' => $title,
                     'body' => $body,
-                    'type' => 2, // provider type
+                    'type' => 4, // provider type
                     'provider_id' => $provider->id,
                 ]);
 
@@ -406,7 +406,7 @@ class ProviderController extends Controller
             \App\Models\Notification::create([
                 'title' => $title,
                 'body' => $body,
-                'type' => 2,
+                'type' => 4,
                 'provider_id' => $provider->id,
             ]);
 
@@ -456,7 +456,7 @@ class ProviderController extends Controller
             \App\Models\Notification::create([
                 'title' => $title,
                 'body' => $body,
-                'type' => 2,
+                'type' => 4,
                 'provider_id' => $provider->id,
             ]);
 

@@ -107,7 +107,7 @@ class CheckHourlyAppointmentsStatus extends Command
             \App\Models\Notification::create([
                 'title' => $title,
                 'body' => $body,
-                'type' => 2, // provider type
+                'type' => 4, // provider type
                 'provider_id' => $provider->id,
             ]);
 
