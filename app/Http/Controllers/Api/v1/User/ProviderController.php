@@ -234,12 +234,10 @@ class ProviderController extends Controller
             $query = Provider::where('activate', 1)
                 ->whereHas('providerTypes', function ($q) {
                     $q->where('activate', 1)
-                        ->where('status', 1)
                         ->whereHas('activeVipSubscription'); // ✅ VIP logic
                 })
                 ->with(['providerTypes' => function ($q) {
                     $q->where('activate', 1)
-                        ->where('status', 1)
                         ->whereHas('activeVipSubscription')
                         ->with([
                             'type',
