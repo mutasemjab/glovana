@@ -267,13 +267,17 @@ class AuthProviderController extends Controller
 
 
 
-    public function completeProviderProfile(Request $request)
+   public function completeProviderProfile(Request $request)
     {
         $provider = auth()->user();
 
         if (!$provider instanceof \App\Models\Provider) {
             return $this->error_response('Unauthorized', 'Only providers can complete provider profile');
         }
+
+        // Get language from header (default to 'en')
+        $lang = $request->header('lang', 'en');
+        $lang = in_array($lang, ['en', 'ar']) ? $lang : 'en';
 
         // First, validate the basic structure
         $basicValidator = Validator::make($request->all(), [
@@ -297,7 +301,7 @@ class AuthProviderController extends Controller
             'provider_types.*.availabilities.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
             'provider_types.*.availabilities.*.start_time' => 'required|date_format:H:i',
             'provider_types.*.availabilities.*.end_time' => 'required|date_format:H:i|after:provider_types.*.availabilities.*.start_time',
-        ]);
+        ], $this->getValidationMessages($lang));
 
         if ($basicValidator->fails()) {
             $errors = $basicValidator->errors()->all();
@@ -311,7 +315,10 @@ class AuthProviderController extends Controller
                 $type = \App\Models\Type::find($providerTypeData['type_id']);
 
                 if (!$type) {
-                    return $this->error_response('Validation error', "Invalid type_id at index {$index}");
+                    $message = $lang === 'ar' 
+                        ? "معرف النوع غير صالح في السجل رقم " . ($index + 1)
+                        : "Invalid type ID at position " . ($index + 1);
+                    return $this->error_response($message, []);
                 }
 
                 // Validate based on booking type
@@ -319,14 +326,17 @@ class AuthProviderController extends Controller
                     // For hourly: price_per_hour is required, services are OPTIONAL
                     $hourlyValidator = Validator::make($providerTypeData, [
                         'price_per_hour' => 'required|numeric|min:0',
-                        'service_ids' => 'nullable|array', // Optional
+                        'service_ids' => 'nullable|array',
                         'service_ids.*' => 'exists:services,id',
-                        'services_with_prices' => 'nullable|array', // Add this to prevent validation error if sent
-                    ]);
+                        'services_with_prices' => 'nullable|array',
+                    ], $this->getValidationMessages($lang));
 
                     if ($hourlyValidator->fails()) {
                         $errors = $hourlyValidator->errors()->all();
-                        $errorMessage = "Provider type at index {$index}: " . implode(' ', $errors);
+                        $prefix = $lang === 'ar' 
+                            ? "خطأ في السجل رقم " . ($index + 1) . ": "
+                            : "Error at position " . ($index + 1) . ": ";
+                        $errorMessage = $prefix . implode(' ', $errors);
                         return $this->error_response($errorMessage, []);
                     }
                 } else {
@@ -337,12 +347,15 @@ class AuthProviderController extends Controller
                         'services_with_prices.*.price' => 'required|numeric|min:0',
                         'services_with_prices.*.is_active' => 'sometimes|boolean',
                         'price_per_hour' => 'nullable|numeric|min:0',
-                        'service_ids' => 'nullable|array', // Add this to prevent validation error if sent
-                    ]);
+                        'service_ids' => 'nullable|array',
+                    ], $this->getValidationMessages($lang));
 
                     if ($serviceValidator->fails()) {
                         $errors = $serviceValidator->errors()->all();
-                        $errorMessage = "Provider type at index {$index}: " . implode(' ', $errors);
+                        $prefix = $lang === 'ar' 
+                            ? "خطأ في السجل رقم " . ($index + 1) . ": "
+                            : "Error at position " . ($index + 1) . ": ";
+                        $errorMessage = $prefix . implode(' ', $errors);
                         return $this->error_response($errorMessage, []);
                     }
                 }
@@ -452,7 +465,11 @@ class AuthProviderController extends Controller
 
             DB::commit();
 
-            return $this->success_response('Provider profile completed successfully', [
+            $message = $lang === 'ar' 
+                ? 'تم إكمال ملف مقدم الخدمة بنجاح'
+                : 'Provider profile completed successfully';
+
+            return $this->success_response($message, [
                 'provider' => $provider->fresh()->load([
                     'providerTypes.type',
                     'providerTypes.services',
@@ -464,31 +481,11 @@ class AuthProviderController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollback();
-            return $this->error_response('Error completing profile', $e->getMessage());
+            $message = $lang === 'ar' 
+                ? 'حدث خطأ أثناء إكمال الملف الشخصي'
+                : 'Error completing profile';
+            return $this->error_response($message, $e->getMessage());
         }
-    }
-
-    public function getProviderProfile(Request $request)
-    {
-        $provider = auth()->user();
-
-        // Check if user is a provider
-        if (!$provider instanceof \App\Models\Provider) {
-            return $this->error_response('Unauthorized', 'Only providers can view provider profile');
-        }
-
-        $provider->load([
-            'providerTypes.type',
-            'providerTypes.services',
-            'providerTypes.providerServices.service',
-            'providerTypes.images',
-            'providerTypes.galleries',
-            'providerTypes.availabilities'
-        ]);
-
-        return $this->success_response('Provider profile retrieved successfully', [
-            'provider' => $provider
-        ]);
     }
 
     public function updateProviderType(Request $request, $providerTypeId)
@@ -499,13 +496,20 @@ class AuthProviderController extends Controller
             return $this->error_response('Unauthorized', 'Only providers can update provider types');
         }
 
+        // Get language from header
+        $lang = $request->header('lang', 'en');
+        $lang = in_array($lang, ['en', 'ar']) ? $lang : 'en';
+
         $providerType = \App\Models\ProviderType::where('id', $providerTypeId)
             ->where('provider_id', $provider->id)
             ->with('type')
             ->first();
 
         if (!$providerType) {
-            return $this->error_response('Not found', 'Provider type not found');
+            $message = $lang === 'ar' 
+                ? 'نوع مقدم الخدمة غير موجود'
+                : 'Provider type not found';
+            return $this->error_response($message, []);
         }
 
         // Basic validation
@@ -529,7 +533,7 @@ class AuthProviderController extends Controller
             'availabilities.*.day_of_week' => 'required|in:Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday',
             'availabilities.*.start_time' => 'required',
             'availabilities.*.end_time' => 'required|after:availabilities.*.start_time',
-        ]);
+        ], $this->getValidationMessages($lang));
 
         if ($validator->fails()) {
             $errors = $validator->errors()->all();
@@ -543,27 +547,32 @@ class AuthProviderController extends Controller
             if ($request->has('price_per_hour')) {
                 $hourlyValidator = Validator::make($request->all(), [
                     'price_per_hour' => 'numeric|min:0',
-                ]);
+                ], $this->getValidationMessages($lang));
 
                 if ($hourlyValidator->fails()) {
-                    return $this->error_response('Validation error', $hourlyValidator->errors());
+                    $errors = $hourlyValidator->errors()->all();
+                    return $this->error_response(implode(' ', $errors), []);
                 }
             }
 
             if ($request->has('service_ids')) {
                 $serviceValidator = Validator::make($request->all(), [
-                    'service_ids' => 'nullable|array', // Made nullable
+                    'service_ids' => 'nullable|array',
                     'service_ids.*' => 'exists:services,id',
-                ]);
+                ], $this->getValidationMessages($lang));
 
                 if ($serviceValidator->fails()) {
-                    return $this->error_response('Validation error', $serviceValidator->errors());
+                    $errors = $serviceValidator->errors()->all();
+                    return $this->error_response(implode(' ', $errors), []);
                 }
             }
 
             // Prevent services_with_prices from being used with hourly types
             if ($request->has('services_with_prices')) {
-                return $this->error_response('Invalid operation', 'Hourly booking types cannot use services_with_prices. Use service_ids instead.');
+                $message = $lang === 'ar'
+                    ? 'أنواع الحجز بالساعة لا يمكنها استخدام الخدمات مع الأسعار. استخدم معرفات الخدمات بدلاً من ذلك'
+                    : 'Hourly booking types cannot use services with prices. Use service IDs instead';
+                return $this->error_response($message, []);
             }
         } else {
             // For service: validate services_with_prices if provided
@@ -573,16 +582,20 @@ class AuthProviderController extends Controller
                     'services_with_prices.*.service_id' => 'required|exists:services,id',
                     'services_with_prices.*.price' => 'required|numeric|min:0',
                     'services_with_prices.*.is_active' => 'sometimes|boolean',
-                ]);
+                ], $this->getValidationMessages($lang));
 
                 if ($serviceValidator->fails()) {
-                    return $this->error_response('Validation error', $serviceValidator->errors());
+                    $errors = $serviceValidator->errors()->all();
+                    return $this->error_response(implode(' ', $errors), []);
                 }
             }
 
             // Prevent service_ids from being used with service types
             if ($request->has('service_ids')) {
-                return $this->error_response('Invalid operation', 'Service booking types cannot use service_ids. Use services_with_prices instead.');
+                $message = $lang === 'ar'
+                    ? 'أنواع حجز الخدمات لا يمكنها استخدام معرفات الخدمات. استخدم الخدمات مع الأسعار بدلاً من ذلك'
+                    : 'Service booking types cannot use service IDs. Use services with prices instead';
+                return $this->error_response($message, []);
             }
         }
 
@@ -708,14 +721,131 @@ class AuthProviderController extends Controller
                 'availabilities'
             ]);
 
-            return $this->success_response('Provider type updated successfully', [
+            $message = $lang === 'ar' 
+                ? 'تم تحديث نوع مقدم الخدمة بنجاح'
+                : 'Provider type updated successfully';
+
+            return $this->success_response($message, [
                 'provider_type' => $providerType
             ]);
         } catch (\Exception $e) {
             DB::rollback();
-            return $this->error_response('Error updating provider type', $e->getMessage());
+            $message = $lang === 'ar' 
+                ? 'حدث خطأ أثناء تحديث نوع مقدم الخدمة'
+                : 'Error updating provider type';
+            return $this->error_response($message, $e->getMessage());
         }
     }
+
+    // Add this helper method to your controller
+    private function getValidationMessages($lang)
+    {
+        if ($lang === 'ar') {
+            return [
+                'required' => 'حقل :attribute مطلوب',
+                'array' => 'حقل :attribute يجب أن يكون مصفوفة',
+                'min.array' => 'حقل :attribute يجب أن يحتوي على :min عنصر على الأقل',
+                'exists' => 'القيمة المحددة لـ :attribute غير صالحة',
+                'string' => 'حقل :attribute يجب أن يكون نصاً',
+                'max.string' => 'حقل :attribute يجب ألا يتجاوز :max حرفاً',
+                'numeric' => 'حقل :attribute يجب أن يكون رقماً',
+                'between.numeric' => 'حقل :attribute يجب أن يكون بين :min و :max',
+                'image' => 'حقل :attribute يجب أن يكون صورة',
+                'mimes' => 'حقل :attribute يجب أن يكون من نوع: :values',
+                'date_format' => 'حقل :attribute يجب أن يكون بصيغة :format',
+                'after' => 'حقل :attribute يجب أن يكون بعد :date',
+                'in' => 'القيمة المحددة لـ :attribute غير صالحة',
+                'boolean' => 'حقل :attribute يجب أن يكون صحيحاً أو خاطئاً',
+                'min.numeric' => 'حقل :attribute يجب أن يكون :min على الأقل',
+                
+                // Custom attribute names in Arabic
+                'attributes' => [
+                    'provider_types' => 'أنواع مقدم الخدمة',
+                    'provider_types.*.type_id' => 'معرف النوع',
+                    'provider_types.*.name' => 'الاسم',
+                    'provider_types.*.description' => 'الوصف',
+                    'provider_types.*.lat' => 'خط العرض',
+                    'provider_types.*.lng' => 'خط الطول',
+                    'provider_types.*.number_of_work' => 'عدد الأعمال',
+                    'provider_types.*.phone_number_of_provider_type' => 'رقم الهاتف',
+                    'provider_types.*.address' => 'العنوان',
+                    'provider_types.*.is_vip' => 'حالة VIP',
+                    'provider_types.*.practice_license' => 'رخصة الممارسة',
+                    'provider_types.*.identity_photo' => 'صورة الهوية',
+                    'provider_types.*.images' => 'الصور',
+                    'provider_types.*.galleries' => 'معرض الصور',
+                    'provider_types.*.availabilities' => 'الأوقات المتاحة',
+                    'provider_types.*.availabilities.*.day_of_week' => 'يوم الأسبوع',
+                    'provider_types.*.availabilities.*.start_time' => 'وقت البداية',
+                    'provider_types.*.availabilities.*.end_time' => 'وقت النهاية',
+                    'price_per_hour' => 'السعر بالساعة',
+                    'service_ids' => 'معرفات الخدمات',
+                    'services_with_prices' => 'الخدمات مع الأسعار',
+                    'services_with_prices.*.service_id' => 'معرف الخدمة',
+                    'services_with_prices.*.price' => 'السعر',
+                    'services_with_prices.*.is_active' => 'حالة التفعيل',
+                    'name' => 'الاسم',
+                    'description' => 'الوصف',
+                    'lat' => 'خط العرض',
+                    'lng' => 'خط الطول',
+                    'number_of_work' => 'عدد الأعمال',
+                    'phone_number_of_provider_type' => 'رقم الهاتف',
+                    'address' => 'العنوان',
+                    'is_vip' => 'حالة VIP',
+                    'status' => 'الحالة',
+                    'images' => 'الصور',
+                    'galleries' => 'معرض الصور',
+                    'availabilities' => 'الأوقات المتاحة',
+                    'availabilities.*.day_of_week' => 'يوم الأسبوع',
+                    'availabilities.*.start_time' => 'وقت البداية',
+                    'availabilities.*.end_time' => 'وقت النهاية',
+                ]
+            ];
+        }
+        
+        return [
+            'required' => 'The :attribute field is required',
+            'array' => 'The :attribute must be an array',
+            'min.array' => 'The :attribute must have at least :min item(s)',
+            'exists' => 'The selected :attribute is invalid',
+            'string' => 'The :attribute must be a string',
+            'max.string' => 'The :attribute must not exceed :max characters',
+            'numeric' => 'The :attribute must be a number',
+            'between.numeric' => 'The :attribute must be between :min and :max',
+            'image' => 'The :attribute must be an image',
+            'mimes' => 'The :attribute must be a file of type: :values',
+            'date_format' => 'The :attribute must be in :format format',
+            'after' => 'The :attribute must be after :date',
+            'in' => 'The selected :attribute is invalid',
+            'boolean' => 'The :attribute must be true or false',
+            'min.numeric' => 'The :attribute must be at least :min',
+        ];
+    }
+
+    public function getProviderProfile(Request $request)
+    {
+        $provider = auth()->user();
+
+        // Check if user is a provider
+        if (!$provider instanceof \App\Models\Provider) {
+            return $this->error_response('Unauthorized', 'Only providers can view provider profile');
+        }
+
+        $provider->load([
+            'providerTypes.type',
+            'providerTypes.services',
+            'providerTypes.providerServices.service',
+            'providerTypes.images',
+            'providerTypes.galleries',
+            'providerTypes.availabilities'
+        ]);
+
+        return $this->success_response('Provider profile retrieved successfully', [
+            'provider' => $provider
+        ]);
+    }
+
+  
 
     /**
      * Add or update services with prices for a provider type

@@ -26,7 +26,7 @@ class AppointmentController extends Controller
 {
     use Responses;
 
-    private const AUTO_CANCEL_TIMEOUT_MINUTES = 10;
+    private const AUTO_CANCEL_TIMEOUT_MINUTES = 2;
 
 
     public function enableCancelRating(Request $request)
@@ -370,7 +370,9 @@ class AppointmentController extends Controller
                     }
 
                     // ===== NEW: Schedule auto-cancellation for service-based appointments =====
-                    $this->scheduleAutoCancellation($appointment->id, $user->id, $providerType->provider->id);
+                    if ($request->appointment_type === 'instant') {
+                        $this->scheduleAutoCancellation($appointment->id, $user->id, $providerType->provider->id);
+                    }
                     // ===== END OF NEW CODE =====
                 }
                 // For hourly bookings, you might want to store number_of_hours in a separate table or field
