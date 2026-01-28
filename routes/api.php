@@ -84,7 +84,7 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::get('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'index']);
         Route::post('/uploadPhotoVoice', [UploadPhotoVoiceController::class, 'store']);
 
-        Route::post('/update_profile', [AuthController::class, 'updateProfile']);
+        Route::post('/update_profile', [AuthController::class, 'updateUserProfile']);
         Route::post('/delete_account', [AuthController::class, 'deleteAccount']);
         Route::get('/userProfile', [AuthController::class, 'userProfile']);
 

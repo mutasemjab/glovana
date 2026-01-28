@@ -410,44 +410,25 @@ class AuthController extends Controller
         }
     }
 
-     public function updateProfile(Request $request)
+   public function updateUserProfile(Request $request)
     {
         try {
-            // Check both authentication guards
-            $userApi = auth('user-api')->user();
-            $providerApi = auth('provider-api')->user();
+            // Authenticate user
+            $user = auth('user-api')->user();
             
-            // Determine which type of user is authenticated
-            if ($userApi) {
-                $user = $userApi;
-                $userType = 'user';
-                $table = 'users';
-            } elseif ($providerApi) {
-                $user = $providerApi;
-                $userType = 'provider';
-                $table = 'providers';
-            } else {
+            if (!$user) {
                 return $this->error_response('Unauthenticated', [], 401);
             }
             
-            // Base validation rules for both user types
+            // Validation rules for user
             $validationRules = [
                 'name' => 'nullable|string|max:255',
-                'email' => 'nullable|email|unique:' . $table . ',email,' . $user->id,
+                'email' => 'nullable|email|unique:users,email,' . $user->id,
                 'phone' => 'nullable|string',
                 'fcm_token' => 'nullable|string',
-                'password' => 'nullable|string',
+                'password' => 'nullable|string|min:6',
                 'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             ];
-            
-            // Add provider-specific validation rules if the user is a provider
-            if ($userType == 'provider') {
-                $providerRules = [
-                    'photo_of_manager' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-                    'name_of_manager' => 'nullable|string|max:255',
-                ];
-                $validationRules = array_merge($validationRules, $providerRules);
-            }
             
             // Validate input data
             $validator = Validator::make($request->all(), $validationRules);
@@ -458,7 +439,7 @@ class AuthController extends Controller
             // Initialize data array
             $data = [];
             
-            // Get basic fields for both user types (only filled fields)
+            // Get filled fields only
             if ($request->filled('name')) {
                 $data['name'] = $request->name;
             }
@@ -480,7 +461,7 @@ class AuthController extends Controller
                 $data['password'] = bcrypt($request->password);
             }
             
-            // Handle basic profile photo upload (for both user types)
+            // Handle profile photo upload
             if ($request->hasFile('photo')) {
                 // Delete old photo if exists
                 if ($user->photo) {
@@ -492,39 +473,21 @@ class AuthController extends Controller
                 $data['photo'] = uploadImage('assets/admin/uploads', $request->file('photo'));
             }
             
-            // Handle provider-specific fields and photos if the user is a provider
-            if ($userType == 'provider') {
-                // Add text field (only if filled)
-                if ($request->filled('name_of_manager')) {
-                    $data['name_of_manager'] = $request->name_of_manager;
-                }
-                
-                // Handle provider photo upload
-                if ($request->hasFile('photo_of_manager')) {
-                    // Delete old photo if exists
-                    if ($user->photo_of_manager) {
-                        $oldPhotoPath = 'assets/admin/uploads/' . $user->photo_of_manager;
-                        if (file_exists($oldPhotoPath)) {
-                            @unlink($oldPhotoPath);
-                        }
-                    }
-                    $data['photo_of_manager'] = uploadImage('assets/admin/uploads', $request->file('photo_of_manager'));
-                }
-            }
-            
             // Update user data
             $user->update($data);
             
             // Refresh user data to get updated values
             $user->refresh();
             
-            return $this->success_response(ucfirst($userType) . ' profile updated successfully', $user);
+            return $this->success_response('User profile updated successfully', $user);
             
         } catch (\Throwable $th) {
-            \Log::error('Profile update error: ' . $th->getMessage());
+            \Log::error('User profile update error: ' . $th->getMessage());
             return $this->error_response('Failed to update profile', ['message' => $th->getMessage()]);
         }
     }
+
+
 
        public function notifications()
         {

@@ -23,6 +23,104 @@ class AuthProviderController extends Controller
 {
     use Responses;
 
+    /**
+     * Update Provider Profile
+     */
+    public function updateProviderProfile(Request $request)
+    {
+        try {
+            // Authenticate provider
+            $provider = auth('provider-api')->user();
+            
+            if (!$provider) {
+                return $this->error_response('Unauthenticated', [], 401);
+            }
+            
+            // Validation rules for provider
+            $validationRules = [
+                'name' => 'nullable|string|max:255',
+                'email' => 'nullable|email|unique:providers,email,' . $provider->id,
+                'phone' => 'nullable|string',
+                'fcm_token' => 'nullable|string',
+                'password' => 'nullable|string|min:6',
+                'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                'photo_of_manager' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                'name_of_manager' => 'nullable|string|max:255',
+            ];
+            
+            // Validate input data
+            $validator = Validator::make($request->all(), $validationRules);
+            if ($validator->fails()) {
+                return $this->error_response('Validation error', $validator->errors());
+            }
+            
+            // Initialize data array
+            $data = [];
+            
+            // Get filled fields only
+            if ($request->filled('name')) {
+                $data['name'] = $request->name;
+            }
+            
+            if ($request->filled('email')) {
+                $data['email'] = $request->email;
+            }
+            
+            if ($request->filled('phone')) {
+                $data['phone'] = $request->phone;
+            }
+            
+            if ($request->filled('fcm_token')) {
+                $data['fcm_token'] = $request->fcm_token;
+            }
+            
+            // Hash password if provided
+            if ($request->filled('password')) {
+                $data['password'] = bcrypt($request->password);
+            }
+            
+            // Handle profile photo upload
+            if ($request->hasFile('photo')) {
+                // Delete old photo if exists
+                if ($provider->photo) {
+                    $oldPhotoPath = 'assets/admin/uploads/' . $provider->photo;
+                    if (file_exists($oldPhotoPath)) {
+                        @unlink($oldPhotoPath);
+                    }
+                }
+                $data['photo'] = uploadImage('assets/admin/uploads', $request->file('photo'));
+            }
+            
+            // Handle provider-specific fields
+            if ($request->filled('name_of_manager')) {
+                $data['name_of_manager'] = $request->name_of_manager;
+            }
+            
+            // Handle manager photo upload
+            if ($request->hasFile('photo_of_manager')) {
+                // Delete old photo if exists
+                if ($provider->photo_of_manager) {
+                    $oldPhotoPath = 'assets/admin/uploads/' . $provider->photo_of_manager;
+                    if (file_exists($oldPhotoPath)) {
+                        @unlink($oldPhotoPath);
+                    }
+                }
+                $data['photo_of_manager'] = uploadImage('assets/admin/uploads', $request->file('photo_of_manager'));
+            }
+            
+            // Update provider data
+            $provider->update($data);
+            
+            // Refresh provider data to get updated values
+            $provider->refresh();
+            
+            return $this->success_response('Provider profile updated successfully', $provider);
+            
+        } catch (\Throwable $th) {
+            \Log::error('Provider profile update error: ' . $th->getMessage());
+            return $this->error_response('Failed to update profile', ['message' => $th->getMessage()]);
+        }
+    }
 
     public function updateStatusOnOff($id)
     {
