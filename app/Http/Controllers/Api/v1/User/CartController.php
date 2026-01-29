@@ -15,27 +15,53 @@ class CartController extends Controller
 {
     use Responses;
 
-    public function index(Request $request)
-    {
-        $cart = Cart::with('product', 'product.images')
-            ->where('user_id', $request->user()->id)
-            ->where('status', 1)
-            ->get();
+   public function index(Request $request)
+{
+    $cart = Cart::with('product', 'product.images')
+        ->where('user_id', $request->user()->id)
+        ->where('status', 1)
+        ->get();
 
-        // Calculate cart summary
-        $summary = [
-            'total_items' => $cart->count(),
-            'total_quantity' => $cart->sum('quantity'),
-            'subtotal' => $cart->sum('total_price_product'),
-            'total_discount' => $cart->sum('discount_coupon'),
-            'total' => $cart->sum('total_price_product') - $cart->sum('discount_coupon'),
-        ];
+    // Calculate cart summary with taxes
+    $totalTax = 0;
+    $totalBeforeTax = 0;
+    $totalDiscount = 0;
 
-        return $this->success_response('Cart retrieved successfully', [
-            'cart_items' => $cart,
-            'summary' => $summary
-        ]);
+    foreach ($cart as $item) {
+        $product = $item->product;
+        
+        // Calculate base price (after product discount)
+        $basePrice = $product->price_after_discount ?? $product->price;
+        $productSubtotal = $basePrice * $item->quantity;
+        
+        // Calculate tax
+        $taxRate = $product->tax ?? 16; // Default 10% if no tax set
+        $taxValue = $productSubtotal * ($taxRate / 100);
+        
+        // Calculate discount
+        $discountValue = ($product->price - $basePrice) * $item->quantity;
+        
+        $totalBeforeTax += $productSubtotal;
+        $totalTax += $taxValue;
+        $totalDiscount += $discountValue;
     }
+
+    $summary = [
+        'total_items' => $cart->count(),
+        'total_quantity' => $cart->sum('quantity'),
+        'subtotal' => $totalBeforeTax, // Total before tax
+        'total_tax' => round($totalTax, 2), // Total tax amount
+        'total_discount' => $totalDiscount, // Product discounts
+        'total_before_tax' => $totalBeforeTax,
+        'total_after_tax' => round($totalBeforeTax + $totalTax, 2),
+        'total' => round($totalBeforeTax + $totalTax, 2), // Final total with tax
+    ];
+
+    return $this->success_response('Cart retrieved successfully', [
+        'cart_items' => $cart,
+        'summary' => $summary
+    ]);
+}
 
     public function store(Request $request)
     {
