@@ -60,6 +60,12 @@ class AutoCancelAppointment implements ShouldQueue
 
                 try {
                     FCMController::sendMessageToUser($title, $body, $this->userId);
+                     \App\Models\Notification::create([
+                        'title' => $title,
+                        'body' => $body,
+                        'type' => 3,
+                        'user_id' => $this->userId,
+                    ]);
                     Log::info("Auto-cancel notification sent to user ID: {$this->userId} for appointment #{$this->appointmentId}");
                 } catch (\Exception $e) {
                     Log::error("Failed to send auto-cancel notification to user: " . $e->getMessage());

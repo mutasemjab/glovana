@@ -198,6 +198,13 @@ class SendAppointmentReminders extends Command
 
         AdminFCMController::sendMessageToProvider($title, $body, $appointment->providerType->provider->id, $data);
 
+        \App\Models\Notification::create([
+            'title' => $title,
+            'body' => $body,
+            'type' => 4,
+            'user_id' => $appointment->providerType->provider->id,
+        ]);
+
         Log::info("Provider reminder sent for appointment #{$appointment->number} to provider ID: {$appointment->providerType->provider->id}");
     }
 

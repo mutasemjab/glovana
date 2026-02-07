@@ -360,7 +360,7 @@ class ProviderController extends Controller
             'number_of_work' => $providerType->number_of_work,
             'phone_number_of_provider_type' => $providerType->phone_number_of_provider_type,
             'status' => $providerType->status,
-            'is_vip' => $providerType->is_vip == 1,
+            'is_vip' => $providerType->activeVipSubscription()->exists(),
             'is_favourite' => $providerType->is_favourite,
             'type' => [
                 'id' => $providerType->type->id,

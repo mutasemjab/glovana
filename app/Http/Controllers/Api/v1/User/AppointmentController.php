@@ -1201,6 +1201,14 @@ class AppointmentController extends Controller
                 : "A fine of {$fineData['fine_amount']} is pending for late cancellation of appointment #{$appointment->number}. Please add balance to your wallet.";
 
             FCMController::sendMessageToUser($title, $body, $user->id);
+            
+            \App\Models\Notification::create([
+            'title' => $title,
+            'body' => $body,
+            'type' => 3,
+            'user_id' => $appointment->user_id,
+            ]);
+
         } catch (\Exception $e) {
             \Log::error("Failed to send fine notification to user: " . $e->getMessage());
         }

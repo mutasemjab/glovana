@@ -488,6 +488,14 @@ class AppointmentProviderController extends Controller
             }
 
             FCMController::sendMessageToUser($title, $body, $appointment->user_id);
+
+            \App\Models\Notification::create([
+            'title' => $title,
+            'body' => $body,
+            'type' => 3,
+            'user_id' => $appointment->user_id,
+            ]);
+        
             \Log::info("Appointment completed notification sent to user ID: {$appointment->user_id}");
         } catch (\Exception $e) {
             \Log::error("Failed to send appointment completed notification: " . $e->getMessage());
@@ -598,6 +606,14 @@ class AppointmentProviderController extends Controller
             }
 
             FCMController::sendMessageToUser($title, $body, $appointment->user_id);
+
+            \App\Models\Notification::create([
+            'title' => $title,
+            'body' => $body,
+            'type' => 3,
+            'user_id' => $appointment->user_id,
+            ]);
+            
             \Log::info("Appointment status notification sent to user ID: {$appointment->user_id}");
         } catch (\Exception $e) {
             \Log::error("Failed to send appointment status notification to user: " . $e->getMessage());
