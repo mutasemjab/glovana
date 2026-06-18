@@ -410,6 +410,9 @@ class ProviderController extends Controller
             $data['price_per_hour'] = $discountedPrice;
             $data['original_price_per_hour'] = $originalPrice;
             $data['has_discount'] = $hasDiscount;
+            $data['booked_hourly_slots'] = $includeFullDetails
+                ? $this->getBookedHourlySlots($providerType)
+                : [];
             if ($hasDiscount) {
                 $data['discount_percentage'] = $discountPercentage;
                 $data['discount_info'] = [
@@ -821,5 +824,33 @@ class ProviderController extends Controller
         }
 
         return $formattedAvailability;
+    }
+
+    private function getBookedHourlySlots($providerType)
+    {
+        return $providerType->appointments()
+            ->whereNotIn('appointment_status', [4, 5])
+            ->where('date', '>=', now()->startOfDay())
+            ->where('date', '<=', now()->addMonths(2)->endOfDay())
+            ->orderBy('date')
+            ->get(['id', 'date', 'number_of_hours'])
+            ->flatMap(function ($appointment) {
+                $start = $appointment->date instanceof \Carbon\Carbon
+                    ? $appointment->date->copy()
+                    : \Carbon\Carbon::parse($appointment->date);
+                $hours = max((int) ($appointment->number_of_hours ?? 1), 1);
+
+                return collect(range(0, $hours - 1))->map(function ($offset) use ($appointment, $start) {
+                    $slot = $start->copy()->addHours($offset);
+
+                    return [
+                        'appointment_id' => $appointment->id,
+                        'date' => $slot->format('Y-m-d'),
+                        'time' => $slot->format('H:i'),
+                    ];
+                });
+            })
+            ->values()
+            ->all();
     }
 }

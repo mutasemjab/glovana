@@ -263,6 +263,24 @@ class AppointmentController extends Controller
                 return $this->error_response('Validation error', $validator->errors());
             }
 
+            if ($bookingType === 'hourly') {
+                $hourlyConflict = $this->findHourlyBookingConflict(
+                    $providerType,
+                    $request->date,
+                    $request->number_of_hours
+                );
+
+                if ($hourlyConflict) {
+                    return $this->error_response(
+                        'Selected hour is already booked',
+                        [
+                            'message' => 'The selected hourly slot is no longer available. Please choose another time.',
+                            'conflict' => $hourlyConflict,
+                        ]
+                    );
+                }
+            }
+
             DB::beginTransaction();
 
             try {
@@ -325,6 +343,7 @@ class AppointmentController extends Controller
                     'payment_type' => $request->payment_type,
                     'number' => $appointmentNumber,
                     'appointment_type' => $request->appointment_type,
+                    'number_of_hours' => $bookingType === 'hourly' ? $request->number_of_hours : null,
                     
                     // Pricing fields
                     'delivery_fee' => $request->delivery_fee ?? 0,
@@ -426,6 +445,47 @@ class AppointmentController extends Controller
         \Log::info("Auto-cancel job scheduled for appointment #{$appointmentId} - will execute in " . self::AUTO_CANCEL_TIMEOUT_MINUTES . " minute(s)");
     }
 
+    private function findHourlyBookingConflict($providerType, $requestedDate, $numberOfHours = 1, $ignoredAppointmentId = null)
+    {
+        $slotStart = \Carbon\Carbon::parse($requestedDate)->copy()->setSecond(0);
+        $slotCount = max((int) ($numberOfHours ?? 1), 1);
+        $slotEnd = $slotStart->copy()->addHours($slotCount);
+
+        $query = Appointment::query()
+            ->where('provider_type_id', $providerType->id)
+            ->whereNotIn('appointment_status', [4, 5])
+            ->where('date', '<', $slotEnd->format('Y-m-d H:i:s'))
+            ->whereRaw(
+                'DATE_ADD(`date`, INTERVAL COALESCE(number_of_hours, 1) HOUR) > ?',
+                [$slotStart->format('Y-m-d H:i:s')]
+            );
+
+        if (!is_null($ignoredAppointmentId)) {
+            $query->where('id', '!=', $ignoredAppointmentId);
+        }
+
+        $conflictingAppointment = $query
+            ->orderBy('date')
+            ->first(['id', 'date', 'number_of_hours']);
+
+        if (!$conflictingAppointment) {
+            return null;
+        }
+
+        $conflictStart = $conflictingAppointment->date instanceof \Carbon\Carbon
+            ? $conflictingAppointment->date->copy()
+            : \Carbon\Carbon::parse($conflictingAppointment->date);
+        $conflictHours = max((int) ($conflictingAppointment->number_of_hours ?? 1), 1);
+
+        return [
+            'appointment_id' => $conflictingAppointment->id,
+            'date' => $conflictStart->format('Y-m-d'),
+            'start_time' => $conflictStart->format('H:i'),
+            'end_time' => $conflictStart->copy()->addHours($conflictHours)->format('H:i'),
+            'number_of_hours' => $conflictHours,
+        ];
+    }
+
     /**
      * NEW METHOD: Calculate pricing for hourly bookings
      */
@@ -524,6 +584,30 @@ class AppointmentController extends Controller
                 return $this->error_response('Validation error', $validator->errors());
             }
 
+            if ($bookingType === 'hourly') {
+                $requestedDate = $request->filled('date') ? $request->date : $appointment->date;
+                $requestedHours = $request->filled('number_of_hours')
+                    ? $request->number_of_hours
+                    : ($appointment->number_of_hours ?? 1);
+
+                $hourlyConflict = $this->findHourlyBookingConflict(
+                    $providerType,
+                    $requestedDate,
+                    $requestedHours,
+                    $appointment->id
+                );
+
+                if ($hourlyConflict) {
+                    return $this->error_response(
+                        'Selected hour is already booked',
+                        [
+                            'message' => 'The selected hourly slot is no longer available. Please choose another time.',
+                            'conflict' => $hourlyConflict,
+                        ]
+                    );
+                }
+            }
+
             DB::beginTransaction();
 
             try {
@@ -593,6 +677,9 @@ class AppointmentController extends Controller
                     $appointment->discount_percentage = $pricingData['discount_percentage'];
                     $appointment->discount_amount = $pricingData['discount_amount'];
                     $appointment->has_discount = $pricingData['has_discount'] ? 1 : 2;
+                    $appointment->number_of_hours = $request->number_of_hours;
+                } elseif ($bookingType === 'hourly' && empty($appointment->number_of_hours)) {
+                    $appointment->number_of_hours = 1;
                 }
 
                 $appointment->save();

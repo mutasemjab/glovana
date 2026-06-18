@@ -14,6 +14,7 @@ class Appointment extends Model
     protected $guarded = [];
     protected $casts = [
         'date' => 'datetime',
+        'number_of_hours' => 'integer',
         'delivery_fee' => 'double',
         'total_prices' => 'double',
         'total_discounts' => 'double',
