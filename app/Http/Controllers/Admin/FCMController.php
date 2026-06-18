@@ -16,7 +16,7 @@ class FCMController extends BaseController
 {
     use AuthorizesRequests, DispatchesJobs, ValidatesRequests;
 
-    public static function sendMessage($title, $body, $fcmToken, $userId, $screen = "order")
+    public static function sendMessage($title, $body, $fcmToken, $userId, $screen = "order", array $data = [])
     {
         if (!$fcmToken) {
             \Log::error("FCM Error: No FCM token provided for user ID $userId");
@@ -41,6 +41,16 @@ class FCMController extends BaseController
                 'Content-Type: application/json'
             ];
 
+            if (!empty($data['screen']) && is_string($data['screen'])) {
+                $screen = $data['screen'];
+            }
+
+            $payloadData = self::stringifyDataPayload(array_merge([
+                'screen' => $screen,
+                'key' => $screen,
+                "click_action" => "FLUTTER_NOTIFICATION_CLICK",
+            ], $data));
+
             $data = [
                 "message" => [
                     "token" => $fcmToken,
@@ -48,10 +58,7 @@ class FCMController extends BaseController
                         "title" => $title,
                         "body" => $body
                     ],
-                    "data" => [
-                        'screen' => $screen,
-                        "click_action" => "FLUTTER_NOTIFICATION_CLICK"
-                    ],
+                    "data" => $payloadData,
                     "android" => [
                         "priority" => "high"
                     ]
@@ -96,6 +103,21 @@ class FCMController extends BaseController
         }
     }
 
+    private static function stringifyDataPayload(array $data): array
+    {
+        $normalized = [];
+
+        foreach ($data as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+
+            $normalized[$key] = is_scalar($value) ? (string) $value : json_encode($value);
+        }
+
+        return $normalized;
+    }
+
    public static function sendMessageToAll($title, $body, $type = 0, $userId = null): bool
     {
         $query = User::query();
@@ -124,7 +146,7 @@ class FCMController extends BaseController
     }
 
     
-    public static function sendMessageToUser($title, $body, $user_id): bool
+    public static function sendMessageToUser($title, $body, $user_id, array $data = [], $screen = "order"): bool
     {
         // Find the user by the provided user_id
         $user = User::find($user_id);
@@ -136,7 +158,7 @@ class FCMController extends BaseController
         }
     
         // Send the message using the FCM token
-        $sent = self::sendMessage($title, $body, $user->fcm_token, $user->id);
+        $sent = self::sendMessage($title, $body, $user->fcm_token, $user->id, $screen, $data);
     
         // Log an error if sending fails
         if (!$sent) {

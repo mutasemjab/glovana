@@ -78,8 +78,24 @@
                         @if($order->note)
                         <div class="col-12">
                             <div class="mb-3">
-                                <label class="form-label">{{ __('messages.note') }}</label>
+                                <label class="form-label">{{ __('messages.customer_note') }}</label>
                                 <p class="form-control-static">{{ $order->note }}</p>
+                            </div>
+                        </div>
+                        @endif
+                        @if($order->customer_request)
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{{ __('messages.customer_request') }}</label>
+                                <p class="form-control-static">{{ $order->customer_request }}</p>
+                            </div>
+                        </div>
+                        @endif
+                        @if($order->admin_note)
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label class="form-label">{{ __('messages.admin_note') }}</label>
+                                <p class="form-control-static">{{ $order->admin_note }}</p>
                             </div>
                         </div>
                         @endif

@@ -121,6 +121,7 @@ Route::group(['prefix' => 'v1/user'], function () {
         Route::get('/orders', [OrderController::class, 'index']);
         Route::post('/orders', [OrderController::class, 'store']);
         Route::get('/orders/{id}', [OrderController::class, 'details']);
+        Route::post('/orders/{id}/request', [OrderController::class, 'sendRequest']);
         Route::post('/orders/{id}/cancel', [OrderController::class, 'cancelOrder']);
 
         Route::get('/coupons', [CouponController::class, 'index']);

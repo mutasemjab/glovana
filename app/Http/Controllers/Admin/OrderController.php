@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 
+use App\Models\Notification;
 use App\Models\Order;
 use App\Models\User;
 use App\Models\Driver;
@@ -75,9 +76,8 @@ class OrderController extends Controller
 
             // Add status labels and statistics
             $orders->getCollection()->transform(function ($order) {
-                $order->order_status_label = $this->getOrderStatusLabel($order->order_status);
-                $order->payment_status_label = $this->getPaymentStatusLabel($order->payment_status);
-                $order->items_count = $order->orderProducts->sum('quantity');
+                $order = $this->decorateOrder($order);
+                $order->items_count = $order->total_items;
                 return $order;
             });
 
@@ -102,8 +102,7 @@ class OrderController extends Controller
                 'orderProducts.product'
             ])->findOrFail($id);
 
-            $order->order_status_label = $this->getOrderStatusLabel($order->order_status);
-            $order->payment_status_label = $this->getPaymentStatusLabel($order->payment_status);
+            $order = $this->decorateOrder($order);
 
             return view('admin.orders.show', compact('order'));
         } catch (\Exception $e) {
@@ -118,10 +117,12 @@ class OrderController extends Controller
     {
         try {
             $order = Order::with([
-                'user:id,name,phone,email',
+                'user:id,name,phone,email,country_code',
                 'address',
                 'orderProducts.product'
             ])->findOrFail($id);
+
+            $order = $this->decorateOrder($order);
 
             $users = User::where('activate', 1)->get(['id', 'name', 'phone', 'email']);
 
@@ -138,13 +139,18 @@ class OrderController extends Controller
             $request->validate([
                 'order_status' => 'required|integer|in:1,2,3,4,5,6',
                 'payment_status' => 'required|integer|in:1,2',
-                'note' => 'nullable|string|max:500',
+                'admin_note' => 'nullable|string|max:2000',
             ]);
 
             $order = Order::with('orderProducts')->findOrFail($id);
             $oldStatus = $order->order_status;
             $oldPaymentStatus = $order->payment_status;
+            $oldAdminNote = $order->admin_note;
             $user = $order->user;
+            $adminNote = trim((string) $request->admin_note);
+            $adminNote = $adminNote !== '' ? $adminNote : null;
+            $statusChanged = (int) $oldStatus !== (int) $request->order_status;
+            $adminNoteChanged = ($oldAdminNote ?? null) !== $adminNote;
             
             DB::beginTransaction();
 
@@ -153,7 +159,7 @@ class OrderController extends Controller
                 $order->update([
                     'order_status' => $request->order_status,
                     'payment_status' => $request->payment_status,
-                    'note' => $request->note
+                    'admin_note' => $adminNote
                 ]);
 
                 // Handle payment status change
@@ -175,6 +181,14 @@ class OrderController extends Controller
                 }
 
                 DB::commit();
+
+                if ($statusChanged) {
+                    $this->notifyUserAboutOrderStatusChange($order->fresh());
+                }
+
+                if ($adminNoteChanged && !empty($adminNote)) {
+                    $this->notifyUserAboutAdminNote($order->fresh(), $adminNote);
+                }
 
                 $message = 'Order updated successfully';
                 if ($request->order_status == 4 && $oldStatus != 4) {
@@ -364,6 +378,80 @@ class OrderController extends Controller
     }
 
     /**
+     * Decorate order with derived dashboard fields.
+     */
+    private function decorateOrder(Order $order)
+    {
+        $order->order_status_label = $this->getOrderStatusLabel($order->order_status);
+        $order->payment_status_label = $this->getPaymentStatusLabel($order->payment_status);
+        $order->status_color = $this->getStatusColor($order->order_status);
+        $order->total_items = $order->orderProducts->sum('quantity');
+
+        return $order;
+    }
+
+    /**
+     * Notify the customer that the order status changed.
+     */
+    private function notifyUserAboutOrderStatusChange(Order $order): void
+    {
+        if (!$order->user_id) {
+            return;
+        }
+
+        $statusLabel = $this->getOrderStatusLabel($order->order_status);
+        $title = "Order #{$order->number} updated";
+        $body = "Your order status is now {$statusLabel}.";
+
+        $this->createUserOrderNotification($order, $title, $body, [
+            'order_id' => $order->id,
+            'order_status' => $order->order_status,
+            'status_text' => $statusLabel,
+        ]);
+    }
+
+    /**
+     * Notify the customer that the admin added or updated a note.
+     */
+    private function notifyUserAboutAdminNote(Order $order, string $adminNote): void
+    {
+        if (!$order->user_id) {
+            return;
+        }
+
+        $title = "New note on order #{$order->number}";
+
+        $this->createUserOrderNotification($order, $title, $adminNote, [
+            'order_id' => $order->id,
+            'order_status' => $order->order_status,
+            'status_text' => $this->getOrderStatusLabel($order->order_status),
+        ]);
+    }
+
+    /**
+     * Store a user notification and push it through FCM.
+     */
+    private function createUserOrderNotification(Order $order, string $title, string $body, array $data = []): void
+    {
+        Notification::create([
+            'title' => $title,
+            'body' => $body,
+            'type' => 3,
+            'user_id' => $order->user_id,
+        ]);
+
+        FCMController::sendMessageToUser(
+            $title,
+            $body,
+            $order->user_id,
+            array_merge([
+                'screen' => 'order',
+                'key' => 'order',
+            ], $data)
+        );
+    }
+
+    /**
      * Get order status label
      */
     private function getOrderStatusLabel($status)
@@ -378,6 +466,22 @@ class OrderController extends Controller
         ];
 
         return $labels[$status] ?? 'Unknown';
+    }
+
+    /**
+     * Get badge color for order status.
+     */
+    private function getStatusColor($status)
+    {
+        return match ((int) $status) {
+            1 => 'warning',
+            2 => 'info',
+            3 => 'primary',
+            4 => 'success',
+            5 => 'danger',
+            6 => 'secondary',
+            default => 'dark',
+        };
     }
 
     /**

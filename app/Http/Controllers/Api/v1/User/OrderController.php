@@ -23,7 +23,17 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
-        $orders = Order::with('orderProducts', 'orderProducts.product', 'orderProducts.product.images')->where('user_id', $request->user()->id)->get();
+        $orders = Order::with('orderProducts', 'orderProducts.product', 'orderProducts.product.images')
+            ->where('user_id', $request->user()->id)
+            ->orderByDesc('id')
+            ->get();
+
+        $orders->transform(function ($order) {
+            $order->status_text = $this->getOrderStatusLabel($order->order_status);
+            $order->order_status_label = $order->status_text;
+            return $order;
+        });
+
         return $this->success_response('Orders retrieved successfully', $orders);
     }
 
@@ -186,20 +196,55 @@ class OrderController extends Controller
         }
     }
 
-    public function details($id)
+    public function details(Request $request, $id)
     {
-        $order = Order::with('orderProducts', 'orderProducts.product', 'orderProducts.product.images')->find($id);
+        $order = Order::with('orderProducts', 'orderProducts.product', 'orderProducts.product.images')
+            ->where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
 
         if (!$order) {
             return $this->error_response('Order not found', []);
         }
 
+        $order->status_text = $this->getOrderStatusLabel($order->order_status);
+        $order->order_status_label = $order->status_text;
+
         return $this->success_response('Order details', $order);
     }
 
-    public function cancelOrder($id)
+    public function sendRequest(Request $request, $id)
     {
-        $order = Order::find($id);
+        $validator = Validator::make($request->all(), [
+            'customer_request' => 'required|string|max:2000',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error_response('Validation error', $validator->errors());
+        }
+
+        $order = Order::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        if (!$order) {
+            return $this->error_response('Order not found', []);
+        }
+
+        $order->customer_request = trim((string) $request->customer_request);
+        $order->save();
+
+        $order->status_text = $this->getOrderStatusLabel($order->order_status);
+        $order->order_status_label = $order->status_text;
+
+        return $this->success_response('Order request sent successfully', $order);
+    }
+
+    public function cancelOrder(Request $request, $id)
+    {
+        $order = Order::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->first();
 
         if (!$order) {
             return $this->error_response('Order not found', []);
@@ -208,6 +253,23 @@ class OrderController extends Controller
         $order->order_status = 5; // Cancelled
         $order->save();
 
+        $order->status_text = $this->getOrderStatusLabel($order->order_status);
+        $order->order_status_label = $order->status_text;
+
         return $this->success_response('Order cancelled successfully', $order);
+    }
+
+    private function getOrderStatusLabel($status)
+    {
+        $labels = [
+            1 => 'Pending',
+            2 => 'Accepted',
+            3 => 'On The Way',
+            4 => 'Delivered',
+            5 => 'Canceled',
+            6 => 'Refund',
+        ];
+
+        return $labels[$status] ?? 'Unknown';
     }
 }

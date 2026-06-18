@@ -67,13 +67,31 @@
                             </div>
 
                             <div class="col-12">
+                                @if($order->note)
+                                <div class="mb-3">
+                                    <label class="form-label">{{ __('messages.customer_note') }}</label>
+                                    <textarea class="form-control" rows="3" readonly>{{ $order->note }}</textarea>
+                                </div>
+                                @endif
+                            </div>
+
+                            <div class="col-12">
+                                @if($order->customer_request)
+                                <div class="mb-3">
+                                    <label class="form-label">{{ __('messages.customer_request') }}</label>
+                                    <textarea class="form-control" rows="3" readonly>{{ $order->customer_request }}</textarea>
+                                </div>
+                                @endif
+                            </div>
+
+                            <div class="col-12">
                                 <div class="mb-3">
                                     <label class="form-label">{{ __('messages.admin_note') }}</label>
-                                    <textarea name="note" class="form-control @error('note') is-invalid @enderror" rows="4" placeholder="{{ __('messages.add_admin_note') }}">{{ old('note', $order->note) }}</textarea>
-                                    @error('note')
+                                    <textarea name="admin_note" class="form-control @error('admin_note') is-invalid @enderror" rows="4" placeholder="{{ __('messages.add_admin_note') }}">{{ old('admin_note', $order->admin_note) }}</textarea>
+                                    @error('admin_note')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
-                                    <div class="form-text">{{ __('messages.admin_note_help') }}</div>
+                                    <div class="form-text">{{ __('messages.order_admin_note_help') }}</div>
                                 </div>
                             </div>
                         </div>

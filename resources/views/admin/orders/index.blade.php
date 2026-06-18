@@ -189,7 +189,12 @@
                                 <tbody>
                                     @foreach($orders as $order)
                                         <tr>
-                                            <td><strong>#{{ $order->number }}</strong></td>
+                                            <td>
+                                                <div><strong>#{{ $order->number }}</strong></div>
+                                                @if($order->customer_request)
+                                                    <small class="badge bg-warning text-dark mt-1">{{ __('messages.customer_request') }}</small>
+                                                @endif
+                                            </td>
                                             <td>
                                                 <div>{{ $order->user->name ?? __('messages.no_customer') }}</div>
                                                 <small class="text-muted">{{ $order->user->phone ?? '' }}</small>
