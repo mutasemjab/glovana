@@ -523,8 +523,9 @@ class ProviderController extends Controller
             // Get appointment type from request (instant or scheduled)
             $appointmentType = $request->input('appointment_type', 'scheduled'); // default scheduled
             $isInstantBooking = $appointmentType === 'instant';
+            $searchTerm = trim((string) $request->input('search', ''));
 
-            $providers = Provider::whereHas('providerTypes', function ($query) use ($typeId, $isInstantBooking) {
+            $providersQuery = Provider::whereHas('providerTypes', function ($query) use ($typeId, $isInstantBooking) {
                 $query->where('type_id', $typeId)
                     ->where('activate', 1);
 
@@ -555,8 +556,37 @@ class ProviderController extends Controller
                         ]);
                     }
                 ])
-                ->where('activate', 1)
-                ->get();
+                ->where('activate', 1);
+
+            if ($searchTerm !== '') {
+                $providersQuery->where(function ($providerQuery) use ($searchTerm, $typeId, $isInstantBooking) {
+                    $providerQuery->where('name_of_manager', 'LIKE', "%{$searchTerm}%")
+                        ->orWhereHas('providerTypes', function ($typeQuery) use ($searchTerm, $typeId, $isInstantBooking) {
+                            $typeQuery->where('type_id', $typeId)
+                                ->where('activate', 1);
+
+                            if ($isInstantBooking) {
+                                $typeQuery->availableForInstantBooking();
+                            }
+
+                            $typeQuery->where(function ($searchQuery) use ($searchTerm) {
+                                $searchQuery->where('name', 'LIKE', "%{$searchTerm}%")
+                                    ->orWhere('description', 'LIKE', "%{$searchTerm}%")
+                                    ->orWhere('address', 'LIKE', "%{$searchTerm}%")
+                                    ->orWhereHas('services.service', function ($serviceQuery) use ($searchTerm) {
+                                        $serviceQuery->where('name_en', 'LIKE', "%{$searchTerm}%")
+                                            ->orWhere('name_ar', 'LIKE', "%{$searchTerm}%");
+                                    })
+                                    ->orWhereHas('providerServices.service', function ($serviceQuery) use ($searchTerm) {
+                                        $serviceQuery->where('name_en', 'LIKE', "%{$searchTerm}%")
+                                            ->orWhere('name_ar', 'LIKE', "%{$searchTerm}%");
+                                    });
+                            });
+                        });
+                });
+            }
+
+            $providers = $providersQuery->get();
 
             $providersData = $providers->map(function ($provider) {
                 $providerData = $this->transformProviderData($provider, false);

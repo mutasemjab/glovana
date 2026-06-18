@@ -25,10 +25,26 @@ class CategoryController extends Controller
          return $this->success_response('Category retrieved successfully', $categories);
      }
    
-     public function getProductsFromCategory($id)
+     public function getProductsFromCategory(Request $request, $id)
      {
-         
-         $categories = Category::with('products','products.images','products.ratings')->where('id',$id)->get();
+         $searchTerm = trim((string) $request->input('search', ''));
+
+         $categories = Category::with([
+             'products' => function ($query) use ($searchTerm) {
+                 if ($searchTerm !== '') {
+                     $query->where(function ($productQuery) use ($searchTerm) {
+                         $productQuery->where('name_en', 'LIKE', "%{$searchTerm}%")
+                             ->orWhere('name_ar', 'LIKE', "%{$searchTerm}%")
+                             ->orWhere('description_en', 'LIKE', "%{$searchTerm}%")
+                             ->orWhere('description_ar', 'LIKE', "%{$searchTerm}%")
+                             ->orWhere('specification_en', 'LIKE', "%{$searchTerm}%")
+                             ->orWhere('specification_ar', 'LIKE', "%{$searchTerm}%");
+                     });
+                 }
+
+                 $query->with(['images', 'ratings'])->orderByDesc('created_at');
+             }
+         ])->where('id',$id)->get();
          
          return $this->success_response('Category retrieved successfully', $categories);
      }
