@@ -546,6 +546,7 @@ class AppointmentProviderController extends Controller
                 ->groupBy('person_number')
                 ->map(function ($services, $personNumber) {
                     return [
+                        'person_name' => $services->first()->person_name ?? '',
                         'person_number' => $personNumber,
                         'total_services' => $services->count(),
                         'total_amount' => $services->sum('service_price'),

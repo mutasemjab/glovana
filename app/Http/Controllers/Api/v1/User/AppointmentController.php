@@ -252,6 +252,7 @@ class AppointmentController extends Controller
                 $rules['services.*.service_id'] = 'required|exists:services,id';
                 $rules['services.*.customer_count'] = 'required|integer|min:1';
                 $rules['services.*.person_number'] = 'nullable|integer|min:1';
+                $rules['services.*.person_name'] = 'nullable|string|max:255';
             } elseif ($bookingType === 'hourly') {
                 $rules['number_of_hours'] = 'required|integer|min:1';
             }
@@ -356,6 +357,9 @@ class AppointmentController extends Controller
                             'service_id' => $serviceData['service_id'],
                             'customer_count' => $serviceData['customer_count'],
                             'person_number' => $serviceData['person_number'] ?? 1,
+                            'person_name' => $this->normalizePersonName(
+                                $serviceData['person_name'] ?? null
+                            ),
 
                             // Existing pricing fields
                             'service_price' => $serviceInfo['current_price'],
@@ -509,6 +513,7 @@ class AppointmentController extends Controller
                 $rules['services.*.service_id'] = 'required_with:services|exists:services,id';
                 $rules['services.*.customer_count'] = 'required_with:services|integer|min:1';
                 $rules['services.*.person_number'] = 'nullable|integer|min:1';
+                $rules['services.*.person_name'] = 'nullable|string|max:255';
             } elseif ($bookingType === 'hourly') {
                 $rules['number_of_hours'] = 'nullable|integer|min:1';
             }
@@ -565,6 +570,9 @@ class AppointmentController extends Controller
                             'service_id' => $serviceData['service_id'],
                             'customer_count' => $serviceData['customer_count'],
                             'person_number' => $serviceData['person_number'] ?? 1,
+                            'person_name' => $this->normalizePersonName(
+                                $serviceData['person_name'] ?? null
+                            ),
                             'service_price' => $serviceInfo['current_price'],
                             'total_price' => $serviceInfo['current_price'] * $serviceData['customer_count'],
                             'original_service_price' => $serviceInfo['original_price'],
@@ -992,6 +1000,7 @@ class AppointmentController extends Controller
                     }
 
                     return [
+                        'person_name' => $services->first()->person_name ?? '',
                         'person_number' => $personNumber ?? 1,
                         'total_services' => $services->count(),
                         'original_amount' => $personOriginalTotal,
@@ -1032,6 +1041,17 @@ class AppointmentController extends Controller
         }
 
         return null;
+    }
+
+    private function normalizePersonName($personName)
+    {
+        if (!is_string($personName)) {
+            return null;
+        }
+
+        $trimmedName = trim($personName);
+
+        return $trimmedName === '' ? null : $trimmedName;
     }
 
     /**
