@@ -19,6 +19,8 @@ class Appointment extends Model
         'total_prices' => 'double',
         'total_discounts' => 'double',
         'coupon_discount' => 'double',
+        'points_redeemed' => 'integer',
+        'points_discount_amount' => 'double',
     ];
 
     protected $appends = ['rating_flag'];

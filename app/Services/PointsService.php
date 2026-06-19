@@ -207,6 +207,22 @@ class PointsService
         return min($maxPointsByAmount, $availablePoints);
     }
 
+    public function calculateDiscountAmountForPoints(int $pointsToRedeem)
+    {
+        if ($pointsToRedeem <= 0) {
+            return 0;
+        }
+
+        $pointsToConvert = $this->getSetting('number_of_points_to_convert_to_money', 100);
+        $moneyPerPoint = $this->getSetting('points_per_dinar', 1);
+
+        if ($pointsToConvert <= 0 || $moneyPerPoint <= 0) {
+            return 0;
+        }
+
+        return ($pointsToRedeem * $moneyPerPoint) / $pointsToConvert;
+    }
+
     public function redeemPoints(User $user, int $pointsToRedeem, float $orderAmount, string $orderType, $orderId = null, $appointmentId = null)
     {
         $maxRedeemable = $this->calculateMaxRedeemablePoints($user, $orderAmount);
@@ -290,6 +306,22 @@ class PointsService
         if ($remainingPoints > 0) {
             throw new \Exception("Insufficient available points");
         }
+    }
+
+    public function refundRedeemedPoints(User $user, int $pointsToRefund, string $note, $orderId = null, $appointmentId = null)
+    {
+        if ($pointsToRefund <= 0) {
+            return null;
+        }
+
+        return $this->addPoints(
+            $user,
+            $pointsToRefund,
+            'redemption_refund',
+            $note,
+            $orderId,
+            $appointmentId
+        );
     }
 
     public function getAvailablePoints(User $user)

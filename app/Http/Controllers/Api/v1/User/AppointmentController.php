@@ -137,6 +137,8 @@ class AppointmentController extends Controller
                     'final_total' => $appointment->total_prices,
                     'delivery_fee' => $appointment->delivery_fee,
                     'coupon_discount' => $appointment->coupon_discount,
+                    'points_redeemed' => $appointment->points_redeemed ?? 0,
+                    'points_discount_amount' => $appointment->points_discount_amount ?? 0,
                     'total_discounts' => $appointment->total_discounts,
                     'has_discount' => $actualHasDiscount,
                     'discount_info' => $actualHasDiscount ? [
@@ -215,6 +217,7 @@ class AppointmentController extends Controller
                 'note' => 'nullable|string|max:1000',
                 'payment_type' => 'required|in:cash,visa,wallet',
                 'coupon_code' => 'nullable|string',
+                'use_points' => 'nullable|boolean',
                 'appointment_type' => 'required|in:instant,scheduled' 
 
             ];
@@ -272,6 +275,9 @@ class AppointmentController extends Controller
             DB::beginTransaction();
 
             try {
+                $pointsService = app(\App\Services\PointsService::class);
+                $usePoints = $request->boolean('use_points');
+
                 // Calculate pricing based on booking type
                 if ($bookingType === 'service') {
                     $pricingData = $this->calculateAppointmentPricing($providerType, $request);
@@ -302,14 +308,31 @@ class AppointmentController extends Controller
                 }
 
                 // Adjust final total with coupon
-                $finalTotal = $pricingData['final_total'] - $couponDiscount;
+                $baseFinalTotal = $pricingData['final_total'] - $couponDiscount;
+                $pointsToRedeem = 0;
+                $pointsDiscountAmount = 0;
+
+                if ($usePoints && $baseFinalTotal > 0) {
+                    $pointsToRedeem = $pointsService->calculateMaxRedeemablePoints(
+                        $user,
+                        $baseFinalTotal
+                    );
+
+                    if ($pointsToRedeem > 0) {
+                        $pointsDiscountAmount = $pointsService->calculateDiscountAmountForPoints(
+                            $pointsToRedeem
+                        );
+                    }
+                }
+
+                $finalTotal = max($baseFinalTotal - $pointsDiscountAmount, 0);
 
 
                 if ($request->payment_type === 'wallet') {
-                    if ($user->balance < $pricingData['final_total']) {
+                    if ($user->balance < $finalTotal) {
                         DB::rollback();
                         return $this->error_response('Insufficient wallet balance', [
-                            'required_amount' => $pricingData['final_total'],
+                            'required_amount' => $finalTotal,
                             'current_balance' => $user->balance,
                             'message' => 'Your wallet balance is insufficient. Please add funds or choose a different payment method.'
                         ]);
@@ -339,6 +362,8 @@ class AppointmentController extends Controller
                     'total_discounts' => $pricingData['discount_amount'],
                     'coupon_discount' => $couponDiscount,
                     'coupon_id' => $couponId,
+                    'points_redeemed' => 0,
+                    'points_discount_amount' => 0,
 
                     // New discount fields
                     'original_total_price' => $pricingData['original_total'],
@@ -389,6 +414,25 @@ class AppointmentController extends Controller
                 // For hourly bookings, you might want to store number_of_hours in a separate table or field
                 // This depends on your database schema
 
+                if ($pointsToRedeem > 0) {
+                    $redemptionData = $pointsService->redeemPoints(
+                        $user,
+                        $pointsToRedeem,
+                        $baseFinalTotal,
+                        'appointment',
+                        null,
+                        $appointment->id
+                    );
+
+                    $appointment->points_redeemed = $redemptionData['points_redeemed'] ?? 0;
+                    $appointment->points_discount_amount = $redemptionData['discount_amount'] ?? 0;
+                    $appointment->total_prices = max(
+                        $baseFinalTotal - $appointment->points_discount_amount,
+                        0
+                    );
+                    $appointment->save();
+                }
+
                 if ($couponId) {
                     $couponService->markAsUsed($couponId, $user->id);
                 }
@@ -407,7 +451,10 @@ class AppointmentController extends Controller
                         'discount_name' => $pricingData['discount_name'],
                         'discount_percentage' => $pricingData['discount_percentage'],
                         'amount_saved' => $pricingData['discount_amount'],
-                        'final_total' => $pricingData['final_total'],
+                        'coupon_discount' => $couponDiscount,
+                        'points_redeemed' => $appointment->points_redeemed,
+                        'points_discount_amount' => $appointment->points_discount_amount,
+                        'final_total' => $appointment->total_prices,
                         'savings_message' => $pricingData['discount_amount'] > 0 ?
                             "🎉 You saved {$pricingData['discount_amount']} with this booking!" : null
                     ]
@@ -625,7 +672,8 @@ class AppointmentController extends Controller
                 'date' => 'nullable|date|after:today',
                 'address_id' => 'nullable|exists:user_addresses,id',
                 'note' => 'nullable|string|max:1000',
-                'payment_type' => 'nullable|in:cash,visa,wallet'
+                'payment_type' => 'nullable|in:cash,visa,wallet',
+                'use_points' => 'nullable|boolean'
             ];
 
             if ($bookingType === 'service') {
@@ -688,6 +736,13 @@ class AppointmentController extends Controller
             DB::beginTransaction();
 
             try {
+                $pointsService = app(\App\Services\PointsService::class);
+                $usePoints = $request->has('use_points')
+                    ? $request->boolean('use_points')
+                    : ($appointment->points_redeemed > 0);
+                $pricingRecalculated = false;
+                $baseTotalBeforePoints = $appointment->total_prices + ($appointment->points_discount_amount ?? 0);
+
                 // Update basic fields if provided
                 if ($request->filled('date')) {
                     $appointment->date = $request->date;
@@ -721,6 +776,8 @@ class AppointmentController extends Controller
                     $appointment->discount_percentage = $pricingData['discount_percentage'];
                     $appointment->discount_amount = $pricingData['discount_amount'];
                     $appointment->has_discount = $pricingData['has_discount'] ? 1 : 2;
+                    $baseTotalBeforePoints = $pricingData['final_total'];
+                    $pricingRecalculated = true;
 
                     // Create new appointment services
                     foreach ($request->services as $serviceData) {
@@ -755,11 +812,81 @@ class AppointmentController extends Controller
                     $appointment->discount_amount = $pricingData['discount_amount'];
                     $appointment->has_discount = $pricingData['has_discount'] ? 1 : 2;
                     $appointment->number_of_hours = $request->number_of_hours;
+                    $baseTotalBeforePoints = $pricingData['final_total'];
+                    $pricingRecalculated = true;
                 } elseif ($bookingType === 'hourly' && empty($appointment->number_of_hours)) {
                     $appointment->number_of_hours = 1;
                 }
 
+                if (($request->has('use_points') || $pricingRecalculated) &&
+                    $appointment->points_redeemed > 0) {
+                    $pointsService->refundRedeemedPoints(
+                        $user,
+                        (int) $appointment->points_redeemed,
+                        "Points refund for updated appointment #{$appointment->number}",
+                        null,
+                        $appointment->id
+                    );
+
+                    $appointment->points_redeemed = 0;
+                    $appointment->points_discount_amount = 0;
+                }
+
+                $pointsToRedeem = 0;
+                $pointsDiscountAmount = 0;
+
+                if ($usePoints && $baseTotalBeforePoints > 0) {
+                    $pointsToRedeem = $pointsService->calculateMaxRedeemablePoints(
+                        $user,
+                        $baseTotalBeforePoints
+                    );
+
+                    if ($pointsToRedeem > 0) {
+                        $pointsDiscountAmount = $pointsService->calculateDiscountAmountForPoints(
+                            $pointsToRedeem
+                        );
+                    }
+                }
+
+                if ($request->filled('payment_type') &&
+                    $request->payment_type === 'wallet' &&
+                    $user->balance < max($baseTotalBeforePoints - $pointsDiscountAmount, 0)) {
+                    DB::rollback();
+                    return $this->error_response('Insufficient wallet balance', [
+                        'required_amount' => max($baseTotalBeforePoints - $pointsDiscountAmount, 0),
+                        'current_balance' => $user->balance,
+                        'message' => 'Your wallet balance is insufficient. Please add funds or choose a different payment method.'
+                    ]);
+                }
+
+                if ($request->has('use_points') || $pricingRecalculated) {
+                    $appointment->total_prices = max(
+                        $baseTotalBeforePoints - $pointsDiscountAmount,
+                        0
+                    );
+                }
+
                 $appointment->save();
+
+                if (($request->has('use_points') || $pricingRecalculated) &&
+                    $pointsToRedeem > 0) {
+                    $redemptionData = $pointsService->redeemPoints(
+                        $user,
+                        $pointsToRedeem,
+                        $baseTotalBeforePoints,
+                        'appointment',
+                        null,
+                        $appointment->id
+                    );
+
+                    $appointment->points_redeemed = $redemptionData['points_redeemed'] ?? 0;
+                    $appointment->points_discount_amount = $redemptionData['discount_amount'] ?? 0;
+                    $appointment->total_prices = max(
+                        $baseTotalBeforePoints - $appointment->points_discount_amount,
+                        0
+                    );
+                    $appointment->save();
+                }
 
                 DB::commit();
 
@@ -773,6 +900,8 @@ class AppointmentController extends Controller
                         'discount_applied' => $appointment->has_discount == 1,
                         'discount_percentage' => $appointment->discount_percentage,
                         'amount_saved' => $appointment->discount_amount,
+                        'points_redeemed' => $appointment->points_redeemed,
+                        'points_discount_amount' => $appointment->points_discount_amount,
                         'final_total' => $appointment->total_prices,
                     ] : null
                 ]);
@@ -834,6 +963,7 @@ class AppointmentController extends Controller
 
             try {
                 DB::beginTransaction();
+                $pointsService = app(\App\Services\PointsService::class);
 
                 // Calculate if fine should be applied
                 $fineData = $this->calculateUserCancellationFine($appointment);
@@ -870,6 +1000,20 @@ class AppointmentController extends Controller
                     // Refresh user to get updated balance
                     $user->refresh();
                     $responseData['updated_balance'] = $user->balance;
+                }
+
+                if ($appointment->points_redeemed > 0) {
+                    $pointsService->refundRedeemedPoints(
+                        $user,
+                        (int) $appointment->points_redeemed,
+                        "Points refund for canceled appointment #{$appointment->number}",
+                        null,
+                        $appointment->id
+                    );
+
+                    $responseData['refunded_points'] = (int) $appointment->points_redeemed;
+                    $user->refresh();
+                    $responseData['updated_points'] = $user->total_points;
                 }
 
                 DB::commit();

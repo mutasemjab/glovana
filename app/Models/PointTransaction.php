@@ -105,7 +105,8 @@ class PointTransaction extends Model
             'vip_bonus' => 'VIP Salon Bonus',
             'referral' => 'Referral Bonus',
             'admin_adjustment' => 'Admin Adjustment',
-            'redemption' => 'Points Redemption'
+            'redemption' => 'Points Redemption',
+            'redemption_refund' => 'Points Refund'
         ];
         return $sources[$this->source] ?? 'Other';
     }
