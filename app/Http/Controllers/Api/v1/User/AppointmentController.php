@@ -274,7 +274,7 @@ class AppointmentController extends Controller
                     return $this->error_response(
                         'Selected hour is already booked',
                         [
-                            'message' => 'The selected hourly slot is no longer available. Please choose another time.',
+                            'message' => 'The selected hourly slot has reached the provider booking limit. Please choose another time.',
                             'conflict' => $hourlyConflict,
                         ]
                     );
@@ -450,6 +450,7 @@ class AppointmentController extends Controller
         $slotStart = \Carbon\Carbon::parse($requestedDate)->copy()->setSecond(0);
         $slotCount = max((int) ($numberOfHours ?? 1), 1);
         $slotEnd = $slotStart->copy()->addHours($slotCount);
+        $maxBookings = max((int) ($providerType->number_of_work ?? 1), 1);
 
         $query = Appointment::query()
             ->where('provider_type_id', $providerType->id)
@@ -464,26 +465,62 @@ class AppointmentController extends Controller
             $query->where('id', '!=', $ignoredAppointmentId);
         }
 
-        $conflictingAppointment = $query
+        $overlappingAppointments = $query
             ->orderBy('date')
-            ->first(['id', 'date', 'number_of_hours']);
+            ->get(['id', 'date', 'number_of_hours']);
 
-        if (!$conflictingAppointment) {
+        if ($overlappingAppointments->isEmpty()) {
             return null;
         }
 
-        $conflictStart = $conflictingAppointment->date instanceof \Carbon\Carbon
-            ? $conflictingAppointment->date->copy()
-            : \Carbon\Carbon::parse($conflictingAppointment->date);
-        $conflictHours = max((int) ($conflictingAppointment->number_of_hours ?? 1), 1);
+        $slotCounts = [];
 
-        return [
-            'appointment_id' => $conflictingAppointment->id,
-            'date' => $conflictStart->format('Y-m-d'),
-            'start_time' => $conflictStart->format('H:i'),
-            'end_time' => $conflictStart->copy()->addHours($conflictHours)->format('H:i'),
-            'number_of_hours' => $conflictHours,
-        ];
+        foreach ($overlappingAppointments as $appointment) {
+            $appointmentStart = $appointment->date instanceof \Carbon\Carbon
+                ? $appointment->date->copy()
+                : \Carbon\Carbon::parse($appointment->date);
+            $appointmentHours = max((int) ($appointment->number_of_hours ?? 1), 1);
+
+            for ($offset = 0; $offset < $appointmentHours; $offset++) {
+                $occupiedSlot = $appointmentStart->copy()->addHours($offset);
+
+                if ($occupiedSlot->lt($slotStart) || !$occupiedSlot->lt($slotEnd)) {
+                    continue;
+                }
+
+                $slotKey = $occupiedSlot->format('Y-m-d H:i');
+
+                if (!array_key_exists($slotKey, $slotCounts)) {
+                    $slotCounts[$slotKey] = [
+                        'date' => $occupiedSlot->format('Y-m-d'),
+                        'start_time' => $occupiedSlot->format('H:i'),
+                        'end_time' => $occupiedSlot->copy()->addHour()->format('H:i'),
+                        'current_bookings' => 0,
+                    ];
+                }
+
+                $slotCounts[$slotKey]['current_bookings']++;
+            }
+        }
+
+        for ($offset = 0; $offset < $slotCount; $offset++) {
+            $requestedSlot = $slotStart->copy()->addHours($offset);
+            $slotKey = $requestedSlot->format('Y-m-d H:i');
+            $currentBookings = $slotCounts[$slotKey]['current_bookings'] ?? 0;
+
+            if ($currentBookings >= $maxBookings) {
+                return [
+                    'date' => $slotCounts[$slotKey]['date'] ?? $requestedSlot->format('Y-m-d'),
+                    'start_time' => $slotCounts[$slotKey]['start_time'] ?? $requestedSlot->format('H:i'),
+                    'end_time' => $slotCounts[$slotKey]['end_time'] ?? $requestedSlot->copy()->addHour()->format('H:i'),
+                    'current_bookings' => $currentBookings,
+                    'max_bookings' => $maxBookings,
+                    'number_of_hours' => $slotCount,
+                ];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -601,7 +638,7 @@ class AppointmentController extends Controller
                     return $this->error_response(
                         'Selected hour is already booked',
                         [
-                            'message' => 'The selected hourly slot is no longer available. Please choose another time.',
+                            'message' => 'The selected hourly slot has reached the provider booking limit. Please choose another time.',
                             'conflict' => $hourlyConflict,
                         ]
                     );
