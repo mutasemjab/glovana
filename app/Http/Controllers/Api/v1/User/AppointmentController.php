@@ -206,33 +206,6 @@ class AppointmentController extends Controller
 
             $bookingType = $providerType->type->booking_type;
 
-            // ===== NEW: Check for concurrent booking limit (only for service type) =====
-            if ($bookingType === 'service' && !is_null($providerType->number_of_work)) {
-                $requestedDate = $request->date;
-
-                // Count existing appointments for the same provider_type on the same date
-                // Only count appointments that are NOT canceled (status != 5)
-                $existingAppointmentsCount = Appointment::where('provider_type_id', $request->provider_type_id)
-                    ->whereDate('date', $requestedDate)
-                    ->whereNotIn('appointment_status', [5]) // Exclude canceled appointments
-                    ->count();
-
-                // Check if limit is reached
-                if ($existingAppointmentsCount >= $providerType->number_of_work) {
-                    return $this->error_response(
-                        'Provider is fully booked for this date',
-                        [
-                            'message' => 'This provider has reached the maximum number of concurrent bookings for the selected date.',
-                            'max_bookings' => $providerType->number_of_work,
-                            'current_bookings' => $existingAppointmentsCount,
-                            'requested_date' => $requestedDate,
-                            'suggestion' => 'Please choose a different date or time.'
-                        ]
-                    );
-                }
-            }
-            // ===== END OF NEW CODE =====
-
             // Dynamic validation based on booking type
             $rules = [
                 'provider_type_id' => 'required|exists:provider_types,id',
@@ -263,7 +236,22 @@ class AppointmentController extends Controller
                 return $this->error_response('Validation error', $validator->errors());
             }
 
-            if ($bookingType === 'hourly') {
+            if ($bookingType === 'service' && !is_null($providerType->number_of_work)) {
+                $serviceConflict = $this->findServiceBookingConflict(
+                    $providerType,
+                    $request->date
+                );
+
+                if ($serviceConflict) {
+                    return $this->error_response(
+                        'Selected time is fully booked',
+                        [
+                            'message' => 'The selected service time has reached the provider booking limit. Please choose another time.',
+                            'conflict' => $serviceConflict,
+                        ]
+                    );
+                }
+            } elseif ($bookingType === 'hourly') {
                 $hourlyConflict = $this->findHourlyBookingConflict(
                     $providerType,
                     $request->date,
@@ -445,6 +433,41 @@ class AppointmentController extends Controller
         \Log::info("Auto-cancel job scheduled for appointment #{$appointmentId} - will execute in " . self::AUTO_CANCEL_TIMEOUT_MINUTES . " minute(s)");
     }
 
+    private function findServiceBookingConflict($providerType, $requestedDate, $ignoredAppointmentId = null)
+    {
+        if (is_null($providerType->number_of_work)) {
+            return null;
+        }
+
+        $slotStart = \Carbon\Carbon::parse($requestedDate)->copy()->setSecond(0);
+        $slotEnd = $slotStart->copy()->addHour();
+        $maxBookings = max((int) $providerType->number_of_work, 1);
+
+        $query = Appointment::query()
+            ->where('provider_type_id', $providerType->id)
+            ->whereNotIn('appointment_status', [4, 5])
+            ->where('date', '>=', $slotStart->format('Y-m-d H:i:s'))
+            ->where('date', '<', $slotEnd->format('Y-m-d H:i:s'));
+
+        if (!is_null($ignoredAppointmentId)) {
+            $query->where('id', '!=', $ignoredAppointmentId);
+        }
+
+        $currentBookings = $query->count();
+
+        if ($currentBookings < $maxBookings) {
+            return null;
+        }
+
+        return [
+            'date' => $slotStart->format('Y-m-d'),
+            'start_time' => $slotStart->format('H:i'),
+            'end_time' => $slotEnd->format('H:i'),
+            'current_bookings' => $currentBookings,
+            'max_bookings' => $maxBookings,
+        ];
+    }
+
     private function findHourlyBookingConflict($providerType, $requestedDate, $numberOfHours = 1, $ignoredAppointmentId = null)
     {
         $slotStart = \Carbon\Carbon::parse($requestedDate)->copy()->setSecond(0);
@@ -621,7 +644,24 @@ class AppointmentController extends Controller
                 return $this->error_response('Validation error', $validator->errors());
             }
 
-            if ($bookingType === 'hourly') {
+            if ($bookingType === 'service' && !is_null($providerType->number_of_work)) {
+                $requestedDate = $request->filled('date') ? $request->date : $appointment->date;
+                $serviceConflict = $this->findServiceBookingConflict(
+                    $providerType,
+                    $requestedDate,
+                    $appointment->id
+                );
+
+                if ($serviceConflict) {
+                    return $this->error_response(
+                        'Selected time is fully booked',
+                        [
+                            'message' => 'The selected service time has reached the provider booking limit. Please choose another time.',
+                            'conflict' => $serviceConflict,
+                        ]
+                    );
+                }
+            } elseif ($bookingType === 'hourly') {
                 $requestedDate = $request->filled('date') ? $request->date : $appointment->date;
                 $requestedHours = $request->filled('number_of_hours')
                     ? $request->number_of_hours

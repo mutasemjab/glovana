@@ -425,6 +425,9 @@ class ProviderController extends Controller
             }
         } else {
             $data['pricing_type'] = 'service';
+            $data['booked_hourly_slots'] = $includeFullDetails
+                ? $this->getBookedHourlySlots($providerType)
+                : [];
 
             // ✅ Apply service discounts if exist
             $data['provider_services'] = $providerType->providerServices
