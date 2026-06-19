@@ -206,6 +206,10 @@ class AppointmentController extends Controller
                 return $this->error_response('Invalid provider type', null);
             }
 
+            if ($bookingAvailabilityResponse = $this->ensureProviderTypeIsBookable($providerType)) {
+                return $bookingAvailabilityResponse;
+            }
+
             $bookingType = $providerType->type->booking_type;
 
             // Dynamic validation based on booking type
@@ -643,6 +647,22 @@ class AppointmentController extends Controller
         ];
     }
 
+    private function ensureProviderTypeIsBookable(ProviderType $providerType)
+    {
+        if ((int) $providerType->status === 1 && (int) $providerType->activate === 1) {
+            return null;
+        }
+
+        return $this->error_response(
+            'This provider is currently unavailable for booking',
+            [
+                'provider_type_id' => $providerType->id,
+                'status' => $providerType->status,
+                'activate' => $providerType->activate,
+            ]
+        );
+    }
+
     /**
      * FIXED: Update method now supports both booking types
      */
@@ -665,6 +685,15 @@ class AppointmentController extends Controller
 
             // Get provider type to determine booking type
             $providerType = ProviderType::with(['type', 'provider'])->find($appointment->provider_type_id);
+
+            if (!$providerType) {
+                return $this->error_response('Invalid provider type', null);
+            }
+
+            if ($bookingAvailabilityResponse = $this->ensureProviderTypeIsBookable($providerType)) {
+                return $bookingAvailabilityResponse;
+            }
+
             $bookingType = $providerType->type->booking_type;
 
             // Dynamic validation based on booking type
