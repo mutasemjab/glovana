@@ -9,9 +9,9 @@ use App\Models\ClassTeacher;
 use App\Models\Teacher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use App\Http\Controllers\Admin\FCMController; // <-- Import the FCMController here
 use App\Models\ParentStudent;
 use App\Traits\Responses;
+use App\Services\NotificationService;
 use Auth;
 use Illuminate\Support\Facades\Validator;
 
@@ -520,10 +520,16 @@ class AuthController extends Controller
         }
 
         try {
-            $response = FCMController::sendMessageToProvider(
+            $response = app(NotificationService::class)->notifyProvider(
+                (int) $request->provider_id,
                 $request->title,
                 $request->body,
-                $request->provider_id
+                [
+                    'screen' => 'notification',
+                    'key' => 'notification',
+                    'sender_type' => 'user',
+                    'sender_id' => (string) auth()->id(),
+                ]
             );
 
             if ($response) {

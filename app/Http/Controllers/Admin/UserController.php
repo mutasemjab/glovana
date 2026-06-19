@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\WalletTransaction;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -131,6 +132,7 @@ class UserController extends Controller
         }
 
         $userData = $request->except('photo');
+        $oldActivate = $user->activate;
 
         // Handle photo upload
           if ($request->has('photo')) {
@@ -143,6 +145,10 @@ class UserController extends Controller
         }
     
         $user->update($userData);
+
+        if ($request->has('activate') && (int) $oldActivate !== (int) $user->activate) {
+            $this->notifyUserAccountStatusChange($user);
+        }
 
         return redirect()
             ->route('users.index')
@@ -213,5 +219,24 @@ class UserController extends Controller
             return redirect()->back()->with('error', 'An error occurred while updating the wallet: ' . $e->getMessage());
         }
     }
-}
 
+    private function notifyUserAccountStatusChange(User $user): void
+    {
+        [$title, $body] = match ((int) $user->activate) {
+            1 => ['Account Activated', 'Your account has been activated successfully. You can now use the app normally.'],
+            2 => ['Account Deactivated', 'Your account has been deactivated. Please contact support if you need help restoring access.'],
+            default => ['Account Updated', 'Your account status has been updated.'],
+        };
+
+        app(NotificationService::class)->notifyUser(
+            $user->id,
+            $title,
+            $body,
+            [
+                'screen' => 'account',
+                'key' => 'account',
+                'account_status' => $user->activate,
+            ]
+        );
+    }
+}

@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Provider;
 use App\Models\ProviderDeleteRequest;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class ProviderDeleteRequestController extends Controller
 {
@@ -194,9 +194,20 @@ class ProviderDeleteRequestController extends Controller
                 'date' => $deleteRequest->processed_at->format('M d, Y H:i')
             ]);
 
-            // Send FCM notification to provider (no additional data)
-            $notificationSent = FCMController::sendMessageToProvider($title, $body, $provider->id);
+            // Reactivate provider account since deletion was rejected.
+            $provider->update(['activate' => 1]);
 
+            $notificationSent = app(NotificationService::class)->notifyProvider(
+                $provider->id,
+                $title,
+                $body,
+                [
+                    'screen' => 'account',
+                    'key' => 'account',
+                    'account_status' => $provider->activate,
+                    'delete_request_status' => $deleteRequest->status,
+                ]
+            );
 
             // Log successful notification
             \Log::info("Delete request rejection notification sent to provider", [
@@ -206,9 +217,6 @@ class ProviderDeleteRequestController extends Controller
                 'rejection_reason' => $deleteRequest->rejection_reason,
                 'fcm_sent' => $notificationSent
             ]);
-
-            // Reactivate provider account since deletion was rejected
-            $provider->update(['activate' => 1]); // Set back to active
 
         } catch (\Exception $e) {
             \Log::error("Failed to send delete request rejection notification to provider", [
@@ -235,9 +243,16 @@ class ProviderDeleteRequestController extends Controller
                 'provider_name' => $provider->name_of_manager
             ]);
 
-            // Send FCM notification (no additional data)
-            $notificationSent = FCMController::sendMessageToProvider($title, $body, $provider->id);
-
+            $notificationSent = app(NotificationService::class)->notifyProvider(
+                $provider->id,
+                $title,
+                $body,
+                [
+                    'screen' => 'account',
+                    'key' => 'account',
+                    'delete_request_status' => $deleteRequest->status,
+                ]
+            );
 
             \Log::info("Delete request approval notification sent to provider", [
                 'provider_id' => $provider->id,

@@ -4,11 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Models\Notification;
-use App\Models\Provider;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class NotificationController extends Controller
 {
@@ -33,89 +31,28 @@ class NotificationController extends Controller
 
         try {
             $response = false;
+            $notificationService = app(NotificationService::class);
 
             // Determine who to send to based on type
             switch ($request->type) {
                 case 0: // Send to ALL (users + providers)
-                    $response = FCMController::sendMessageToAll($request->title, $request->body);
-
-                    // Save notification for all users
-                    $users = User::all();
-                    foreach ($users as $user) {
-                        Notification::create([
-                            'title' => $request->title,
-                            'body' => $request->body,
-                            'type' => 1,
-                            'user_id' => $user->id,
-                        ]);
-                    }
-
-                    // Save notification for all providers
-                    $providers = Provider::all();
-                    foreach ($providers as $provider) {
-                        Notification::create([
-                            'title' => $request->title,
-                            'body' => $request->body,
-                            'type' => 2,
-                            'provider_id' => $provider->id,
-                        ]);
-                    }
+                    $response = $notificationService->notifyAll($request->title, $request->body);
                     break;
 
                 case 1: // Send to ALL Users
-                    $users = User::all();
-                    foreach ($users as $user) {
-                        FCMController::sendMessageToUser($request->title, $request->body, $user->id);
-
-                        Notification::create([
-                            'title' => $request->title,
-                            'body' => $request->body,
-                            'type' => 1,
-                        ]);
-                    }
-                    $response = true;
+                    $response = $notificationService->notifyAllUsers($request->title, $request->body);
                     break;
 
                 case 2: // Send to ALL Providers
-                    $providers = Provider::all();
-                    foreach ($providers as $provider) {
-                        FCMController::sendMessageToProvider($request->title, $request->body, $provider->id);
-
-                        Notification::create([
-                            'title' => $request->title,
-                            'body' => $request->body,
-                            'type' => 2,
-                        ]);
-                    }
-                    $response = true;
+                    $response = $notificationService->notifyAllProviders($request->title, $request->body);
                     break;
 
                 case 3: // Send to Specific User
-                    $user = User::find($request->user_id);
-                    if ($user) {
-                        $response = FCMController::sendMessageToUser($request->title, $request->body, $user->id);
-
-                        Notification::create([
-                            'title' => $request->title,
-                            'body' => $request->body,
-                            'type' => 3,
-                            'user_id' => $user->id,
-                        ]);
-                    }
+                    $response = $notificationService->notifyUser((int) $request->user_id, $request->title, $request->body);
                     break;
 
                 case 4: // Send to Specific Provider
-                    $provider = Provider::find($request->provider_id);
-                    if ($provider) {
-                        $response = FCMController::sendMessageToProvider($request->title, $request->body, $provider->id);
-
-                        Notification::create([
-                            'title' => $request->title,
-                            'body' => $request->body,
-                            'type' => 4,
-                            'provider_id' => $provider->id,
-                        ]);
-                    }
+                    $response = $notificationService->notifyProvider((int) $request->provider_id, $request->title, $request->body);
                     break;
             }
 

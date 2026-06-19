@@ -123,7 +123,12 @@ class WalletTransactionController extends Controller
                 \App\Http\Controllers\Admin\FCMController::sendMessageToUser(
                     $notificationTitle,
                     $notificationBody,
-                    $user->id
+                    $user->id,
+                    [
+                        'screen' => 'wallet',
+                        'key' => 'wallet',
+                        'wallet_transaction_type' => (string) $request->type_of_transaction,
+                    ]
                 );
             } else {
                 $provider = Provider::findOrFail($request->entity_id);
@@ -162,7 +167,12 @@ class WalletTransactionController extends Controller
                 \App\Http\Controllers\Admin\FCMController::sendMessageToProvider(
                     $notificationTitle,
                     $notificationBody,
-                    $provider->id
+                    $provider->id,
+                    [
+                        'screen' => 'wallet',
+                        'key' => 'wallet',
+                        'wallet_transaction_type' => (string) $request->type_of_transaction,
+                    ]
                 );
             }
 

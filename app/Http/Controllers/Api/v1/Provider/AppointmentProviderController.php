@@ -487,7 +487,12 @@ class AppointmentProviderController extends Controller
                 $body .= " You earned {$appointment->points_earned} points! 🎉";
             }
 
-            FCMController::sendMessageToUser($title, $body, $appointment->user_id);
+            FCMController::sendMessageToUser($title, $body, $appointment->user_id, [
+                'screen' => 'appointment',
+                'key' => 'appointment',
+                'appointment_id' => $appointment->id,
+                'appointment_status' => $appointment->appointment_status,
+            ]);
 
             \App\Models\Notification::create([
             'title' => $title,
@@ -606,7 +611,12 @@ class AppointmentProviderController extends Controller
                 $body .= ". Reason: {$appointment->reason_of_cancel}";
             }
 
-            FCMController::sendMessageToUser($title, $body, $appointment->user_id);
+            FCMController::sendMessageToUser($title, $body, $appointment->user_id, [
+                'screen' => 'appointment',
+                'key' => 'appointment',
+                'appointment_id' => $appointment->id,
+                'appointment_status' => $appointment->appointment_status,
+            ]);
 
             \App\Models\Notification::create([
             'title' => $title,

@@ -8,6 +8,7 @@ use App\Models\Option;
 use App\Models\Provider;
 use App\Models\ProviderBan;
 use App\Models\WalletTransaction;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -44,7 +45,11 @@ class ProviderController extends Controller
             \App\Http\Controllers\Admin\FCMController::sendMessageToProvider(
                 $title,
                 $body,
-                $provider->id
+                $provider->id,
+                [
+                    'screen' => 'account',
+                    'key' => 'account',
+                ]
             );
 
             DB::commit();
@@ -217,6 +222,7 @@ class ProviderController extends Controller
         }
 
         $providerData = $request->except('photo_of_manager', 'password');
+        $oldActivate = $provider->activate;
 
         // Handle photo_of_manager upload
         if ($request->has('photo_of_manager')) {
@@ -228,40 +234,10 @@ class ProviderController extends Controller
             $providerData['password'] = Hash::make($request->password);
         }
 
-        // Check if activation status is being changed to 1 (active)
-        $wasInactive = $provider->activate != 1;
-        $isBeingActivated = $request->has('activate') && $request->activate == 1;
-
         $provider->update($providerData);
 
-        // Send notification if account was just activated
-        if ($wasInactive && $isBeingActivated) {
-            DB::beginTransaction();
-
-            try {
-                $title = 'Account Activated';
-                $body = 'Your account has been activated successfully. Please logout and login again to use all features.';
-
-                // Save notification to database
-                \App\Models\Notification::create([
-                    'title' => $title,
-                    'body' => $body,
-                    'type' => 4, // provider type
-                    'provider_id' => $provider->id,
-                ]);
-
-                // Send FCM notification
-                \App\Http\Controllers\Admin\FCMController::sendMessageToProvider(
-                    $title,
-                    $body,
-                    $provider->id
-                );
-
-                DB::commit();
-            } catch (\Exception $e) {
-                DB::rollback();
-                \Log::error('Failed to send activation notification: ' . $e->getMessage());
-            }
+        if ($request->has('activate') && (int) $oldActivate !== (int) $provider->activate) {
+            $this->notifyProviderAccountStatusChange($provider);
         }
 
         return redirect()
@@ -410,7 +386,11 @@ class ProviderController extends Controller
                 'provider_id' => $provider->id,
             ]);
 
-            \App\Http\Controllers\Admin\FCMController::sendMessageToProvider($title, $body, $provider->id);
+            \App\Http\Controllers\Admin\FCMController::sendMessageToProvider($title, $body, $provider->id, [
+                'screen' => 'account',
+                'key' => 'account',
+                'account_status' => 'banned',
+            ]);
 
             // Logout provider by revoking all tokens
             $provider->tokens()->delete();
@@ -460,7 +440,11 @@ class ProviderController extends Controller
                 'provider_id' => $provider->id,
             ]);
 
-            \App\Http\Controllers\Admin\FCMController::sendMessageToProvider($title, $body, $provider->id);
+            \App\Http\Controllers\Admin\FCMController::sendMessageToProvider($title, $body, $provider->id, [
+                'screen' => 'account',
+                'key' => 'account',
+                'account_status' => 'active',
+            ]);
 
             DB::commit();
 
@@ -469,5 +453,26 @@ class ProviderController extends Controller
             DB::rollback();
             return redirect()->back()->with('error', __('messages.error_occurred') . ': ' . $e->getMessage());
         }
+    }
+
+    private function notifyProviderAccountStatusChange(Provider $provider): void
+    {
+        [$title, $body] = match ((int) $provider->activate) {
+            1 => ['Account Activated', 'Your account has been activated successfully. Please log in again to access all provider features.'],
+            2 => ['Account Deactivated', 'Your account has been deactivated. Please contact support if you need help restoring access.'],
+            3 => ['Account Pending Review', 'Your provider account is currently pending review. We will notify you once it is approved.'],
+            default => ['Account Updated', 'Your provider account status has been updated.'],
+        };
+
+        app(NotificationService::class)->notifyProvider(
+            $provider->id,
+            $title,
+            $body,
+            [
+                'screen' => 'account',
+                'key' => 'account',
+                'account_status' => $provider->activate,
+            ]
+        );
     }
 }

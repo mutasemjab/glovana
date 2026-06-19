@@ -1528,7 +1528,12 @@ class AppointmentController extends Controller
                 ? "A fine of {$fineData['fine_amount']} has been deducted from your wallet for late cancellation of appointment #{$appointment->number}."
                 : "A fine of {$fineData['fine_amount']} is pending for late cancellation of appointment #{$appointment->number}. Please add balance to your wallet.";
 
-            FCMController::sendMessageToUser($title, $body, $user->id);
+            FCMController::sendMessageToUser($title, $body, $user->id, [
+                'screen' => 'appointment',
+                'key' => 'appointment',
+                'appointment_id' => $appointment->id,
+                'fine_amount' => $fineData['fine_amount'],
+            ]);
             
             \App\Models\Notification::create([
             'title' => $title,
@@ -1573,7 +1578,14 @@ class AppointmentController extends Controller
             FCMController::sendMessageToProvider(
                 $title,
                 $body,
-                $providerType->provider->id
+                $providerType->provider->id,
+                [
+                    'screen' => 'appointment',
+                    'key' => 'appointment',
+                    'appointment_id' => $appointment->id,
+                    'appointment_number' => $appointment->number,
+                    'customer_name' => $user->name,
+                ]
             );
 
             \Log::info("New appointment notification sent to provider ID: {$providerType->provider->id} for appointment #{$appointment->id}");

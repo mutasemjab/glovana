@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Models\ProviderType;
 use App\Models\Service;
 use App\Models\WalletTransaction;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -160,6 +161,13 @@ class AppointmentController extends Controller
             $appointment = Appointment::with(['user', 'providerType.provider'])->findOrFail($id);
             $oldStatus = $appointment->appointment_status;
             $oldPaymentStatus = $appointment->payment_status;
+            $oldDate = optional($appointment->date)->format('Y-m-d H:i:s');
+            $oldNote = $appointment->note;
+            $newNote = $request->note !== '' ? $request->note : null;
+            $statusChanged = (int) $oldStatus !== (int) $request->appointment_status;
+            $paymentStatusChanged = (int) $oldPaymentStatus !== (int) $request->payment_status;
+            $dateChanged = $oldDate !== date('Y-m-d H:i:s', strtotime($request->date));
+            $noteChanged = ($oldNote ?? null) !== $newNote;
 
             DB::beginTransaction();
 
@@ -169,7 +177,7 @@ class AppointmentController extends Controller
                     'appointment_status' => $request->appointment_status,
                     'payment_status' => $request->payment_status,
                     'date' => $request->date,
-                    'note' => $request->note
+                    'note' => $newNote
                 ]);
 
                 // Handle payment status change to paid
@@ -188,6 +196,16 @@ class AppointmentController extends Controller
                 }
 
                 DB::commit();
+
+                if ($statusChanged || $paymentStatusChanged || $dateChanged || $noteChanged) {
+                    $this->notifyPartiesAboutAppointmentUpdate(
+                        $appointment->fresh(['user', 'providerType.provider']),
+                        $statusChanged,
+                        $paymentStatusChanged,
+                        $dateChanged,
+                        $noteChanged
+                    );
+                }
 
                 return redirect()->route('admin.appointments.show', $appointment->id)
                     ->with('success', 'Appointment updated successfully');
@@ -518,5 +536,73 @@ class AppointmentController extends Controller
         ];
 
         return $labels[$status] ?? 'Unknown';
+    }
+
+    /**
+     * Notify both the user and provider when the admin changes an appointment.
+     */
+    private function notifyPartiesAboutAppointmentUpdate(
+        Appointment $appointment,
+        bool $statusChanged,
+        bool $paymentStatusChanged,
+        bool $dateChanged,
+        bool $noteChanged
+    ): void {
+        $updates = [];
+
+        if ($statusChanged) {
+            $updates[] = 'Status: ' . $this->getAppointmentStatusLabel($appointment->appointment_status);
+        }
+
+        if ($paymentStatusChanged) {
+            $updates[] = 'Payment: ' . $this->getPaymentStatusLabel($appointment->payment_status);
+        }
+
+        if ($dateChanged && $appointment->date) {
+            $updates[] = 'Date: ' . $appointment->date->format('Y-m-d H:i');
+        }
+
+        if ($noteChanged && !empty($appointment->note)) {
+            $updates[] = 'Admin note: ' . $appointment->note;
+        }
+
+        if (empty($updates)) {
+            return;
+        }
+
+        $title = "Appointment #{$appointment->number} updated";
+        $body = "Your appointment has new updates:\n" . implode("\n", $updates);
+        $data = [
+            'appointment_id' => $appointment->id,
+            'appointment_status' => $appointment->appointment_status,
+            'payment_status' => $appointment->payment_status,
+            'status_text' => $this->getAppointmentStatusLabel($appointment->appointment_status),
+            'payment_text' => $this->getPaymentStatusLabel($appointment->payment_status),
+        ];
+
+        if ($appointment->user_id) {
+            app(NotificationService::class)->notifyUser(
+                $appointment->user_id,
+                $title,
+                $body,
+                array_merge($data, [
+                    'screen' => 'appointment',
+                    'key' => 'appointment',
+                ])
+            );
+        }
+
+        $providerId = $appointment->providerType?->provider?->id;
+        if ($providerId) {
+            app(NotificationService::class)->notifyProvider(
+                $providerId,
+                $title,
+                "Appointment #{$appointment->number} has new updates:\n" . implode("\n", $updates),
+                array_merge($data, [
+                    'screen' => 'appointment',
+                    'key' => 'appointment',
+                ])
+            );
+        }
     }
 }

@@ -2,10 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Http\Controllers\Admin\FCMController as AdminFCMController;
 use Illuminate\Console\Command;
 use App\Models\Appointment;
-use App\Http\Controllers\FCMController;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
@@ -160,7 +159,15 @@ class SendAppointmentReminders extends Command
             'appointment_date' => $appointment->date->toISOString()
         ];
 
-        AdminFCMController::sendMessageToUser($title, $body, $appointment->user_id, $data);
+        app(NotificationService::class)->notifyUser(
+            $appointment->user_id,
+            $title,
+            $body,
+            array_merge($data, [
+                'screen' => 'appointment',
+                'key' => 'appointment',
+            ])
+        );
 
         Log::info("User reminder sent for appointment #{$appointment->number} to user ID: {$appointment->user_id}");
     }
@@ -196,14 +203,15 @@ class SendAppointmentReminders extends Command
             'appointment_date' => $appointment->date->toISOString()
         ];
 
-        AdminFCMController::sendMessageToProvider($title, $body, $appointment->providerType->provider->id, $data);
-
-        \App\Models\Notification::create([
-            'title' => $title,
-            'body' => $body,
-            'type' => 4,
-            'user_id' => $appointment->providerType->provider->id,
-        ]);
+        app(NotificationService::class)->notifyProvider(
+            $appointment->providerType->provider->id,
+            $title,
+            $body,
+            array_merge($data, [
+                'screen' => 'appointment',
+                'key' => 'appointment',
+            ])
+        );
 
         Log::info("Provider reminder sent for appointment #{$appointment->number} to provider ID: {$appointment->providerType->provider->id}");
     }

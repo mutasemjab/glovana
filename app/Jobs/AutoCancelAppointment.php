@@ -59,7 +59,11 @@ class AutoCancelAppointment implements ShouldQueue
                 $body = "Your appointment #{$appointment->number} was automatically canceled because the provider was not available to accept it.";
 
                 try {
-                    FCMController::sendMessageToUser($title, $body, $this->userId);
+                    FCMController::sendMessageToUser($title, $body, $this->userId, [
+                        'screen' => 'appointment',
+                        'key' => 'appointment',
+                        'appointment_id' => $this->appointmentId,
+                    ]);
                      \App\Models\Notification::create([
                         'title' => $title,
                         'body' => $body,

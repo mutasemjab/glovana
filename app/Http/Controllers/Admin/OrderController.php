@@ -3,14 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-
-use App\Models\Notification;
 use App\Models\Order;
 use App\Models\User;
 use App\Models\Driver;
 use App\Models\Service;
 use App\Models\WalletTransaction;
 use App\Services\PointsService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -150,6 +149,7 @@ class OrderController extends Controller
             $adminNote = trim((string) $request->admin_note);
             $adminNote = $adminNote !== '' ? $adminNote : null;
             $statusChanged = (int) $oldStatus !== (int) $request->order_status;
+            $paymentStatusChanged = (int) $oldPaymentStatus !== (int) $request->payment_status;
             $adminNoteChanged = ($oldAdminNote ?? null) !== $adminNote;
             
             DB::beginTransaction();
@@ -182,12 +182,13 @@ class OrderController extends Controller
 
                 DB::commit();
 
-                if ($statusChanged) {
-                    $this->notifyUserAboutOrderStatusChange($order->fresh());
-                }
-
-                if ($adminNoteChanged && !empty($adminNote)) {
-                    $this->notifyUserAboutAdminNote($order->fresh(), $adminNote);
+                if ($statusChanged || $paymentStatusChanged || $adminNoteChanged) {
+                    $this->notifyUserAboutOrderChanges(
+                        $order->fresh(),
+                        $statusChanged,
+                        $paymentStatusChanged,
+                        $adminNoteChanged
+                    );
                 }
 
                 $message = 'Order updated successfully';
@@ -391,40 +392,41 @@ class OrderController extends Controller
     }
 
     /**
-     * Notify the customer that the order status changed.
+     * Notify the customer when the order changes.
      */
-    private function notifyUserAboutOrderStatusChange(Order $order): void
+    private function notifyUserAboutOrderChanges(Order $order, bool $statusChanged, bool $paymentStatusChanged, bool $adminNoteChanged): void
     {
         if (!$order->user_id) {
             return;
         }
 
-        $statusLabel = $this->getOrderStatusLabel($order->order_status);
+        $updates = [];
+
+        if ($statusChanged) {
+            $updates[] = 'Status: ' . $this->getOrderStatusLabel($order->order_status);
+        }
+
+        if ($paymentStatusChanged) {
+            $updates[] = 'Payment: ' . $this->getPaymentStatusLabel($order->payment_status);
+        }
+
+        if ($adminNoteChanged && !empty($order->admin_note)) {
+            $updates[] = 'Admin note: ' . $order->admin_note;
+        }
+
+        if (empty($updates)) {
+            return;
+        }
+
         $title = "Order #{$order->number} updated";
-        $body = "Your order status is now {$statusLabel}.";
+        $body = "Your order has new updates:\n" . implode("\n", $updates);
 
         $this->createUserOrderNotification($order, $title, $body, [
             'order_id' => $order->id,
             'order_status' => $order->order_status,
-            'status_text' => $statusLabel,
-        ]);
-    }
-
-    /**
-     * Notify the customer that the admin added or updated a note.
-     */
-    private function notifyUserAboutAdminNote(Order $order, string $adminNote): void
-    {
-        if (!$order->user_id) {
-            return;
-        }
-
-        $title = "New note on order #{$order->number}";
-
-        $this->createUserOrderNotification($order, $title, $adminNote, [
-            'order_id' => $order->id,
-            'order_status' => $order->order_status,
+            'payment_status' => $order->payment_status,
             'status_text' => $this->getOrderStatusLabel($order->order_status),
+            'payment_text' => $this->getPaymentStatusLabel($order->payment_status),
         ]);
     }
 
@@ -433,17 +435,10 @@ class OrderController extends Controller
      */
     private function createUserOrderNotification(Order $order, string $title, string $body, array $data = []): void
     {
-        Notification::create([
-            'title' => $title,
-            'body' => $body,
-            'type' => 3,
-            'user_id' => $order->user_id,
-        ]);
-
-        FCMController::sendMessageToUser(
+        app(NotificationService::class)->notifyUser(
+            $order->user_id,
             $title,
             $body,
-            $order->user_id,
             array_merge([
                 'screen' => 'order',
                 'key' => 'order',
